@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Dynamic.Users/Dynamic.Users.csproj" />
+  <Project Path="DynamicApi/DynamicApi.csproj" />
+</Solution>

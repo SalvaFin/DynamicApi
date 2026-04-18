@@ -1,0 +1,25 @@
+using Dynamic.Users.Domain.Enums;
+
+namespace Dynamic.Users.Application.DTOs.Responses;
+
+public class UserSummaryResponse
+{
+    public Guid Id { get; set; }
+    public string Email { get; set; } = string.Empty;
+    public string UserName { get; set; } = string.Empty;
+    public string? FirstName { get; set; }
+    public string? LastName { get; set; }
+    public string? DisplayName { get; set; }
+    public string? PhoneNumber { get; set; }
+    public bool EmailConfirmed { get; set; }
+    public UserRole Role { get; set; }
+    public UserStatus Status { get; set; }
+    public string? Language { get; set; }
+    public string? TimeZone { get; set; }
+    public string? CountryCode { get; set; }
+    public string? Region { get; set; }
+    public string? City { get; set; }
+    public string? AvatarUrl { get; set; }
+    public DateTime CreatedAtUtc { get; set; }
+    public DateTime? LastLoginAtUtc { get; set; }
+}

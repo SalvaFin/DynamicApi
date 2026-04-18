@@ -1,0 +1,28 @@
+using Dynamic.Users.Application.Common;
+using Dynamic.Users.Application.DTOs.Requests;
+using Dynamic.Users.Application.DTOs.Responses;
+
+namespace Dynamic.Users.Application.Contracts.Services;
+
+public interface IAuthService
+{
+    Task<ServiceResult<AuthResponse>> RegisterAsync(
+        RegisterUserRequest request,
+        string? ipAddress,
+        string? userAgent,
+        CancellationToken cancellationToken = default);
+
+    Task<ServiceResult<AuthResponse>> LoginAsync(
+        LoginRequest request,
+        string? ipAddress,
+        string? userAgent,
+        CancellationToken cancellationToken = default);
+
+    Task<ServiceResult<AuthResponse>> RefreshAsync(
+        RefreshTokenRequest request,
+        string? ipAddress,
+        string? userAgent,
+        CancellationToken cancellationToken = default);
+
+    Task<ServiceResult> LogoutAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken = default);
+}
