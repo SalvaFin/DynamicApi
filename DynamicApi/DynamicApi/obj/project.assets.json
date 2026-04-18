@@ -821,10 +821,25 @@
           "Microsoft.AspNetCore.App"
         ]
       },
+      "Dynamic.Notify/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v10.0",
+        "compile": {
+          "bin/placeholder/Dynamic.Notify.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Dynamic.Notify.dll": {}
+        },
+        "frameworkReferences": [
+          "Microsoft.AspNetCore.App"
+        ]
+      },
       "Dynamic.Users/1.0.0": {
         "type": "project",
         "framework": ".NETCoreApp,Version=v10.0",
         "dependencies": {
+          "Dynamic.Fidelity": "1.0.0",
+          "Dynamic.Notify": "1.0.0",
           "Microsoft.AspNetCore.Authentication.JwtBearer": "10.0.6",
           "Microsoft.EntityFrameworkCore": "9.0.0",
           "Pomelo.EntityFrameworkCore.MySql": "9.0.0"
@@ -2410,6 +2425,11 @@
       "path": "../Dynamic.Negocios/Dynamic.Negocios.csproj",
       "msbuildProject": "../Dynamic.Negocios/Dynamic.Negocios.csproj"
     },
+    "Dynamic.Notify/1.0.0": {
+      "type": "project",
+      "path": "../Dynamic.Notify/Dynamic.Notify.csproj",
+      "msbuildProject": "../Dynamic.Notify/Dynamic.Notify.csproj"
+    },
     "Dynamic.Users/1.0.0": {
       "type": "project",
       "path": "../Dynamic.Users/Dynamic.Users.csproj",
@@ -2420,6 +2440,7 @@
     "net10.0": [
       "Dynamic.Fidelity >= 1.0.0",
       "Dynamic.Negocios >= 1.0.0",
+      "Dynamic.Notify >= 1.0.0",
       "Dynamic.Users >= 1.0.0",
       "Microsoft.AspNetCore.Authentication.JwtBearer >= 10.0.6",
       "Microsoft.AspNetCore.OpenApi >= 10.0.6",
@@ -2464,6 +2485,9 @@
             },
             "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\Dynamic.Negocios\\Dynamic.Negocios.csproj": {
               "projectPath": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\Dynamic.Negocios\\Dynamic.Negocios.csproj"
+            },
+            "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\Dynamic.Notify\\Dynamic.Notify.csproj": {
+              "projectPath": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\Dynamic.Notify\\Dynamic.Notify.csproj"
             },
             "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\Dynamic.Users\\Dynamic.Users.csproj": {
               "projectPath": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\Dynamic.Users\\Dynamic.Users.csproj"

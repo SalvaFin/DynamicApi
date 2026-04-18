@@ -10,6 +10,7 @@
         "dependencies": {
           "Dynamic.Fidelity": "1.0.0",
           "Dynamic.Negocios": "1.0.0",
+          "Dynamic.Notify": "1.0.0",
           "Dynamic.Users": "1.0.0",
           "Microsoft.AspNetCore.Authentication.JwtBearer": "10.0.6",
           "Microsoft.AspNetCore.OpenApi": "10.0.6",
@@ -596,8 +597,18 @@
           }
         }
       },
+      "Dynamic.Notify/1.0.0": {
+        "runtime": {
+          "Dynamic.Notify.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
       "Dynamic.Users/1.0.0": {
         "dependencies": {
+          "Dynamic.Fidelity": "1.0.0",
+          "Dynamic.Notify": "1.0.0",
           "Microsoft.AspNetCore.Authentication.JwtBearer": "10.0.6",
           "Microsoft.EntityFrameworkCore": "9.0.0",
           "Pomelo.EntityFrameworkCore.MySql": "9.0.0"
@@ -854,6 +865,11 @@
       "sha512": ""
     },
     "Dynamic.Negocios/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Dynamic.Notify/1.0.0": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

@@ -6,10 +6,19 @@ namespace Dynamic.Users.Application.Contracts.Services;
 
 public interface IAuthService
 {
-    Task<ServiceResult<AuthResponse>> RegisterAsync(
-        RegisterUserRequest request,
+    Task<ServiceResult<RegisterStartResponse>> StartRegistrationAsync(
+        RegisterStartRequest request,
         string? ipAddress,
         string? userAgent,
+        CancellationToken cancellationToken = default);
+
+    Task<ServiceResult<CompleteRegistrationResponse>> CompleteRegistrationAsync(
+        CompleteRegistrationRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<ServiceResult<UserSummaryResponse>> ClassicRegisterAsync(
+        ClassicRegisterRequest request,
+        bool allowPrivilegedRoleCreation,
         CancellationToken cancellationToken = default);
 
     Task<ServiceResult<AuthResponse>> LoginAsync(
@@ -22,6 +31,11 @@ public interface IAuthService
         RefreshTokenRequest request,
         string? ipAddress,
         string? userAgent,
+        CancellationToken cancellationToken = default);
+
+    Task<ServiceResult> ChangePasswordAsync(
+        Guid userId,
+        ChangePasswordRequest request,
         CancellationToken cancellationToken = default);
 
     Task<ServiceResult> LogoutAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken = default);

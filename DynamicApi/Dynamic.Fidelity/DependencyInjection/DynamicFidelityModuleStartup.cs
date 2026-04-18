@@ -41,5 +41,9 @@ public class DynamicFidelityModuleStartup
 
         services.AddScoped<IPointsRepository, PointsRepository>();
         services.AddScoped<IPointsService, PointsService>();
+        services.AddScoped<ITicketRepository, TicketRepository>();
+        services.AddScoped<IQrCampaignRepository, QrCampaignRepository>();
+        services.AddScoped<IPendingTicketAssignmentRepository, PendingTicketAssignmentRepository>();
+        services.AddScoped<IRegistrationRewardService, RegistrationRewardService>();
     }
 }

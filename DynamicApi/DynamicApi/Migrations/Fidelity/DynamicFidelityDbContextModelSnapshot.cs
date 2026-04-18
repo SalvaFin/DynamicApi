@@ -22,6 +22,55 @@ namespace DynamicApi.Migrations.Fidelity
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
 
+            modelBuilder.Entity("Dynamic.Fidelity.Domain.Entities.PendingTicketAssignment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<bool>("Activated")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime?>("ActivatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("AssignedTicketId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("NegocioId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("QrCampaignId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("QrToken")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<Guid>("TicketTemplateId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Activated");
+
+                    b.HasIndex("QrCampaignId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("UserId", "QrCampaignId")
+                        .IsUnique();
+
+                    b.ToTable("fidelity_pending_ticket_assignments", (string)null);
+                });
+
             modelBuilder.Entity("Dynamic.Fidelity.Domain.Entities.Points", b =>
                 {
                     b.Property<Guid>("Id")
@@ -84,6 +133,72 @@ namespace DynamicApi.Migrations.Fidelity
                     b.ToTable("fidelity_points", (string)null);
                 });
 
+            modelBuilder.Entity("Dynamic.Fidelity.Domain.Entities.QrCampaign", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<bool>("Activa")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime?>("AvailableFromUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Descripcion")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<bool>("Expira")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime?>("ExpiresAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("LandingPath")
+                        .HasMaxLength(512)
+                        .HasColumnType("varchar(512)");
+
+                    b.Property<Guid>("NegocioId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("varchar(180)");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<bool>("UnSoloUsoPorUsuario")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("Visible")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<Guid?>("WelcomeTicketTemplateId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Activa");
+
+                    b.HasIndex("NegocioId");
+
+                    b.HasIndex("Token")
+                        .IsUnique();
+
+                    b.ToTable("fidelity_qr_campaigns", (string)null);
+                });
+
             modelBuilder.Entity("Dynamic.Fidelity.Domain.Entities.Ticket", b =>
                 {
                     b.Property<Guid>("Id")
@@ -134,6 +249,9 @@ namespace DynamicApi.Migrations.Fidelity
                     b.Property<bool>("EsDeUnSoloUso")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<bool>("EsPlantilla")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<DateTime>("ExpiresAtUtc")
                         .HasColumnType("datetime(6)");
 
@@ -161,6 +279,9 @@ namespace DynamicApi.Migrations.Fidelity
                         .HasMaxLength(2000)
                         .HasColumnType("varchar(2000)");
 
+                    b.Property<Guid?>("ParentTicketId")
+                        .HasColumnType("char(36)");
+
                     b.Property<bool>("Publicado")
                         .HasColumnType("tinyint(1)");
 
@@ -169,6 +290,9 @@ namespace DynamicApi.Migrations.Fidelity
 
                     b.Property<bool>("RequiereValidacionManual")
                         .HasColumnType("tinyint(1)");
+
+                    b.Property<Guid?>("SourceQrCampaignId")
+                        .HasColumnType("char(36)");
 
                     b.Property<string>("Tipo")
                         .IsRequired()
@@ -201,9 +325,13 @@ namespace DynamicApi.Migrations.Fidelity
 
                     b.HasKey("Id");
 
+                    b.HasIndex("EsPlantilla");
+
                     b.HasIndex("ExpiresAtUtc");
 
                     b.HasIndex("NegocioId");
+
+                    b.HasIndex("ParentTicketId");
 
                     b.HasIndex("Tipo");
 

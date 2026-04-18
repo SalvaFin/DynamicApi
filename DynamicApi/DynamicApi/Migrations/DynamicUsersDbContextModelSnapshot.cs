@@ -28,6 +28,9 @@ namespace DynamicApi.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
 
+                    b.Property<int?>("AgeAtRegistration")
+                        .HasColumnType("int");
+
                     b.Property<string>("AvatarUrl")
                         .HasMaxLength(512)
                         .HasColumnType("varchar(512)");
@@ -51,7 +54,6 @@ namespace DynamicApi.Migrations
                         .HasColumnType("varchar(128)");
 
                     b.Property<string>("Email")
-                        .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)");
 
@@ -93,9 +95,12 @@ namespace DynamicApi.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.Property<string>("NormalizedEmail")
-                        .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)");
+
+                    b.Property<string>("NormalizedPhoneNumber")
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
 
                     b.Property<string>("NormalizedUserName")
                         .IsRequired()
@@ -111,6 +116,9 @@ namespace DynamicApi.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("varchar(32)");
 
+                    b.Property<bool>("PhoneNumberConfirmed")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<bool>("PrivacyPolicyAccepted")
                         .HasColumnType("tinyint(1)");
 
@@ -121,6 +129,22 @@ namespace DynamicApi.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("varchar(128)");
 
+                    b.Property<bool>("RegistrationCompleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime?>("RegistrationCompletedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("RegistrationInitiatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("RegistrationValidationToken")
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<DateTime?>("RegistrationValidationTokenExpiresAtUtc")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -130,6 +154,9 @@ namespace DynamicApi.Migrations
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("varchar(32)");
+
+                    b.Property<DateTime?>("TemporaryPasswordSentAtUtc")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<bool>("TermsAccepted")
                         .HasColumnType("tinyint(1)");
@@ -154,8 +181,13 @@ namespace DynamicApi.Migrations
                     b.HasIndex("NormalizedEmail")
                         .IsUnique();
 
+                    b.HasIndex("NormalizedPhoneNumber")
+                        .IsUnique();
+
                     b.HasIndex("NormalizedUserName")
                         .IsUnique();
+
+                    b.HasIndex("RegistrationValidationToken");
 
                     b.ToTable("users", (string)null);
                 });

@@ -1,3 +1,9 @@
+using System.Net.Mail;
+using System.Security.Cryptography;
+using System.Text;
+using Dynamic.Fidelity.Application.Contracts.Services;
+using Dynamic.Notify.Application.Contracts;
+using Dynamic.Notify.Application.Models;
 using Dynamic.Users.Application.Common;
 using Dynamic.Users.Application.Contracts.Repositories;
 using Dynamic.Users.Application.Contracts.Services;
@@ -5,11 +11,13 @@ using Dynamic.Users.Application.DTOs.Requests;
 using Dynamic.Users.Application.DTOs.Responses;
 using Dynamic.Users.Application.Mappings;
 using Dynamic.Users.Application.Models;
+using Dynamic.Users.Application.Options;
 using Dynamic.Users.Domain.Entities;
 using Dynamic.Users.Domain.Enums;
 using Dynamic.Users.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Dynamic.Users.Application.Services;
 
@@ -25,6 +33,9 @@ public class AuthService : IAuthService
     private readonly IUserAuthEventRepository _userAuthEventRepository;
     private readonly IPasswordHasher<UserAccount> _passwordHasher;
     private readonly IJwtTokenService _jwtTokenService;
+    private readonly IEmailNotificationService _emailNotificationService;
+    private readonly IRegistrationRewardService _registrationRewardService;
+    private readonly UserRegistrationOptions _userRegistrationOptions;
     private readonly ILogger<AuthService> _logger;
 
     public AuthService(
@@ -35,6 +46,9 @@ public class AuthService : IAuthService
         IUserAuthEventRepository userAuthEventRepository,
         IPasswordHasher<UserAccount> passwordHasher,
         IJwtTokenService jwtTokenService,
+        IEmailNotificationService emailNotificationService,
+        IRegistrationRewardService registrationRewardService,
+        IOptions<UserRegistrationOptions> userRegistrationOptions,
         ILogger<AuthService> logger)
     {
         _dbContext = dbContext;
@@ -44,98 +58,375 @@ public class AuthService : IAuthService
         _userAuthEventRepository = userAuthEventRepository;
         _passwordHasher = passwordHasher;
         _jwtTokenService = jwtTokenService;
+        _emailNotificationService = emailNotificationService;
+        _registrationRewardService = registrationRewardService;
+        _userRegistrationOptions = userRegistrationOptions.Value;
         _logger = logger;
     }
 
-    public async Task<ServiceResult<AuthResponse>> RegisterAsync(
-        RegisterUserRequest request,
+    public async Task<ServiceResult<RegisterStartResponse>> StartRegistrationAsync(
+        RegisterStartRequest request,
         string? ipAddress,
         string? userAgent,
         CancellationToken cancellationToken = default)
     {
-        string? validationMessage = ValidateRegistrationRequest(request);
-        if (validationMessage is not null)
+        if (string.IsNullOrWhiteSpace(request.Contact))
         {
-            return ServiceResult<AuthResponse>.Failure("validation_error", validationMessage);
+            return ServiceResult<RegisterStartResponse>.Failure("validation_error", "Debes indicar un email o un número de teléfono.");
         }
 
-        string normalizedEmail = Normalize(request.Email);
-        string normalizedUserName = Normalize(request.UserName);
-
-        if (await _userRepository.GetByEmailAsync(normalizedEmail, cancellationToken) is not null)
+        ContactInfo? contactInfo = ParseContact(request.Contact);
+        if (contactInfo is null)
         {
-            return ServiceResult<AuthResponse>.Failure("conflict", "El correo ya está registrado.");
+            return ServiceResult<RegisterStartResponse>.Failure("validation_error", "El contacto indicado no es un email ni un teléfono válido.");
         }
 
+        if (!string.IsNullOrWhiteSpace(request.QrToken))
+        {
+            bool isQrTokenValid = await _registrationRewardService.ValidateQrTokenAsync(request.QrToken, cancellationToken);
+            if (!isQrTokenValid)
+            {
+                return ServiceResult<RegisterStartResponse>.Failure("validation_error", "El QR de registro no es válido o ya no está disponible.");
+            }
+        }
+
+        UserAccount? existingUser = contactInfo.Type switch
+        {
+            ContactType.Email => await _userRepository.GetByEmailAsync(contactInfo.NormalizedValue, cancellationToken),
+            ContactType.Phone => await _userRepository.GetByPhoneAsync(contactInfo.NormalizedValue, cancellationToken),
+            _ => null
+        };
+
+        if (existingUser is not null && existingUser.RegistrationCompleted)
+        {
+            return ServiceResult<RegisterStartResponse>.Success(new RegisterStartResponse
+            {
+                AlreadyExists = true,
+                NotificationSent = false,
+                PendingRegistrationCreated = false,
+                ShouldRedirectToLogin = true,
+                DeliveryChannel = contactInfo.Type == ContactType.Email ? "email" : "phone",
+                NextAction = "login",
+                Message = "El usuario ya existe. Debes iniciar sesión.",
+                Contact = request.Contact.Trim(),
+                UserName = existingUser.UserName
+            });
+        }
+
+        DateTime now = DateTime.UtcNow;
+        string validationToken = Guid.NewGuid().ToString("N");
+        string temporaryPassword = GenerateTemporaryPassword();
+        string generatedUserName = existingUser?.UserName ?? $"user{Guid.NewGuid():N}"[..16];
+
+        UserAccount user = existingUser ?? new UserAccount
+        {
+            Id = Guid.NewGuid(),
+            UserName = generatedUserName,
+            NormalizedUserName = generatedUserName.ToUpperInvariant(),
+            Role = UserRole.User,
+            Status = UserStatus.PendingActivation,
+            CreatedAtUtc = now
+        };
+
+        if (contactInfo.Type == ContactType.Email)
+        {
+            user.Email = contactInfo.OriginalValue;
+            user.NormalizedEmail = contactInfo.NormalizedValue;
+        }
+        else
+        {
+            user.PhoneNumber = contactInfo.OriginalValue;
+            user.NormalizedPhoneNumber = contactInfo.NormalizedValue;
+        }
+
+        user.PasswordHash = _passwordHasher.HashPassword(user, temporaryPassword);
+        user.EmailConfirmed = false;
+        user.PhoneNumberConfirmed = false;
+        user.RegistrationCompleted = false;
+        user.AgeAtRegistration = null;
+        user.FirstName = existingUser?.FirstName;
+        user.LastName = existingUser?.LastName;
+        user.DisplayName = existingUser?.DisplayName;
+        user.RegistrationValidationToken = validationToken;
+        user.RegistrationValidationTokenExpiresAtUtc = now.AddHours(_userRegistrationOptions.ValidationTokenExpirationHours);
+        user.RegistrationInitiatedAtUtc = now;
+        user.RegistrationCompletedAtUtc = null;
+        user.TemporaryPasswordSentAtUtc = contactInfo.Type == ContactType.Email ? now : null;
+        user.UpdatedAtUtc = now;
+        user.LastSeenAtUtc = now;
+        user.LastLoginIp = ipAddress;
+
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            if (existingUser is null)
+            {
+                await _userRepository.AddAsync(user, cancellationToken);
+            }
+            else
+            {
+                _userRepository.Update(user);
+            }
+
+            await _userAuthEventRepository.AddAsync(
+                BuildAuthEvent(AuthEventType.RegisterStarted, user, contactInfo.OriginalValue, true, null, ipAddress, userAgent, request.Client, now),
+                cancellationToken);
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            bool notificationSent = false;
+            string deliveryChannel = contactInfo.Type == ContactType.Email ? "email" : "whatsapp_pending";
+            string nextAction = contactInfo.Type == ContactType.Email ? "complete_registration" : "wait_whatsapp_implementation";
+            string message;
+
+            if (contactInfo.Type == ContactType.Email)
+            {
+                string completionLink = BuildCompletionLink(contactInfo.OriginalValue, validationToken);
+                await _emailNotificationService.SendAsync(
+                    new EmailMessage
+                    {
+                        ToEmail = contactInfo.OriginalValue,
+                        ToName = user.DisplayName ?? user.UserName,
+                        Subject = "Completa tu registro en Dynamic",
+                        HtmlBody = BuildRegistrationEmailHtml(user.UserName, temporaryPassword, completionLink),
+                        TextBody = BuildRegistrationEmailText(user.UserName, temporaryPassword, completionLink)
+                    },
+                    cancellationToken);
+
+                notificationSent = true;
+                message = "Te hemos enviado un correo con el enlace para completar el registro y tu contraseña temporal.";
+            }
+            else
+            {
+                message = "El registro por teléfono ha quedado preparado, pero el envío por WhatsApp aún no está implementado.";
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.QrToken))
+            {
+                try
+                {
+                    await _registrationRewardService.PreparePendingAssignmentAsync(user.Id, request.QrToken, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "No se pudo preparar la recompensa de registro para el usuario {UserId}", user.Id);
+                }
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+
+            return ServiceResult<RegisterStartResponse>.Success(new RegisterStartResponse
+            {
+                AlreadyExists = false,
+                PendingRegistrationCreated = true,
+                NotificationSent = notificationSent,
+                ShouldRedirectToLogin = false,
+                DeliveryChannel = deliveryChannel,
+                NextAction = nextAction,
+                Message = message,
+                Contact = contactInfo.OriginalValue,
+                UserName = user.UserName
+            });
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            _logger.LogError(ex, "Error iniciando registro para {Contact}", request.Contact);
+            return ServiceResult<RegisterStartResponse>.Failure("server_error", "No se pudo iniciar el registro.");
+        }
+    }
+
+    public async Task<ServiceResult<CompleteRegistrationResponse>> CompleteRegistrationAsync(
+        CompleteRegistrationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.Contact) ||
+            string.IsNullOrWhiteSpace(request.ValidationToken) ||
+            string.IsNullOrWhiteSpace(request.Nombre) ||
+            string.IsNullOrWhiteSpace(request.Apellidos))
+        {
+            return ServiceResult<CompleteRegistrationResponse>.Failure("validation_error", "Faltan datos para completar el registro.");
+        }
+
+        if (request.Edad < _userRegistrationOptions.MinimumAge)
+        {
+            return ServiceResult<CompleteRegistrationResponse>.Failure("validation_error", $"La edad mínima para registrarse es de {_userRegistrationOptions.MinimumAge} años.");
+        }
+
+        ContactInfo? contactInfo = ParseContact(request.Contact);
+        if (contactInfo is null)
+        {
+            return ServiceResult<CompleteRegistrationResponse>.Failure("validation_error", "El contacto indicado no es válido.");
+        }
+
+        UserAccount? userByContact = contactInfo.Type switch
+        {
+            ContactType.Email => await _userRepository.GetByEmailAsync(contactInfo.NormalizedValue, cancellationToken),
+            ContactType.Phone => await _userRepository.GetByPhoneAsync(contactInfo.NormalizedValue, cancellationToken),
+            _ => null
+        };
+
+        if (userByContact is null)
+        {
+            return ServiceResult<CompleteRegistrationResponse>.Failure("not_found", "No existe un registro pendiente para ese contacto.");
+        }
+
+        if (!string.Equals(userByContact.RegistrationValidationToken, request.ValidationToken.Trim(), StringComparison.Ordinal))
+        {
+            return ServiceResult<CompleteRegistrationResponse>.Failure("unauthorized", "El token de validación no es correcto.");
+        }
+
+        if (!userByContact.RegistrationValidationTokenExpiresAtUtc.HasValue ||
+            userByContact.RegistrationValidationTokenExpiresAtUtc.Value < DateTime.UtcNow)
+        {
+            return ServiceResult<CompleteRegistrationResponse>.Failure("unauthorized", "El token de validación ha expirado.");
+        }
+
+        DateTime now = DateTime.UtcNow;
+        userByContact.FirstName = request.Nombre.Trim();
+        userByContact.LastName = request.Apellidos.Trim();
+        userByContact.DisplayName = $"{request.Nombre} {request.Apellidos}".Trim();
+        userByContact.AgeAtRegistration = request.Edad;
+        userByContact.RegistrationCompleted = true;
+        userByContact.RegistrationCompletedAtUtc = now;
+        userByContact.RegistrationValidationToken = null;
+        userByContact.RegistrationValidationTokenExpiresAtUtc = null;
+        userByContact.Status = UserStatus.Active;
+        userByContact.UpdatedAtUtc = now;
+
+        if (contactInfo.Type == ContactType.Email)
+        {
+            userByContact.EmailConfirmed = true;
+        }
+        else
+        {
+            userByContact.PhoneNumberConfirmed = true;
+        }
+
+        await _userAuthEventRepository.AddAsync(
+            BuildAuthEvent(AuthEventType.RegisterCompleted, userByContact, contactInfo.OriginalValue, true, null, null, null, null, now),
+            cancellationToken);
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await _registrationRewardService.FinalizePendingAssignmentsAsync(userByContact.Id, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "No se pudieron finalizar las recompensas pendientes de registro para {UserId}", userByContact.Id);
+        }
+
+        return ServiceResult<CompleteRegistrationResponse>.Success(new CompleteRegistrationResponse
+        {
+            Completed = true,
+            Contact = contactInfo.OriginalValue,
+            UserName = userByContact.UserName,
+            Message = "Registro completado correctamente. Ya puedes iniciar sesión."
+        });
+    }
+
+    public async Task<ServiceResult<UserSummaryResponse>> ClassicRegisterAsync(
+        ClassicRegisterRequest request,
+        bool allowPrivilegedRoleCreation,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.UserName) ||
+            string.IsNullOrWhiteSpace(request.Password) ||
+            string.IsNullOrWhiteSpace(request.ConfirmPassword))
+        {
+            return ServiceResult<UserSummaryResponse>.Failure("validation_error", "UserName, contraseña y confirmación son obligatorios.");
+        }
+
+        if (request.Password != request.ConfirmPassword)
+        {
+            return ServiceResult<UserSummaryResponse>.Failure("validation_error", "La confirmación de contraseña no coincide.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Email) && string.IsNullOrWhiteSpace(request.PhoneNumber))
+        {
+            return ServiceResult<UserSummaryResponse>.Failure("validation_error", "Debes indicar al menos un email o un número de teléfono.");
+        }
+
+        if (!allowPrivilegedRoleCreation &&
+            request.Role is UserRole.Admin or UserRole.PropietarioNegocio or UserRole.TrabajadorNegocio)
+        {
+            return ServiceResult<UserSummaryResponse>.Failure("unauthorized", "No tienes permisos para crear usuarios con ese rol.");
+        }
+
+        string normalizedUserName = request.UserName.Trim().ToUpperInvariant();
         if (await _userRepository.GetByUserNameAsync(normalizedUserName, cancellationToken) is not null)
         {
-            return ServiceResult<AuthResponse>.Failure("conflict", "El nombre de usuario ya está en uso.");
+            return ServiceResult<UserSummaryResponse>.Failure("conflict", "Ya existe un usuario con ese nombre.");
+        }
+
+        ContactInfo? emailContact = null;
+        ContactInfo? phoneContact = null;
+
+        if (!string.IsNullOrWhiteSpace(request.Email))
+        {
+            emailContact = ParseContact(request.Email);
+            if (emailContact is null || emailContact.Type != ContactType.Email)
+            {
+                return ServiceResult<UserSummaryResponse>.Failure("validation_error", "El email indicado no es válido.");
+            }
+
+            if (await _userRepository.GetByEmailAsync(emailContact.NormalizedValue, cancellationToken) is not null)
+            {
+                return ServiceResult<UserSummaryResponse>.Failure("conflict", "Ya existe un usuario con ese email.");
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.PhoneNumber))
+        {
+            phoneContact = ParseContact(request.PhoneNumber);
+            if (phoneContact is null || phoneContact.Type != ContactType.Phone)
+            {
+                return ServiceResult<UserSummaryResponse>.Failure("validation_error", "El teléfono indicado no es válido.");
+            }
+
+            if (await _userRepository.GetByPhoneAsync(phoneContact.NormalizedValue, cancellationToken) is not null)
+            {
+                return ServiceResult<UserSummaryResponse>.Failure("conflict", "Ya existe un usuario con ese número de teléfono.");
+            }
         }
 
         DateTime now = DateTime.UtcNow;
         UserAccount user = new()
         {
             Id = Guid.NewGuid(),
-            Email = request.Email.Trim(),
-            NormalizedEmail = normalizedEmail,
+            Email = emailContact?.OriginalValue,
+            NormalizedEmail = emailContact?.NormalizedValue,
             UserName = request.UserName.Trim(),
             NormalizedUserName = normalizedUserName,
             FirstName = NormalizeNullable(request.FirstName),
             LastName = NormalizeNullable(request.LastName),
-            DisplayName = NormalizeNullable(request.DisplayName) ?? BuildDisplayName(request.FirstName, request.LastName, request.UserName),
-            PhoneNumber = NormalizeNullable(request.PhoneNumber),
-            BirthDate = request.BirthDate,
-            Language = NormalizeNullable(request.Language),
-            TimeZone = NormalizeNullable(request.TimeZone),
-            CountryCode = NormalizeNullable(request.CountryCode)?.ToUpperInvariant(),
-            Region = NormalizeNullable(request.Region),
-            City = NormalizeNullable(request.City),
-            TermsAccepted = request.AcceptTerms,
-            PrivacyPolicyAccepted = request.AcceptPrivacyPolicy,
-            MarketingAccepted = request.AcceptMarketing,
-            TermsAcceptedAtUtc = now,
-            PrivacyPolicyAcceptedAtUtc = now,
-            MarketingAcceptedAtUtc = request.AcceptMarketing ? now : null,
-            EmailConfirmed = false,
-            Role = UserRole.User,
+            DisplayName = BuildDisplayName(request.FirstName, request.LastName, request.UserName),
+            PhoneNumber = phoneContact?.OriginalValue,
+            NormalizedPhoneNumber = phoneContact?.NormalizedValue,
+            EmailConfirmed = emailContact is not null,
+            PhoneNumberConfirmed = phoneContact is not null,
+            RegistrationCompleted = true,
+            RegistrationInitiatedAtUtc = now,
+            RegistrationCompletedAtUtc = now,
+            Role = request.Role,
             Status = UserStatus.Active,
             CreatedAtUtc = now,
             UpdatedAtUtc = now,
-            LastSeenAtUtc = now,
-            LastLoginAtUtc = now,
-            LastLoginIp = ipAddress
+            LastSeenAtUtc = now
         };
 
         user.PasswordHash = _passwordHasher.HashPassword(user, request.Password);
 
-        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+        await _userRepository.AddAsync(user, cancellationToken);
+        await _userAuthEventRepository.AddAsync(
+            BuildAuthEvent(AuthEventType.ClassicRegisterCreated, user, user.Email ?? user.PhoneNumber ?? user.UserName, true, null, null, null, null, now),
+            cancellationToken);
 
-        try
-        {
-            await _userRepository.AddAsync(user, cancellationToken);
-
-            UserDevice? device = await CreateOrUpdateDeviceAsync(user, request.Client, now, cancellationToken);
-            UserSession session = CreateSession(user, device, request.Client, ipAddress, userAgent, now);
-            GeneratedTokenEnvelope tokens = _jwtTokenService.GenerateTokens(user, session);
-
-            session.JwtId = tokens.JwtId;
-            session.RefreshTokenHash = tokens.RefreshTokenHash;
-            session.RefreshTokenExpiresAtUtc = tokens.RefreshTokenExpiresAtUtc;
-
-            await _userSessionRepository.AddAsync(session, cancellationToken);
-            await _userAuthEventRepository.AddAsync(BuildAuthEvent(AuthEventType.Register, user, request.Email, true, null, ipAddress, userAgent, request.Client, now), cancellationToken);
-
-            await _dbContext.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-
-            return ServiceResult<AuthResponse>.Success(BuildAuthResponse(user, session, tokens));
-        }
-        catch (Exception ex)
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            _logger.LogError(ex, "Error registrando usuario {Email}", request.Email);
-            return ServiceResult<AuthResponse>.Failure("server_error", "No se pudo completar el registro.");
-        }
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return ServiceResult<UserSummaryResponse>.Success(user.ToResponse());
     }
 
     public async Task<ServiceResult<AuthResponse>> LoginAsync(
@@ -149,7 +440,7 @@ public class AuthService : IAuthService
             return ServiceResult<AuthResponse>.Failure("validation_error", "Las credenciales son obligatorias.");
         }
 
-        string normalizedIdentity = Normalize(request.Identity);
+        string normalizedIdentity = NormalizeIdentityForLookup(request.Identity);
         UserAccount? user = await _userRepository.GetByIdentityAsync(normalizedIdentity, cancellationToken);
         DateTime now = DateTime.UtcNow;
 
@@ -157,6 +448,11 @@ public class AuthService : IAuthService
         {
             await PersistAnonymousEventAsync(AuthEventType.LoginFailed, request.Identity, "Usuario no encontrado.", ipAddress, userAgent, request.Client, now, cancellationToken);
             return ServiceResult<AuthResponse>.Failure("unauthorized", "Credenciales inválidas.");
+        }
+
+        if (!user.RegistrationCompleted || user.Status == UserStatus.PendingActivation)
+        {
+            return ServiceResult<AuthResponse>.Failure("unauthorized", "Debes completar el registro antes de iniciar sesión.");
         }
 
         if (user.LockedUntilUtc.HasValue && user.LockedUntilUtc.Value > now)
@@ -251,7 +547,7 @@ public class AuthService : IAuthService
         if (session.RevokedAtUtc.HasValue || session.RefreshTokenExpiresAtUtc <= now || session.User.Status != UserStatus.Active)
         {
             await _userAuthEventRepository.AddAsync(
-                BuildAuthEvent(AuthEventType.RefreshFailed, session.User, session.User.Email, false, "Sesión expirada o revocada.", ipAddress, userAgent, request.Client, now),
+                BuildAuthEvent(AuthEventType.RefreshFailed, session.User, session.User.Email ?? session.User.PhoneNumber, false, "Sesión expirada o revocada.", ipAddress, userAgent, request.Client, now),
                 cancellationToken);
             await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -284,7 +580,7 @@ public class AuthService : IAuthService
             session.RefreshTokenExpiresAtUtc = tokens.RefreshTokenExpiresAtUtc;
 
             await _userAuthEventRepository.AddAsync(
-                BuildAuthEvent(AuthEventType.RefreshSucceeded, session.User, session.User.Email, true, null, ipAddress, userAgent, request.Client, now),
+                BuildAuthEvent(AuthEventType.RefreshSucceeded, session.User, session.User.Email ?? session.User.PhoneNumber, true, null, ipAddress, userAgent, request.Client, now),
                 cancellationToken);
 
             await _dbContext.SaveChangesAsync(cancellationToken);
@@ -298,6 +594,52 @@ public class AuthService : IAuthService
             _logger.LogError(ex, "Error refrescando sesión {SessionId}", session.Id);
             return ServiceResult<AuthResponse>.Failure("server_error", "No se pudo refrescar la sesión.");
         }
+    }
+
+    public async Task<ServiceResult> ChangePasswordAsync(Guid userId, ChangePasswordRequest request, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.CurrentPassword) || string.IsNullOrWhiteSpace(request.NewPassword))
+        {
+            return ServiceResult.Failure("validation_error", "Debes indicar la contraseña actual y la nueva.");
+        }
+
+        if (request.NewPassword != request.ConfirmNewPassword)
+        {
+            return ServiceResult.Failure("validation_error", "La confirmación de contraseña no coincide.");
+        }
+
+        UserAccount? user = await _userRepository.GetByIdAsync(userId, cancellationToken);
+        if (user is null)
+        {
+            return ServiceResult.Failure("not_found", "Usuario no encontrado.");
+        }
+
+        PasswordVerificationResult currentPasswordValidation = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, request.CurrentPassword);
+        if (currentPasswordValidation == PasswordVerificationResult.Failed)
+        {
+            return ServiceResult.Failure("unauthorized", "La contraseña actual no es correcta.");
+        }
+
+        DateTime now = DateTime.UtcNow;
+        user.PasswordHash = _passwordHasher.HashPassword(user, request.NewPassword);
+        user.UpdatedAtUtc = now;
+        _userRepository.Update(user);
+
+        IReadOnlyCollection<UserSession> activeSessions = await _userSessionRepository.GetActiveByUserIdAsync(userId, cancellationToken);
+        foreach (UserSession session in activeSessions)
+        {
+            session.RevokedAtUtc = now;
+            session.RevocationReason = "PasswordChanged";
+            session.LastSeenAtUtc = now;
+            _userSessionRepository.Update(session);
+        }
+
+        await _userAuthEventRepository.AddAsync(
+            BuildAuthEvent(AuthEventType.PasswordChanged, user, user.Email ?? user.PhoneNumber, true, null, null, null, null, now),
+            cancellationToken);
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return ServiceResult.Success();
     }
 
     public async Task<ServiceResult> LogoutAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken = default)
@@ -319,7 +661,7 @@ public class AuthService : IAuthService
         session.LastSeenAtUtc = now;
 
         await _userAuthEventRepository.AddAsync(
-            BuildAuthEvent(AuthEventType.Logout, session.User, session.User?.Email, true, null, session.IpAddress, session.UserAgent, null, now),
+            BuildAuthEvent(AuthEventType.Logout, session.User, session.User?.Email ?? session.User?.PhoneNumber, true, null, session.IpAddress, session.UserAgent, null, now),
             cancellationToken);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -473,6 +815,35 @@ public class AuthService : IAuthService
             CreatedAtUtc = now
         };
 
+    private string BuildCompletionLink(string contact, string validationToken)
+    {
+        string encodedContact = Uri.EscapeDataString(contact);
+        string encodedToken = Uri.EscapeDataString(validationToken);
+        return $"{_userRegistrationOptions.CompletionUrlBase}?contact={encodedContact}&token={encodedToken}";
+    }
+
+    private static string BuildRegistrationEmailHtml(string userName, string temporaryPassword, string completionLink)
+        => $"""
+           <h2>Completa tu registro</h2>
+           <p>Ya hemos preparado tu acceso inicial.</p>
+           <p><strong>Usuario:</strong> {userName}</p>
+           <p><strong>Contraseña temporal:</strong> {temporaryPassword}</p>
+           <p>Completa el registro desde este enlace:</p>
+           <p><a href="{completionLink}">{completionLink}</a></p>
+           <p>Cuando termines el proceso, podrás iniciar sesión y cambiar tu contraseña.</p>
+           """;
+
+    private static string BuildRegistrationEmailText(string userName, string temporaryPassword, string completionLink)
+        => $"""
+           Completa tu registro.
+
+           Usuario: {userName}
+           Contraseña temporal: {temporaryPassword}
+
+           Enlace para completar el registro:
+           {completionLink}
+           """;
+
     private static string? BuildClientSummary(ClientDeviceContextRequest? client)
     {
         if (client is null)
@@ -504,36 +875,82 @@ public class AuthService : IAuthService
             CurrentSession = session.ToResponse(session.Id)
         };
 
-    private static string? ValidateRegistrationRequest(RegisterUserRequest request)
+    private static ContactInfo? ParseContact(string contact)
     {
-        if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.UserName) || string.IsNullOrWhiteSpace(request.Password))
+        string trimmedContact = contact.Trim();
+        if (string.IsNullOrWhiteSpace(trimmedContact))
         {
-            return "Email, usuario y contraseña son obligatorios.";
+            return null;
         }
 
-        if (!request.AcceptTerms || !request.AcceptPrivacyPolicy)
+        if (IsEmail(trimmedContact))
         {
-            return "Debes aceptar términos y política de privacidad.";
+            return new ContactInfo(ContactType.Email, trimmedContact, trimmedContact.ToUpperInvariant());
         }
 
-        if (request.Password != request.ConfirmPassword)
-        {
-            return "La confirmación de contraseña no coincide.";
-        }
-
-        return request.Password.Length < 8
-            ? "La contraseña debe tener al menos 8 caracteres."
+        string normalizedPhone = NormalizePhone(trimmedContact);
+        return normalizedPhone.Length >= 7
+            ? new ContactInfo(ContactType.Phone, trimmedContact, normalizedPhone)
             : null;
     }
 
-    private static string Normalize(string value) => value.Trim().ToUpperInvariant();
+    private static bool IsEmail(string value)
+    {
+        try
+        {
+            MailAddress _ = new(value);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static string NormalizeIdentityForLookup(string value)
+    {
+        string trimmedValue = value.Trim();
+        return IsEmail(trimmedValue)
+            ? trimmedValue.ToUpperInvariant()
+            : IsPhone(trimmedValue)
+                ? NormalizePhone(trimmedValue)
+                : trimmedValue.ToUpperInvariant();
+    }
+
+    private static bool IsPhone(string value)
+        => NormalizePhone(value).Length >= 7;
+
+    private static string NormalizePhone(string value)
+        => new(value.Where(char.IsDigit).ToArray());
+
+    private static string GenerateTemporaryPassword()
+    {
+        const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@$?";
+        byte[] bytes = RandomNumberGenerator.GetBytes(12);
+        StringBuilder builder = new();
+
+        foreach (byte @byte in bytes)
+        {
+            builder.Append(chars[@byte % chars.Length]);
+        }
+
+        return builder.ToString();
+    }
+
+    private static string BuildDisplayName(string? firstName, string? lastName, string userName)
+    {
+        string displayName = $"{firstName} {lastName}".Trim();
+        return string.IsNullOrWhiteSpace(displayName) ? userName.Trim() : displayName;
+    }
 
     private static string? NormalizeNullable(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    private static string BuildDisplayName(string? firstName, string? lastName, string userName)
+    private enum ContactType
     {
-        string fullName = $"{firstName} {lastName}".Trim();
-        return string.IsNullOrWhiteSpace(fullName) ? userName.Trim() : fullName;
+        Email,
+        Phone
     }
+
+    private sealed record ContactInfo(ContactType Type, string OriginalValue, string NormalizedValue);
 }

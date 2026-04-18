@@ -213,6 +213,36 @@
             "related": ".xml"
           }
         }
+      },
+      "Dynamic.Fidelity/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v10.0",
+        "dependencies": {
+          "Microsoft.EntityFrameworkCore": "9.0.0",
+          "Pomelo.EntityFrameworkCore.MySql": "9.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Dynamic.Fidelity.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Dynamic.Fidelity.dll": {}
+        },
+        "frameworkReferences": [
+          "Microsoft.AspNetCore.App"
+        ]
+      },
+      "Dynamic.Notify/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v10.0",
+        "compile": {
+          "bin/placeholder/Dynamic.Notify.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Dynamic.Notify.dll": {}
+        },
+        "frameworkReferences": [
+          "Microsoft.AspNetCore.App"
+        ]
       }
     }
   },
@@ -497,10 +527,22 @@
         "system.identitymodel.tokens.jwt.8.0.1.nupkg.sha512",
         "system.identitymodel.tokens.jwt.nuspec"
       ]
+    },
+    "Dynamic.Fidelity/1.0.0": {
+      "type": "project",
+      "path": "../Dynamic.Fidelity/Dynamic.Fidelity.csproj",
+      "msbuildProject": "../Dynamic.Fidelity/Dynamic.Fidelity.csproj"
+    },
+    "Dynamic.Notify/1.0.0": {
+      "type": "project",
+      "path": "../Dynamic.Notify/Dynamic.Notify.csproj",
+      "msbuildProject": "../Dynamic.Notify/Dynamic.Notify.csproj"
     }
   },
   "projectFileDependencyGroups": {
     "net10.0": [
+      "Dynamic.Fidelity >= 1.0.0",
+      "Dynamic.Notify >= 1.0.0",
       "Microsoft.AspNetCore.Authentication.JwtBearer >= 10.0.6",
       "Microsoft.EntityFrameworkCore >= 9.0.0",
       "Pomelo.EntityFrameworkCore.MySql >= 9.0.0"
@@ -538,7 +580,14 @@
       "frameworks": {
         "net10.0": {
           "targetAlias": "net10.0",
-          "projectReferences": {}
+          "projectReferences": {
+            "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\Dynamic.Fidelity\\Dynamic.Fidelity.csproj": {
+              "projectPath": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\Dynamic.Fidelity\\Dynamic.Fidelity.csproj"
+            },
+            "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\Dynamic.Notify\\Dynamic.Notify.csproj": {
+              "projectPath": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\Dynamic.Notify\\Dynamic.Notify.csproj"
+            }
+          }
         }
       },
       "warningProperties": {

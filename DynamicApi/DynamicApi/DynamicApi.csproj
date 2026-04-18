@@ -19,6 +19,7 @@
     <ProjectReference Include="..\Dynamic.Users\Dynamic.Users.csproj" />
     <ProjectReference Include="..\Dynamic.Negocios\Dynamic.Negocios.csproj" />
     <ProjectReference Include="..\Dynamic.Fidelity\Dynamic.Fidelity.csproj" />
+    <ProjectReference Include="..\Dynamic.Notify\Dynamic.Notify.csproj" />
   </ItemGroup>
 
 </Project>

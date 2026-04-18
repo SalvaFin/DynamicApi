@@ -11,8 +11,8 @@ public class UserAccountConfiguration : IEntityTypeConfiguration<UserAccount>
         builder.ToTable("users");
         builder.HasKey(user => user.Id);
 
-        builder.Property(user => user.Email).HasMaxLength(256).IsRequired();
-        builder.Property(user => user.NormalizedEmail).HasMaxLength(256).IsRequired();
+        builder.Property(user => user.Email).HasMaxLength(256);
+        builder.Property(user => user.NormalizedEmail).HasMaxLength(256);
         builder.Property(user => user.UserName).HasMaxLength(64).IsRequired();
         builder.Property(user => user.NormalizedUserName).HasMaxLength(64).IsRequired();
         builder.Property(user => user.PasswordHash).HasMaxLength(512).IsRequired();
@@ -20,6 +20,8 @@ public class UserAccountConfiguration : IEntityTypeConfiguration<UserAccount>
         builder.Property(user => user.LastName).HasMaxLength(128);
         builder.Property(user => user.DisplayName).HasMaxLength(128);
         builder.Property(user => user.PhoneNumber).HasMaxLength(32);
+        builder.Property(user => user.NormalizedPhoneNumber).HasMaxLength(32);
+        builder.Property(user => user.RegistrationValidationToken).HasMaxLength(128);
         builder.Property(user => user.Language).HasMaxLength(16);
         builder.Property(user => user.TimeZone).HasMaxLength(64);
         builder.Property(user => user.CountryCode).HasMaxLength(8);
@@ -32,6 +34,8 @@ public class UserAccountConfiguration : IEntityTypeConfiguration<UserAccount>
 
         builder.HasIndex(user => user.NormalizedEmail).IsUnique();
         builder.HasIndex(user => user.NormalizedUserName).IsUnique();
+        builder.HasIndex(user => user.NormalizedPhoneNumber).IsUnique();
+        builder.HasIndex(user => user.RegistrationValidationToken);
 
         builder.HasMany(user => user.Devices)
             .WithOne(device => device.User)

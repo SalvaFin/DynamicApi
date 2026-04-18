@@ -7,6 +7,8 @@ public class Ticket
     public Guid Id { get; set; }
     public Guid NegocioId { get; set; }
     public Guid? UserId { get; set; }
+    public Guid? ParentTicketId { get; set; }
+    public Guid? SourceQrCampaignId { get; set; }
     public string Nombre { get; set; } = string.Empty;
     public string? Descripcion { get; set; }
     public TipoTicket Tipo { get; set; } = TipoTicket.Especial;
@@ -24,6 +26,7 @@ public class Ticket
     public int? PuntosCoste { get; set; }
     public bool RequiereValidacionManual { get; set; } = true;
     public bool EsDeUnSoloUso { get; set; } = true;
+    public bool EsPlantilla { get; set; }
     public bool Activo { get; set; } = true;
     public bool Publicado { get; set; }
     public bool Usado { get; set; }

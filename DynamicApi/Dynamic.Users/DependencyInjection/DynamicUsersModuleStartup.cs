@@ -29,6 +29,11 @@ public class DynamicUsersModuleStartup
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
+        services.AddOptions<UserRegistrationOptions>()
+            .Bind(configuration.GetSection(UserRegistrationOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
         DynamicUsersDatabaseOptions databaseOptions = configuration
             .GetSection(DynamicUsersDatabaseOptions.SectionName)
             .Get<DynamicUsersDatabaseOptions>() ?? new();

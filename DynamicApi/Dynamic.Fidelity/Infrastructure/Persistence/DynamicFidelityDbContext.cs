@@ -12,6 +12,8 @@ public class DynamicFidelityDbContext : DbContext
 
     public DbSet<Points> Points => Set<Points>();
     public DbSet<Ticket> Tickets => Set<Ticket>();
+    public DbSet<QrCampaign> QrCampaigns => Set<QrCampaign>();
+    public DbSet<PendingTicketAssignment> PendingTicketAssignments => Set<PendingTicketAssignment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

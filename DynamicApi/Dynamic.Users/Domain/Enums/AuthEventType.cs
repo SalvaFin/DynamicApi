@@ -2,10 +2,13 @@ namespace Dynamic.Users.Domain.Enums;
 
 public enum AuthEventType
 {
-    Register = 1,
-    LoginSucceeded = 2,
-    LoginFailed = 3,
-    RefreshSucceeded = 4,
-    RefreshFailed = 5,
-    Logout = 6
+    RegisterStarted = 1,
+    RegisterCompleted = 2,
+    LoginSucceeded = 3,
+    LoginFailed = 4,
+    RefreshSucceeded = 5,
+    RefreshFailed = 6,
+    Logout = 7,
+    PasswordChanged = 8,
+    ClassicRegisterCreated = 9
 }

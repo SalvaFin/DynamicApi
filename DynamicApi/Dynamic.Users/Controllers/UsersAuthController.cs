@@ -3,9 +3,11 @@ using Dynamic.Users.Application.Common;
 using Dynamic.Users.Application.Contracts.Services;
 using Dynamic.Users.Application.DTOs.Requests;
 using Dynamic.Users.Application.DTOs.Responses;
+using Dynamic.Users.Application.Options;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace Dynamic.Users.Controllers;
 
@@ -15,23 +17,58 @@ public class UsersAuthController : ControllerBase
 {
     private readonly IAuthService _authService;
     private readonly IUserService _userService;
+    private readonly UserRegistrationOptions _userRegistrationOptions;
 
-    public UsersAuthController(IAuthService authService, IUserService userService)
+    public UsersAuthController(IAuthService authService, IUserService userService, IOptions<UserRegistrationOptions> userRegistrationOptions)
     {
         _authService = authService;
         _userService = userService;
+        _userRegistrationOptions = userRegistrationOptions.Value;
     }
 
     [HttpPost("register")]
-    public async Task<IActionResult> Register([FromBody] RegisterUserRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Register([FromBody] RegisterStartRequest request, CancellationToken cancellationToken)
     {
-        ServiceResult<AuthResponse> result = await _authService.RegisterAsync(
+        ServiceResult<RegisterStartResponse> result = await _authService.StartRegistrationAsync(
             request,
             GetIpAddress(),
             GetUserAgent(),
             cancellationToken);
 
-        return ToActionResult(result, data => StatusCode(StatusCodes.Status201Created, data));
+        return ToActionResult(result, Ok);
+    }
+
+    [HttpPost("register/validate")]
+    public async Task<IActionResult> CompleteRegister([FromBody] CompleteRegistrationRequest request, CancellationToken cancellationToken)
+    {
+        ServiceResult<CompleteRegistrationResponse> result = await _authService.CompleteRegistrationAsync(request, cancellationToken);
+        return ToActionResult(result, Ok);
+    }
+
+    [AllowAnonymous]
+    [HttpPost("register/classic")]
+    public async Task<IActionResult> ClassicRegister([FromBody] ClassicRegisterRequest request, CancellationToken cancellationToken)
+    {
+        bool isAuthenticatedAdmin = User.Identity?.IsAuthenticated == true && User.IsInRole("Admin");
+        bool hasValidBootstrapKey =
+            !string.IsNullOrWhiteSpace(_userRegistrationOptions.ClassicRegisterBootstrapKey) &&
+            string.Equals(
+                _userRegistrationOptions.ClassicRegisterBootstrapKey,
+                request.BootstrapKey?.Trim(),
+                StringComparison.Ordinal);
+
+        if (!isAuthenticatedAdmin && !hasValidBootstrapKey)
+        {
+            return Unauthorized(new
+            {
+                message = "El registro cl\u00e1sico requiere un administrador autenticado o una bootstrap key v\u00e1lida."
+            });
+        }
+
+        ServiceResult<UserSummaryResponse> result =
+            await _authService.ClassicRegisterAsync(request, isAuthenticatedAdmin || hasValidBootstrapKey, cancellationToken);
+
+        return ToActionResult(result, Created);
     }
 
     [HttpPost("login")]
@@ -56,6 +93,20 @@ public class UsersAuthController : ControllerBase
             cancellationToken);
 
         return ToActionResult(result, Ok);
+    }
+
+    [Authorize]
+    [HttpPost("change-password")]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request, CancellationToken cancellationToken)
+    {
+        Guid? userId = GetClaimGuid(ClaimTypes.NameIdentifier, "sub");
+        if (!userId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        ServiceResult result = await _authService.ChangePasswordAsync(userId.Value, request, cancellationToken);
+        return ToActionResult(result, () => Ok(new { changed = true, requiresLogin = true }));
     }
 
     [Authorize]
@@ -171,4 +222,7 @@ public class UsersAuthController : ControllerBase
 
         return null;
     }
+
+    private CreatedResult Created<T>(T payload)
+        => Created(string.Empty, payload);
 }

@@ -5,8 +5,8 @@ namespace Dynamic.Users.Domain.Entities;
 public class UserAccount
 {
     public Guid Id { get; set; }
-    public string Email { get; set; } = string.Empty;
-    public string NormalizedEmail { get; set; } = string.Empty;
+    public string? Email { get; set; }
+    public string? NormalizedEmail { get; set; }
     public string UserName { get; set; } = string.Empty;
     public string NormalizedUserName { get; set; } = string.Empty;
     public string PasswordHash { get; set; } = string.Empty;
@@ -14,7 +14,16 @@ public class UserAccount
     public string? LastName { get; set; }
     public string? DisplayName { get; set; }
     public string? PhoneNumber { get; set; }
+    public string? NormalizedPhoneNumber { get; set; }
     public bool EmailConfirmed { get; set; }
+    public bool PhoneNumberConfirmed { get; set; }
+    public bool RegistrationCompleted { get; set; }
+    public int? AgeAtRegistration { get; set; }
+    public string? RegistrationValidationToken { get; set; }
+    public DateTime? RegistrationValidationTokenExpiresAtUtc { get; set; }
+    public DateTime? RegistrationInitiatedAtUtc { get; set; }
+    public DateTime? RegistrationCompletedAtUtc { get; set; }
+    public DateTime? TemporaryPasswordSentAtUtc { get; set; }
     public UserRole Role { get; set; } = UserRole.User;
     public UserStatus Status { get; set; } = UserStatus.Active;
     public string? Language { get; set; }

@@ -11,6 +11,8 @@ public class TicketConfiguration : IEntityTypeConfiguration<Ticket>
         builder.ToTable("fidelity_tickets");
         builder.HasKey(ticket => ticket.Id);
 
+        builder.Property(ticket => ticket.ParentTicketId);
+        builder.Property(ticket => ticket.SourceQrCampaignId);
         builder.Property(ticket => ticket.Nombre).HasMaxLength(180).IsRequired();
         builder.Property(ticket => ticket.Descripcion).HasMaxLength(2000);
         builder.Property(ticket => ticket.Tipo).HasConversion<string>().HasMaxLength(32).IsRequired();
@@ -34,6 +36,8 @@ public class TicketConfiguration : IEntityTypeConfiguration<Ticket>
         builder.HasIndex(ticket => ticket.Tipo);
         builder.HasIndex(ticket => ticket.ExpiresAtUtc);
         builder.HasIndex(ticket => ticket.Usado);
+        builder.HasIndex(ticket => ticket.EsPlantilla);
+        builder.HasIndex(ticket => ticket.ParentTicketId);
         builder.HasIndex(ticket => new { ticket.NegocioId, ticket.CodigoVisible });
     }
 }
