@@ -787,6 +787,40 @@
           }
         }
       },
+      "Dynamic.Fidelity/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v10.0",
+        "dependencies": {
+          "Microsoft.EntityFrameworkCore": "9.0.0",
+          "Pomelo.EntityFrameworkCore.MySql": "9.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Dynamic.Fidelity.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Dynamic.Fidelity.dll": {}
+        },
+        "frameworkReferences": [
+          "Microsoft.AspNetCore.App"
+        ]
+      },
+      "Dynamic.Negocios/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v10.0",
+        "dependencies": {
+          "Microsoft.EntityFrameworkCore": "9.0.0",
+          "Pomelo.EntityFrameworkCore.MySql": "9.0.0"
+        },
+        "compile": {
+          "bin/placeholder/Dynamic.Negocios.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Dynamic.Negocios.dll": {}
+        },
+        "frameworkReferences": [
+          "Microsoft.AspNetCore.App"
+        ]
+      },
       "Dynamic.Users/1.0.0": {
         "type": "project",
         "framework": ".NETCoreApp,Version=v10.0",
@@ -2366,6 +2400,16 @@
         "system.identitymodel.tokens.jwt.nuspec"
       ]
     },
+    "Dynamic.Fidelity/1.0.0": {
+      "type": "project",
+      "path": "../Dynamic.Fidelity/Dynamic.Fidelity.csproj",
+      "msbuildProject": "../Dynamic.Fidelity/Dynamic.Fidelity.csproj"
+    },
+    "Dynamic.Negocios/1.0.0": {
+      "type": "project",
+      "path": "../Dynamic.Negocios/Dynamic.Negocios.csproj",
+      "msbuildProject": "../Dynamic.Negocios/Dynamic.Negocios.csproj"
+    },
     "Dynamic.Users/1.0.0": {
       "type": "project",
       "path": "../Dynamic.Users/Dynamic.Users.csproj",
@@ -2374,6 +2418,8 @@
   },
   "projectFileDependencyGroups": {
     "net10.0": [
+      "Dynamic.Fidelity >= 1.0.0",
+      "Dynamic.Negocios >= 1.0.0",
       "Dynamic.Users >= 1.0.0",
       "Microsoft.AspNetCore.Authentication.JwtBearer >= 10.0.6",
       "Microsoft.AspNetCore.OpenApi >= 10.0.6",
@@ -2413,6 +2459,12 @@
         "net10.0": {
           "targetAlias": "net10.0",
           "projectReferences": {
+            "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\Dynamic.Fidelity\\Dynamic.Fidelity.csproj": {
+              "projectPath": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\Dynamic.Fidelity\\Dynamic.Fidelity.csproj"
+            },
+            "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\Dynamic.Negocios\\Dynamic.Negocios.csproj": {
+              "projectPath": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\Dynamic.Negocios\\Dynamic.Negocios.csproj"
+            },
             "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\Dynamic.Users\\Dynamic.Users.csproj": {
               "projectPath": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\Dynamic.Users\\Dynamic.Users.csproj"
             }

@@ -97,7 +97,7 @@ public class AuthService : IAuthService
             PrivacyPolicyAcceptedAtUtc = now,
             MarketingAcceptedAtUtc = request.AcceptMarketing ? now : null,
             EmailConfirmed = false,
-            Role = UserRole.Customer,
+            Role = UserRole.User,
             Status = UserStatus.Active,
             CreatedAtUtc = now,
             UpdatedAtUtc = now,

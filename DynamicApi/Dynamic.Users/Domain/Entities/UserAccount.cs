@@ -15,7 +15,7 @@ public class UserAccount
     public string? DisplayName { get; set; }
     public string? PhoneNumber { get; set; }
     public bool EmailConfirmed { get; set; }
-    public UserRole Role { get; set; } = UserRole.Customer;
+    public UserRole Role { get; set; } = UserRole.User;
     public UserStatus Status { get; set; } = UserStatus.Active;
     public string? Language { get; set; }
     public string? TimeZone { get; set; }

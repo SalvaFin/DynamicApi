@@ -1,0 +1,13 @@
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Fidelity\bin\Debug\net10.0\Dynamic.Fidelity.deps.json
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Fidelity\bin\Debug\net10.0\Dynamic.Fidelity.dll
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Fidelity\bin\Debug\net10.0\Dynamic.Fidelity.pdb
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Fidelity\obj\Debug\net10.0\Dynamic.Fidelity.csproj.AssemblyReference.cache
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Fidelity\obj\Debug\net10.0\Dynamic.Fidelity.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Fidelity\obj\Debug\net10.0\Dynamic.Fidelity.AssemblyInfoInputs.cache
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Fidelity\obj\Debug\net10.0\Dynamic.Fidelity.AssemblyInfo.cs
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Fidelity\obj\Debug\net10.0\Dynamic.Fidelity.csproj.CoreCompileInputs.cache
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Fidelity\obj\Debug\net10.0\Dynamic.Fidelity.sourcelink.json
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Fidelity\obj\Debug\net10.0\Dynamic.Fidelity.dll
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Fidelity\obj\Debug\net10.0\refint\Dynamic.Fidelity.dll
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Fidelity\obj\Debug\net10.0\Dynamic.Fidelity.pdb
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Fidelity\obj\Debug\net10.0\ref\Dynamic.Fidelity.dll

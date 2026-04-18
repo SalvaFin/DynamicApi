@@ -10,3 +10,4 @@ C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Users\obj\Debug\net10.
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Users\obj\Debug\net10.0\refint\Dynamic.Users.dll
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Users\obj\Debug\net10.0\Dynamic.Users.pdb
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Users\obj\Debug\net10.0\ref\Dynamic.Users.dll
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Users\obj\Debug\net10.0\Dynamic.Users.sourcelink.json

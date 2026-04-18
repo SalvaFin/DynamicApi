@@ -129,3 +129,8 @@ C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\DynamicApi\obj\Debug\net10.0\r
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\DynamicApi\obj\Debug\net10.0\DynamicApi.pdb
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\DynamicApi\obj\Debug\net10.0\DynamicApi.genruntimeconfig.cache
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\DynamicApi\obj\Debug\net10.0\ref\DynamicApi.dll
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\DynamicApi\bin\Debug\net10.0\Dynamic.Negocios.dll
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\DynamicApi\bin\Debug\net10.0\Dynamic.Negocios.pdb
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\DynamicApi\obj\Debug\net10.0\DynamicApi.sourcelink.json
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\DynamicApi\bin\Debug\net10.0\Dynamic.Fidelity.dll
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\DynamicApi\bin\Debug\net10.0\Dynamic.Fidelity.pdb
