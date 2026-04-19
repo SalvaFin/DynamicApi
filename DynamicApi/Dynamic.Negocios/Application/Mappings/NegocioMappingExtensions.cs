@@ -120,6 +120,62 @@ public static class NegocioMappingExtensions
     public static Negocio ToEntity(this CrearNegocioRequest request)
         => new();
 
+    public static NegocioUsuarioVinculacionResponse ToResponse(this NegocioUsuarioVinculacion vinculacion)
+        => new()
+        {
+            VinculacionId = vinculacion.Id,
+            NegocioId = vinculacion.NegocioId,
+            UserId = vinculacion.UserId,
+            TipoVinculacion = vinculacion.TipoVinculacion,
+            TituloRelacion = vinculacion.TituloRelacion,
+            Activa = vinculacion.Activa,
+            EsPrincipal = vinculacion.EsPrincipal,
+            PuedeAccederBackoffice = vinculacion.PuedeAccederBackoffice,
+            PuedeGestionarNegocio = vinculacion.PuedeGestionarNegocio,
+            PuedeGestionarClientes = vinculacion.PuedeGestionarClientes,
+            PuedeGestionarCampanas = vinculacion.PuedeGestionarCampanas,
+            PuedeGestionarPuntos = vinculacion.PuedeGestionarPuntos,
+            PuedeValidarTickets = vinculacion.PuedeValidarTickets,
+            PuedeVerReportes = vinculacion.PuedeVerReportes,
+            NotasInternas = vinculacion.NotasInternas,
+            OrigenVinculacion = vinculacion.OrigenVinculacion,
+            FechaInvitacionUtc = vinculacion.FechaInvitacionUtc,
+            FechaAceptacionUtc = vinculacion.FechaAceptacionUtc,
+            FechaInicioUtc = vinculacion.FechaInicioUtc,
+            FechaFinUtc = vinculacion.FechaFinUtc,
+            CreatedAtUtc = vinculacion.CreatedAtUtc,
+            UpdatedAtUtc = vinculacion.UpdatedAtUtc,
+            RevokedAtUtc = vinculacion.RevokedAtUtc
+        };
+
+    public static NegocioVinculadoResponse ToNegocioVinculadoResponse(this NegocioUsuarioVinculacion vinculacion)
+        => new()
+        {
+            VinculacionId = vinculacion.Id,
+            NegocioId = vinculacion.NegocioId,
+            NombreComercial = vinculacion.Negocio?.NombreComercial ?? string.Empty,
+            SlugPortal = vinculacion.Negocio?.SlugPortal ?? string.Empty,
+            LogoPrincipalUrl = vinculacion.Negocio?.LogoPrincipalUrl,
+            ImagenHeroUrl = vinculacion.Negocio?.ImagenHeroUrl,
+            ColorPrimario = vinculacion.Negocio?.ColorPrimario,
+            ColorSecundario = vinculacion.Negocio?.ColorSecundario,
+            NegocioActivo = vinculacion.Negocio?.Activo ?? false,
+            PortalPublicado = vinculacion.Negocio?.PublicadoPortal ?? false,
+            TipoVinculacion = vinculacion.TipoVinculacion,
+            TituloRelacion = vinculacion.TituloRelacion,
+            EsPrincipal = vinculacion.EsPrincipal,
+            PuedeAccederBackoffice = vinculacion.PuedeAccederBackoffice,
+            PuedeGestionarNegocio = vinculacion.PuedeGestionarNegocio,
+            PuedeGestionarClientes = vinculacion.PuedeGestionarClientes,
+            PuedeGestionarCampanas = vinculacion.PuedeGestionarCampanas,
+            PuedeGestionarPuntos = vinculacion.PuedeGestionarPuntos,
+            PuedeValidarTickets = vinculacion.PuedeValidarTickets,
+            PuedeVerReportes = vinculacion.PuedeVerReportes,
+            FechaInicioUtc = vinculacion.FechaInicioUtc,
+            FechaFinUtc = vinculacion.FechaFinUtc,
+            FechaVinculacionUtc = vinculacion.CreatedAtUtc
+        };
+
     public static void Apply(this CrearNegocioRequest request, Negocio negocio)
     {
         negocio.OwnerUserId = request.OwnerUserId;

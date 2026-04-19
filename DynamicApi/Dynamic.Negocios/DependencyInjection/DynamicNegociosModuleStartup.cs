@@ -41,7 +41,9 @@ public class DynamicNegociosModuleStartup
         });
 
         services.AddScoped<INegocioRepository, NegocioRepository>();
+        services.AddScoped<INegocioUsuarioVinculacionRepository, NegocioUsuarioVinculacionRepository>();
         services.AddScoped<INegocioService, NegocioService>();
+        services.AddScoped<INegocioUsuarioVinculacionService, NegocioUsuarioVinculacionService>();
 
         mvcBuilder.AddApplicationPart(typeof(NegociosController).Assembly);
     }

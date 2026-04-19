@@ -112,4 +112,6 @@ public class Negocio
     public DateTime UpdatedAtUtc { get; set; }
     public DateTime? DeletedAtUtc { get; set; }
     public bool IsDeleted { get; set; }
+
+    public ICollection<NegocioUsuarioVinculacion> VinculacionesUsuarios { get; set; } = [];
 }

@@ -97,5 +97,10 @@ public class NegocioConfiguration : IEntityTypeConfiguration<Negocio>
         builder.HasIndex(negocio => negocio.OwnerUserId);
         builder.HasIndex(negocio => negocio.Estado);
         builder.HasIndex(negocio => negocio.IsDeleted);
+
+        builder.HasMany(negocio => negocio.VinculacionesUsuarios)
+            .WithOne(vinculacion => vinculacion.Negocio)
+            .HasForeignKey(vinculacion => vinculacion.NegocioId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

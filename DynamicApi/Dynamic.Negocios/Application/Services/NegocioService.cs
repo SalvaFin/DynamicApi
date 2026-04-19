@@ -14,15 +14,18 @@ public class NegocioService : INegocioService
 {
     private readonly DynamicNegociosDbContext _dbContext;
     private readonly INegocioRepository _negocioRepository;
+    private readonly INegocioUsuarioVinculacionRepository _negocioUsuarioVinculacionRepository;
     private readonly ILogger<NegocioService> _logger;
 
     public NegocioService(
         DynamicNegociosDbContext dbContext,
         INegocioRepository negocioRepository,
+        INegocioUsuarioVinculacionRepository negocioUsuarioVinculacionRepository,
         ILogger<NegocioService> logger)
     {
         _dbContext = dbContext;
         _negocioRepository = negocioRepository;
+        _negocioUsuarioVinculacionRepository = negocioUsuarioVinculacionRepository;
         _logger = logger;
     }
 
@@ -65,6 +68,7 @@ public class NegocioService : INegocioService
         negocio.IsDeleted = false;
 
         await _negocioRepository.AddAsync(negocio, cancellationToken);
+        await EnsureOwnerLinkAsync(negocio, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return ServiceResult<NegocioResponse>.Success(negocio.ToResponse());
@@ -95,6 +99,7 @@ public class NegocioService : INegocioService
         negocio.UpdatedAtUtc = DateTime.UtcNow;
         _negocioRepository.Update(negocio);
 
+        await EnsureOwnerLinkAsync(negocio, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
         return ServiceResult<NegocioResponse>.Success(negocio.ToResponse());
     }
@@ -133,5 +138,69 @@ public class NegocioService : INegocioService
         return request.SlugPortal.Any(char.IsWhiteSpace)
             ? "El slug del portal no puede contener espacios."
             : null;
+    }
+
+    private async Task EnsureOwnerLinkAsync(Negocio negocio, CancellationToken cancellationToken)
+    {
+        if (!negocio.OwnerUserId.HasValue)
+        {
+            return;
+        }
+
+        DateTime now = DateTime.UtcNow;
+        NegocioUsuarioVinculacion? existing = await _negocioUsuarioVinculacionRepository.GetByNegocioAndUserAsync(
+            negocio.Id,
+            negocio.OwnerUserId.Value,
+            cancellationToken);
+
+        if (existing is null)
+        {
+            await _negocioUsuarioVinculacionRepository.AddAsync(
+                new NegocioUsuarioVinculacion
+                {
+                    Id = Guid.NewGuid(),
+                    NegocioId = negocio.Id,
+                    UserId = negocio.OwnerUserId.Value,
+                    TipoVinculacion = Domain.Enums.TipoVinculacionNegocioUsuario.Propietario,
+                    TituloRelacion = "Propietario",
+                    Activa = true,
+                    EsPrincipal = true,
+                    PuedeAccederBackoffice = true,
+                    PuedeGestionarNegocio = true,
+                    PuedeGestionarClientes = true,
+                    PuedeGestionarCampanas = true,
+                    PuedeGestionarPuntos = true,
+                    PuedeValidarTickets = true,
+                    PuedeVerReportes = true,
+                    OrigenVinculacion = "owner_user_id",
+                    FechaInvitacionUtc = now,
+                    FechaAceptacionUtc = now,
+                    FechaInicioUtc = now,
+                    CreatedAtUtc = now,
+                    UpdatedAtUtc = now
+                },
+                cancellationToken);
+
+            return;
+        }
+
+        existing.TipoVinculacion = Domain.Enums.TipoVinculacionNegocioUsuario.Propietario;
+        existing.TituloRelacion = "Propietario";
+        existing.Activa = true;
+        existing.EsPrincipal = true;
+        existing.PuedeAccederBackoffice = true;
+        existing.PuedeGestionarNegocio = true;
+        existing.PuedeGestionarClientes = true;
+        existing.PuedeGestionarCampanas = true;
+        existing.PuedeGestionarPuntos = true;
+        existing.PuedeValidarTickets = true;
+        existing.PuedeVerReportes = true;
+        existing.OrigenVinculacion = existing.OrigenVinculacion ?? "owner_user_id";
+        existing.FechaAceptacionUtc ??= now;
+        existing.FechaInicioUtc ??= now;
+        existing.RevokedAtUtc = null;
+        existing.UnlinkedByUserId = null;
+        existing.UpdatedAtUtc = now;
+        _negocioUsuarioVinculacionRepository.Update(existing);
     }
 }

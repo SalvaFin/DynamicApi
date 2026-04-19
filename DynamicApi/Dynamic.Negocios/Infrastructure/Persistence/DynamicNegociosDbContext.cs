@@ -11,6 +11,7 @@ public class DynamicNegociosDbContext : DbContext
     }
 
     public DbSet<Negocio> Negocios => Set<Negocio>();
+    public DbSet<NegocioUsuarioVinculacion> NegociosUsuariosVinculaciones => Set<NegocioUsuarioVinculacion>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
