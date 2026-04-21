@@ -8,7 +8,6 @@ public class BackofficeAccrualByUserCodeRequest
     [MaxLength(32)]
     public string UserCode { get; set; } = string.Empty;
 
-    [Range(typeof(decimal), "0.01", "999999999")]
     public decimal AmountEuros { get; set; }
 
     [MaxLength(512)]

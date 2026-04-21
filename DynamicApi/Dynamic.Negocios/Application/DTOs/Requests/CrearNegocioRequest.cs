@@ -245,7 +245,6 @@ public class CrearNegocioRequest
     [MaxLength(2000)]
     public string? DescripcionProgramaFidelizacion { get; set; }
 
-    [Range(typeof(decimal), "0.01", "999999")]
     public decimal? RatioConversionEurosAPuntos { get; set; }
 
     [RegularExpression(@"^\d{4}$", ErrorMessage = "La clave maestra del local debe tener exactamente 4 dígitos.")]

@@ -38,3 +38,6 @@ C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-forwarded-headers\Dynami
 C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-forwarded-headers-2\Dynamic.Fidelity.deps.json
 C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-forwarded-headers-2\Dynamic.Fidelity.dll
 C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-forwarded-headers-2\Dynamic.Fidelity.pdb
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-decimal-range-fix\Dynamic.Fidelity.deps.json
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-decimal-range-fix\Dynamic.Fidelity.dll
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-decimal-range-fix\Dynamic.Fidelity.pdb
