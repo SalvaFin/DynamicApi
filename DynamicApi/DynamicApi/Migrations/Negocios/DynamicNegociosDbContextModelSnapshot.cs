@@ -82,7 +82,7 @@ namespace DynamicApi.Migrations.Negocios
 
                     b.Property<string>("CondicionesUsoUrl")
                         .HasMaxLength(512)
-                        .HasColumnType("varchar(512)");
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("datetime(6)");
@@ -92,19 +92,19 @@ namespace DynamicApi.Migrations.Negocios
 
                     b.Property<string>("DescripcionCorta")
                         .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("text");
 
                     b.Property<string>("DescripcionLarga")
                         .HasMaxLength(4000)
-                        .HasColumnType("varchar(4000)");
+                        .HasColumnType("text");
 
                     b.Property<string>("DescripcionProgramaFidelizacion")
                         .HasMaxLength(2000)
-                        .HasColumnType("varchar(2000)");
+                        .HasColumnType("text");
 
                     b.Property<string>("DiasFestivosJson")
                         .HasMaxLength(4000)
-                        .HasColumnType("varchar(4000)");
+                        .HasColumnType("text");
 
                     b.Property<string>("DireccionLinea1")
                         .HasMaxLength(255)
@@ -141,11 +141,11 @@ namespace DynamicApi.Migrations.Negocios
 
                     b.Property<string>("Etiquetas")
                         .HasMaxLength(512)
-                        .HasColumnType("varchar(512)");
+                        .HasColumnType("text");
 
                     b.Property<string>("FacebookUrl")
                         .HasMaxLength(512)
-                        .HasColumnType("varchar(512)");
+                        .HasColumnType("text");
 
                     b.Property<DateTime?>("FechaFinSuscripcionUtc")
                         .HasColumnType("datetime(6)");
@@ -166,7 +166,7 @@ namespace DynamicApi.Migrations.Negocios
 
                     b.Property<string>("GaleriaImagenesJson")
                         .HasMaxLength(4000)
-                        .HasColumnType("varchar(4000)");
+                        .HasColumnType("text");
 
                     b.Property<string>("HeadlinePortal")
                         .HasMaxLength(255)
@@ -174,15 +174,15 @@ namespace DynamicApi.Migrations.Negocios
 
                     b.Property<string>("HistoriaMarca")
                         .HasMaxLength(4000)
-                        .HasColumnType("varchar(4000)");
+                        .HasColumnType("text");
 
                     b.Property<string>("HorarioAperturaJson")
                         .HasMaxLength(4000)
-                        .HasColumnType("varchar(4000)");
+                        .HasColumnType("text");
 
                     b.Property<string>("IconoUrl")
                         .HasMaxLength(512)
-                        .HasColumnType("varchar(512)");
+                        .HasColumnType("text");
 
                     b.Property<string>("IdiomaPorDefecto")
                         .HasMaxLength(16)
@@ -190,23 +190,23 @@ namespace DynamicApi.Migrations.Negocios
 
                     b.Property<string>("IdiomasSoportados")
                         .HasMaxLength(256)
-                        .HasColumnType("varchar(256)");
+                        .HasColumnType("text");
 
                     b.Property<string>("ImagenCoverUrl")
                         .HasMaxLength(512)
-                        .HasColumnType("varchar(512)");
+                        .HasColumnType("text");
 
                     b.Property<string>("ImagenHeroUrl")
                         .HasMaxLength(512)
-                        .HasColumnType("varchar(512)");
+                        .HasColumnType("text");
 
                     b.Property<string>("ImagenMobileUrl")
                         .HasMaxLength(512)
-                        .HasColumnType("varchar(512)");
+                        .HasColumnType("text");
 
                     b.Property<string>("InstagramUrl")
                         .HasMaxLength(512)
-                        .HasColumnType("varchar(512)");
+                        .HasColumnType("text");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)");
@@ -217,15 +217,15 @@ namespace DynamicApi.Migrations.Negocios
 
                     b.Property<string>("LinkedInUrl")
                         .HasMaxLength(512)
-                        .HasColumnType("varchar(512)");
+                        .HasColumnType("text");
 
                     b.Property<string>("LogoPrincipalUrl")
                         .HasMaxLength(512)
-                        .HasColumnType("varchar(512)");
+                        .HasColumnType("text");
 
                     b.Property<string>("LogoSecundarioUrl")
                         .HasMaxLength(512)
-                        .HasColumnType("varchar(512)");
+                        .HasColumnType("text");
 
                     b.Property<decimal?>("Longitud")
                         .HasPrecision(10, 7)
@@ -242,15 +242,15 @@ namespace DynamicApi.Migrations.Negocios
 
                     b.Property<string>("MensajeBienvenida")
                         .HasMaxLength(2000)
-                        .HasColumnType("varchar(2000)");
+                        .HasColumnType("text");
 
                     b.Property<string>("MensajeLegal")
                         .HasMaxLength(2000)
-                        .HasColumnType("varchar(2000)");
+                        .HasColumnType("text");
 
                     b.Property<string>("Mision")
                         .HasMaxLength(2000)
-                        .HasColumnType("varchar(2000)");
+                        .HasColumnType("text");
 
                     b.Property<string>("MonedaCodigo")
                         .HasMaxLength(8)
@@ -270,7 +270,7 @@ namespace DynamicApi.Migrations.Negocios
 
                     b.Property<string>("OpenGraphImageUrl")
                         .HasMaxLength(512)
-                        .HasColumnType("varchar(512)");
+                        .HasColumnType("text");
 
                     b.Property<Guid?>("OwnerUserId")
                         .HasColumnType("char(36)");
@@ -305,7 +305,7 @@ namespace DynamicApi.Migrations.Negocios
 
                     b.Property<string>("PersonaObjetivo")
                         .HasMaxLength(2000)
-                        .HasColumnType("varchar(2000)");
+                        .HasColumnType("text");
 
                     b.Property<string>("PlanSuscripcion")
                         .IsRequired()
@@ -314,11 +314,11 @@ namespace DynamicApi.Migrations.Negocios
 
                     b.Property<string>("PoliticaCookiesUrl")
                         .HasMaxLength(512)
-                        .HasColumnType("varchar(512)");
+                        .HasColumnType("text");
 
                     b.Property<string>("PoliticaPrivacidadUrl")
                         .HasMaxLength(512)
-                        .HasColumnType("varchar(512)");
+                        .HasColumnType("text");
 
                     b.Property<string>("Provincia")
                         .HasMaxLength(128)
@@ -362,11 +362,11 @@ namespace DynamicApi.Migrations.Negocios
 
                     b.Property<string>("SeoDescription")
                         .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("text");
 
                     b.Property<string>("SeoKeywords")
                         .HasMaxLength(1000)
-                        .HasColumnType("varchar(1000)");
+                        .HasColumnType("text");
 
                     b.Property<string>("SeoTitle")
                         .HasMaxLength(255)
@@ -374,7 +374,7 @@ namespace DynamicApi.Migrations.Negocios
 
                     b.Property<string>("SitioWebUrl")
                         .HasMaxLength(512)
-                        .HasColumnType("varchar(512)");
+                        .HasColumnType("text");
 
                     b.Property<string>("SlugPortal")
                         .IsRequired()
@@ -387,7 +387,7 @@ namespace DynamicApi.Migrations.Negocios
 
                     b.Property<string>("SubheadlinePortal")
                         .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("text");
 
                     b.Property<string>("TelefonoPrincipal")
                         .HasMaxLength(32)
@@ -399,15 +399,15 @@ namespace DynamicApi.Migrations.Negocios
 
                     b.Property<string>("TextoCondicionesPrograma")
                         .HasMaxLength(4000)
-                        .HasColumnType("varchar(4000)");
+                        .HasColumnType("text");
 
                     b.Property<string>("TextoPoliticaPuntos")
                         .HasMaxLength(4000)
-                        .HasColumnType("varchar(4000)");
+                        .HasColumnType("text");
 
                     b.Property<string>("TikTokUrl")
                         .HasMaxLength(512)
-                        .HasColumnType("varchar(512)");
+                        .HasColumnType("text");
 
                     b.Property<string>("TipoNegocio")
                         .IsRequired()
@@ -423,15 +423,15 @@ namespace DynamicApi.Migrations.Negocios
 
                     b.Property<string>("Valores")
                         .HasMaxLength(2000)
-                        .HasColumnType("varchar(2000)");
+                        .HasColumnType("text");
 
                     b.Property<string>("VideoPromocionalUrl")
                         .HasMaxLength(512)
-                        .HasColumnType("varchar(512)");
+                        .HasColumnType("text");
 
                     b.Property<string>("Vision")
                         .HasMaxLength(2000)
-                        .HasColumnType("varchar(2000)");
+                        .HasColumnType("text");
 
                     b.Property<string>("WhatsApp")
                         .HasMaxLength(32)
@@ -439,11 +439,11 @@ namespace DynamicApi.Migrations.Negocios
 
                     b.Property<string>("XUrl")
                         .HasMaxLength(512)
-                        .HasColumnType("varchar(512)");
+                        .HasColumnType("text");
 
                     b.Property<string>("YoutubeUrl")
                         .HasMaxLength(512)
-                        .HasColumnType("varchar(512)");
+                        .HasColumnType("text");
 
                     b.Property<string>("ZonaHoraria")
                         .HasMaxLength(64)

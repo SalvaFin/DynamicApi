@@ -14,3 +14,6 @@ C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Negocios\obj\Debug\net
 C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify\Dynamic.Negocios.deps.json
 C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify\Dynamic.Negocios.dll
 C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify\Dynamic.Negocios.pdb
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-rowfix\Dynamic.Negocios.deps.json
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-rowfix\Dynamic.Negocios.dll
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-rowfix\Dynamic.Negocios.pdb

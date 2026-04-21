@@ -3,28 +3,16 @@
   "WorkspaceRootPath": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{E6A6E2D8-9697-6A91-3805-561AEE3E8B65}|Dynamic.Negocios\\Dynamic.Negocios.csproj|c:\\users\\salva\\source\\repos\\dynamicapi\\dynamicapi\\dynamic.negocios\\domain\\entities\\negocio.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{E6A6E2D8-9697-6A91-3805-561AEE3E8B65}|Dynamic.Negocios\\Dynamic.Negocios.csproj|solutionrelative:dynamic.negocios\\domain\\entities\\negocio.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{0144C533-88DB-0D10-F994-F05BBF853BF0}|DynamicApi\\DynamicApi.csproj|c:\\users\\salva\\source\\repos\\dynamicapi\\dynamicapi\\dynamicapi\\appsettings.development.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
+      "RelativeMoniker": "D:0:0:{0144C533-88DB-0D10-F994-F05BBF853BF0}|DynamicApi\\DynamicApi.csproj|solutionrelative:dynamicapi\\appsettings.development.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{50EB3C82-38B1-51DE-475D-5901374F40AA}|Dynamic.Users\\Dynamic.Users.csproj|c:\\users\\salva\\source\\repos\\dynamicapi\\dynamicapi\\dynamic.users\\dependencyinjection\\dynamicusersmodulestartup.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{50EB3C82-38B1-51DE-475D-5901374F40AA}|Dynamic.Users\\Dynamic.Users.csproj|solutionrelative:dynamic.users\\dependencyinjection\\dynamicusersmodulestartup.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{0144C533-88DB-0D10-F994-F05BBF853BF0}|DynamicApi\\DynamicApi.csproj|c:\\users\\salva\\source\\repos\\dynamicapi\\dynamicapi\\dynamicapi\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
+      "RelativeMoniker": "D:0:0:{0144C533-88DB-0D10-F994-F05BBF853BF0}|DynamicApi\\DynamicApi.csproj|solutionrelative:dynamicapi\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{50EB3C82-38B1-51DE-475D-5901374F40AA}|Dynamic.Users\\Dynamic.Users.csproj|c:\\users\\salva\\source\\repos\\dynamicapi\\dynamicapi\\dynamic.users\\domain\\entities\\useraccount.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{50EB3C82-38B1-51DE-475D-5901374F40AA}|Dynamic.Users\\Dynamic.Users.csproj|solutionrelative:dynamic.users\\domain\\entities\\useraccount.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{50EB3C82-38B1-51DE-475D-5901374F40AA}|Dynamic.Users\\Dynamic.Users.csproj|c:\\users\\salva\\source\\repos\\dynamicapi\\dynamicapi\\dynamic.users\\infrastructure\\persistence\\configurations\\usersessionconfiguration.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{50EB3C82-38B1-51DE-475D-5901374F40AA}|Dynamic.Users\\Dynamic.Users.csproj|solutionrelative:dynamic.users\\infrastructure\\persistence\\configurations\\usersessionconfiguration.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{50EB3C82-38B1-51DE-475D-5901374F40AA}|Dynamic.Users\\Dynamic.Users.csproj|c:\\users\\salva\\source\\repos\\dynamicapi\\dynamicapi\\dynamic.users\\infrastructure\\persistence\\dynamicusersdbcontext.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{50EB3C82-38B1-51DE-475D-5901374F40AA}|Dynamic.Users\\Dynamic.Users.csproj|solutionrelative:dynamic.users\\infrastructure\\persistence\\dynamicusersdbcontext.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\.gitignore||{3B902123-F8A7-4915-9F01-361F908088D0}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:.gitignore||{3B902123-F8A7-4915-9F01-361F908088D0}"
+      "AbsoluteMoniker": "D:0:0:{0144C533-88DB-0D10-F994-F05BBF853BF0}|DynamicApi\\DynamicApi.csproj|c:\\users\\salva\\source\\repos\\dynamicapi\\dynamicapi\\dynamicapi\\migrations\\20260418101408_initialdynamicusersauth.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{0144C533-88DB-0D10-F994-F05BBF853BF0}|DynamicApi\\DynamicApi.csproj|solutionrelative:dynamicapi\\migrations\\20260418101408_initialdynamicusersauth.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
   "DocumentGroupContainers": [
@@ -47,76 +35,41 @@
             {
               "$type": "Document",
               "DocumentIndex": 0,
-              "Title": "Negocio.cs",
-              "DocumentMoniker": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\Dynamic.Negocios\\Domain\\Entities\\Negocio.cs",
-              "RelativeDocumentMoniker": "Dynamic.Negocios\\Domain\\Entities\\Negocio.cs",
-              "ToolTip": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\Dynamic.Negocios\\Domain\\Entities\\Negocio.cs",
-              "RelativeToolTip": "Dynamic.Negocios\\Domain\\Entities\\Negocio.cs",
-              "ViewState": "AgIAAFIAAAAAAAAAAAAAwA8AAAAWAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-19T08:18:11.173Z",
+              "Title": "appsettings.Development.json",
+              "DocumentMoniker": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\DynamicApi\\appsettings.Development.json",
+              "RelativeDocumentMoniker": "DynamicApi\\appsettings.Development.json",
+              "ToolTip": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\DynamicApi\\appsettings.Development.json",
+              "RelativeToolTip": "DynamicApi\\appsettings.Development.json",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAoAAAAeAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
+              "WhenOpened": "2026-04-21T17:36:52.105Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
               "DocumentIndex": 1,
-              "Title": "DynamicUsersModuleStartup.cs",
-              "DocumentMoniker": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\Dynamic.Users\\DependencyInjection\\DynamicUsersModuleStartup.cs",
-              "RelativeDocumentMoniker": "Dynamic.Users\\DependencyInjection\\DynamicUsersModuleStartup.cs",
-              "ToolTip": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\Dynamic.Users\\DependencyInjection\\DynamicUsersModuleStartup.cs",
-              "RelativeToolTip": "Dynamic.Users\\DependencyInjection\\DynamicUsersModuleStartup.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-18T11:53:17.746Z",
+              "Title": "appsettings.json",
+              "DocumentMoniker": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\DynamicApi\\appsettings.json",
+              "RelativeDocumentMoniker": "DynamicApi\\appsettings.json",
+              "ToolTip": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\DynamicApi\\appsettings.json",
+              "RelativeToolTip": "DynamicApi\\appsettings.json",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
+              "WhenOpened": "2026-04-21T17:36:38.713Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
               "DocumentIndex": 2,
-              "Title": "UserAccount.cs",
-              "DocumentMoniker": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\Dynamic.Users\\Domain\\Entities\\UserAccount.cs",
-              "RelativeDocumentMoniker": "Dynamic.Users\\Domain\\Entities\\UserAccount.cs",
-              "ToolTip": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\Dynamic.Users\\Domain\\Entities\\UserAccount.cs",
-              "RelativeToolTip": "Dynamic.Users\\Domain\\Entities\\UserAccount.cs",
-              "ViewState": "AgIAAAwAAAAAAAAAAAAmwAAAAAAAAAAAAAAAAA==",
+              "Title": "20260418101408_InitialDynamicUsersAuth.cs",
+              "DocumentMoniker": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\DynamicApi\\Migrations\\20260418101408_InitialDynamicUsersAuth.cs",
+              "RelativeDocumentMoniker": "DynamicApi\\Migrations\\20260418101408_InitialDynamicUsersAuth.cs",
+              "ToolTip": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\DynamicApi\\Migrations\\20260418101408_InitialDynamicUsersAuth.cs",
+              "RelativeToolTip": "DynamicApi\\Migrations\\20260418101408_InitialDynamicUsersAuth.cs",
+              "ViewState": "AgIAAIUAAAAAAAAAAAAgwAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-18T11:52:49.165Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 3,
-              "Title": "UserSessionConfiguration.cs",
-              "DocumentMoniker": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\Dynamic.Users\\Infrastructure\\Persistence\\Configurations\\UserSessionConfiguration.cs",
-              "RelativeDocumentMoniker": "Dynamic.Users\\Infrastructure\\Persistence\\Configurations\\UserSessionConfiguration.cs",
-              "ToolTip": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\Dynamic.Users\\Infrastructure\\Persistence\\Configurations\\UserSessionConfiguration.cs",
-              "RelativeToolTip": "Dynamic.Users\\Infrastructure\\Persistence\\Configurations\\UserSessionConfiguration.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-18T11:52:35.117Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 4,
-              "Title": "DynamicUsersDbContext.cs",
-              "DocumentMoniker": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\Dynamic.Users\\Infrastructure\\Persistence\\DynamicUsersDbContext.cs",
-              "RelativeDocumentMoniker": "Dynamic.Users\\Infrastructure\\Persistence\\DynamicUsersDbContext.cs",
-              "ToolTip": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\Dynamic.Users\\Infrastructure\\Persistence\\DynamicUsersDbContext.cs",
-              "RelativeToolTip": "Dynamic.Users\\Infrastructure\\Persistence\\DynamicUsersDbContext.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-18T11:52:23.661Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 5,
-              "Title": ".gitignore",
-              "DocumentMoniker": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\.gitignore",
-              "RelativeDocumentMoniker": ".gitignore",
-              "ToolTip": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\.gitignore",
-              "RelativeToolTip": ".gitignore",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAGUAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2026-04-18T11:51:56.377Z"
+              "WhenOpened": "2026-04-21T17:36:23.385Z",
+              "EditorCaption": ""
             }
           ]
         }

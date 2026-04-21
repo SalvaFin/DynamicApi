@@ -44,23 +44,23 @@ namespace DynamicApi.Migrations.Negocios
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     Subcategoria = table.Column<string>(type: "varchar(120)", maxLength: 120, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    Etiquetas = table.Column<string>(type: "varchar(512)", maxLength: 512, nullable: true)
+                    Etiquetas = table.Column<string>(type: "text", maxLength: 512, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    DescripcionCorta = table.Column<string>(type: "varchar(500)", maxLength: 500, nullable: true)
+                    DescripcionCorta = table.Column<string>(type: "text", maxLength: 500, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    DescripcionLarga = table.Column<string>(type: "varchar(4000)", maxLength: 4000, nullable: true)
+                    DescripcionLarga = table.Column<string>(type: "text", maxLength: 4000, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     Eslogan = table.Column<string>(type: "varchar(240)", maxLength: 240, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    HistoriaMarca = table.Column<string>(type: "varchar(4000)", maxLength: 4000, nullable: true)
+                    HistoriaMarca = table.Column<string>(type: "text", maxLength: 4000, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    Mision = table.Column<string>(type: "varchar(2000)", maxLength: 2000, nullable: true)
+                    Mision = table.Column<string>(type: "text", maxLength: 2000, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    Vision = table.Column<string>(type: "varchar(2000)", maxLength: 2000, nullable: true)
+                    Vision = table.Column<string>(type: "text", maxLength: 2000, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    Valores = table.Column<string>(type: "varchar(2000)", maxLength: 2000, nullable: true)
+                    Valores = table.Column<string>(type: "text", maxLength: 2000, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    PersonaObjetivo = table.Column<string>(type: "varchar(2000)", maxLength: 2000, nullable: true)
+                    PersonaObjetivo = table.Column<string>(type: "text", maxLength: 2000, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     EmailContacto = table.Column<string>(type: "varchar(256)", maxLength: 256, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
@@ -72,7 +72,7 @@ namespace DynamicApi.Migrations.Negocios
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     WhatsApp = table.Column<string>(type: "varchar(32)", maxLength: 32, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    SitioWebUrl = table.Column<string>(type: "varchar(512)", maxLength: 512, nullable: true)
+                    SitioWebUrl = table.Column<string>(type: "text", maxLength: 512, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     DominioPersonalizado = table.Column<string>(type: "varchar(255)", maxLength: 255, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
@@ -98,29 +98,29 @@ namespace DynamicApi.Migrations.Negocios
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     IdiomaPorDefecto = table.Column<string>(type: "varchar(16)", maxLength: 16, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    IdiomasSoportados = table.Column<string>(type: "varchar(256)", maxLength: 256, nullable: true)
+                    IdiomasSoportados = table.Column<string>(type: "text", maxLength: 256, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     MonedaCodigo = table.Column<string>(type: "varchar(8)", maxLength: 8, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    HorarioAperturaJson = table.Column<string>(type: "varchar(4000)", maxLength: 4000, nullable: true)
+                    HorarioAperturaJson = table.Column<string>(type: "text", maxLength: 4000, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    DiasFestivosJson = table.Column<string>(type: "varchar(4000)", maxLength: 4000, nullable: true)
+                    DiasFestivosJson = table.Column<string>(type: "text", maxLength: 4000, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    LogoPrincipalUrl = table.Column<string>(type: "varchar(512)", maxLength: 512, nullable: true)
+                    LogoPrincipalUrl = table.Column<string>(type: "text", maxLength: 512, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    LogoSecundarioUrl = table.Column<string>(type: "varchar(512)", maxLength: 512, nullable: true)
+                    LogoSecundarioUrl = table.Column<string>(type: "text", maxLength: 512, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    IconoUrl = table.Column<string>(type: "varchar(512)", maxLength: 512, nullable: true)
+                    IconoUrl = table.Column<string>(type: "text", maxLength: 512, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    ImagenHeroUrl = table.Column<string>(type: "varchar(512)", maxLength: 512, nullable: true)
+                    ImagenHeroUrl = table.Column<string>(type: "text", maxLength: 512, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    ImagenCoverUrl = table.Column<string>(type: "varchar(512)", maxLength: 512, nullable: true)
+                    ImagenCoverUrl = table.Column<string>(type: "text", maxLength: 512, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    ImagenMobileUrl = table.Column<string>(type: "varchar(512)", maxLength: 512, nullable: true)
+                    ImagenMobileUrl = table.Column<string>(type: "text", maxLength: 512, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    GaleriaImagenesJson = table.Column<string>(type: "varchar(4000)", maxLength: 4000, nullable: true)
+                    GaleriaImagenesJson = table.Column<string>(type: "text", maxLength: 4000, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    VideoPromocionalUrl = table.Column<string>(type: "varchar(512)", maxLength: 512, nullable: true)
+                    VideoPromocionalUrl = table.Column<string>(type: "text", maxLength: 512, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     ColorPrimario = table.Column<string>(type: "varchar(32)", maxLength: 32, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
@@ -138,45 +138,45 @@ namespace DynamicApi.Migrations.Negocios
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     HeadlinePortal = table.Column<string>(type: "varchar(255)", maxLength: 255, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    SubheadlinePortal = table.Column<string>(type: "varchar(500)", maxLength: 500, nullable: true)
+                    SubheadlinePortal = table.Column<string>(type: "text", maxLength: 500, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    MensajeBienvenida = table.Column<string>(type: "varchar(2000)", maxLength: 2000, nullable: true)
+                    MensajeBienvenida = table.Column<string>(type: "text", maxLength: 2000, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    MensajeLegal = table.Column<string>(type: "varchar(2000)", maxLength: 2000, nullable: true)
+                    MensajeLegal = table.Column<string>(type: "text", maxLength: 2000, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     SeoTitle = table.Column<string>(type: "varchar(255)", maxLength: 255, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    SeoDescription = table.Column<string>(type: "varchar(500)", maxLength: 500, nullable: true)
+                    SeoDescription = table.Column<string>(type: "text", maxLength: 500, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    SeoKeywords = table.Column<string>(type: "varchar(1000)", maxLength: 1000, nullable: true)
+                    SeoKeywords = table.Column<string>(type: "text", maxLength: 1000, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    OpenGraphImageUrl = table.Column<string>(type: "varchar(512)", maxLength: 512, nullable: true)
+                    OpenGraphImageUrl = table.Column<string>(type: "text", maxLength: 512, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    FacebookUrl = table.Column<string>(type: "varchar(512)", maxLength: 512, nullable: true)
+                    FacebookUrl = table.Column<string>(type: "text", maxLength: 512, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    InstagramUrl = table.Column<string>(type: "varchar(512)", maxLength: 512, nullable: true)
+                    InstagramUrl = table.Column<string>(type: "text", maxLength: 512, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    TikTokUrl = table.Column<string>(type: "varchar(512)", maxLength: 512, nullable: true)
+                    TikTokUrl = table.Column<string>(type: "text", maxLength: 512, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    XUrl = table.Column<string>(type: "varchar(512)", maxLength: 512, nullable: true)
+                    XUrl = table.Column<string>(type: "text", maxLength: 512, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    LinkedInUrl = table.Column<string>(type: "varchar(512)", maxLength: 512, nullable: true)
+                    LinkedInUrl = table.Column<string>(type: "text", maxLength: 512, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    YoutubeUrl = table.Column<string>(type: "varchar(512)", maxLength: 512, nullable: true)
+                    YoutubeUrl = table.Column<string>(type: "text", maxLength: 512, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    CondicionesUsoUrl = table.Column<string>(type: "varchar(512)", maxLength: 512, nullable: true)
+                    CondicionesUsoUrl = table.Column<string>(type: "text", maxLength: 512, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    PoliticaPrivacidadUrl = table.Column<string>(type: "varchar(512)", maxLength: 512, nullable: true)
+                    PoliticaPrivacidadUrl = table.Column<string>(type: "text", maxLength: 512, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    PoliticaCookiesUrl = table.Column<string>(type: "varchar(512)", maxLength: 512, nullable: true)
+                    PoliticaCookiesUrl = table.Column<string>(type: "text", maxLength: 512, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    TextoCondicionesPrograma = table.Column<string>(type: "varchar(4000)", maxLength: 4000, nullable: true)
+                    TextoCondicionesPrograma = table.Column<string>(type: "text", maxLength: 4000, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    TextoPoliticaPuntos = table.Column<string>(type: "varchar(4000)", maxLength: 4000, nullable: true)
+                    TextoPoliticaPuntos = table.Column<string>(type: "text", maxLength: 4000, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     NombreProgramaFidelizacion = table.Column<string>(type: "varchar(180)", maxLength: 180, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    DescripcionProgramaFidelizacion = table.Column<string>(type: "varchar(2000)", maxLength: 2000, nullable: true)
+                    DescripcionProgramaFidelizacion = table.Column<string>(type: "text", maxLength: 2000, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     PuntosBienvenida = table.Column<int>(type: "int", nullable: true),
                     PuntosCumpleanos = table.Column<int>(type: "int", nullable: true),
