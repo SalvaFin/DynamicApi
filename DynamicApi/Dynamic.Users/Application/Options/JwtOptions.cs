@@ -16,9 +16,9 @@ public class JwtOptions
     [MinLength(32)]
     public string Secret { get; set; } = string.Empty;
 
-    [Range(1, 1440)]
-    public int AccessTokenExpirationMinutes { get; set; } = 30;
+    [Range(1, 168)]
+    public int AdminSessionExpirationHours { get; set; } = 24;
 
-    [Range(1, 365)]
-    public int RefreshTokenExpirationDays { get; set; } = 30;
+    [Range(1, 36500)]
+    public int NonAdminPersistentSessionDays { get; set; } = 36500;
 }

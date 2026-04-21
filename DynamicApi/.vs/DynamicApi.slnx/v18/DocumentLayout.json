@@ -3,12 +3,12 @@
   "WorkspaceRootPath": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{0144C533-88DB-0D10-F994-F05BBF853BF0}|DynamicApi\\DynamicApi.csproj|c:\\users\\salva\\source\\repos\\dynamicapi\\dynamicapi\\dynamicapi\\appsettings.development.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
-      "RelativeMoniker": "D:0:0:{0144C533-88DB-0D10-F994-F05BBF853BF0}|DynamicApi\\DynamicApi.csproj|solutionrelative:dynamicapi\\appsettings.development.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{0144C533-88DB-0D10-F994-F05BBF853BF0}|DynamicApi\\DynamicApi.csproj|c:\\users\\salva\\source\\repos\\dynamicapi\\dynamicapi\\dynamicapi\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
       "RelativeMoniker": "D:0:0:{0144C533-88DB-0D10-F994-F05BBF853BF0}|DynamicApi\\DynamicApi.csproj|solutionrelative:dynamicapi\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{0144C533-88DB-0D10-F994-F05BBF853BF0}|DynamicApi\\DynamicApi.csproj|c:\\users\\salva\\source\\repos\\dynamicapi\\dynamicapi\\dynamicapi\\appsettings.development.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
+      "RelativeMoniker": "D:0:0:{0144C533-88DB-0D10-F994-F05BBF853BF0}|DynamicApi\\DynamicApi.csproj|solutionrelative:dynamicapi\\appsettings.development.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{0144C533-88DB-0D10-F994-F05BBF853BF0}|DynamicApi\\DynamicApi.csproj|c:\\users\\salva\\source\\repos\\dynamicapi\\dynamicapi\\dynamicapi\\migrations\\20260418101408_initialdynamicusersauth.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
@@ -22,7 +22,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 2,
+          "SelectedChildIndex": 3,
           "Children": [
             {
               "$type": "Bookmark",
@@ -34,26 +34,26 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 1,
               "Title": "appsettings.Development.json",
               "DocumentMoniker": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\DynamicApi\\appsettings.Development.json",
               "RelativeDocumentMoniker": "DynamicApi\\appsettings.Development.json",
               "ToolTip": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\DynamicApi\\appsettings.Development.json",
               "RelativeToolTip": "DynamicApi\\appsettings.Development.json",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAkAAAAwAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
               "WhenOpened": "2026-04-21T17:36:52.105Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 0,
               "Title": "appsettings.json",
               "DocumentMoniker": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\DynamicApi\\appsettings.json",
               "RelativeDocumentMoniker": "DynamicApi\\appsettings.json",
               "ToolTip": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\DynamicApi\\appsettings.json",
               "RelativeToolTip": "DynamicApi\\appsettings.json",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABEAAAAxAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
               "WhenOpened": "2026-04-21T17:36:38.713Z",
               "EditorCaption": ""
@@ -66,7 +66,7 @@
               "RelativeDocumentMoniker": "DynamicApi\\Migrations\\20260418101408_InitialDynamicUsersAuth.cs",
               "ToolTip": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\DynamicApi\\Migrations\\20260418101408_InitialDynamicUsersAuth.cs",
               "RelativeToolTip": "DynamicApi\\Migrations\\20260418101408_InitialDynamicUsersAuth.cs",
-              "ViewState": "AgIAAIUAAAAAAAAAAAAgwAAAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAIUAAAAAAAAAAAAgwJ0AAABiAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-04-21T17:36:23.385Z",
               "EditorCaption": ""

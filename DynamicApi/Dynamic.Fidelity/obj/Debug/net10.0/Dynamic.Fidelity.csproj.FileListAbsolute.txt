@@ -20,3 +20,6 @@ C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify\Dynamic.Fidelity.pdb
 C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-rowfix\Dynamic.Fidelity.deps.json
 C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-rowfix\Dynamic.Fidelity.dll
 C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-rowfix\Dynamic.Fidelity.pdb
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-session-policy\Dynamic.Fidelity.deps.json
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-session-policy\Dynamic.Fidelity.dll
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-session-policy\Dynamic.Fidelity.pdb

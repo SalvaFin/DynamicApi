@@ -160,3 +160,11 @@ C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-rowfix\DynamicApi.deps.j
 C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-rowfix\DynamicApi.runtimeconfig.json
 C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-rowfix\DynamicApi.dll
 C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-rowfix\DynamicApi.pdb
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-session-policy\appsettings.Development.json
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-session-policy\appsettings.json
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-session-policy\DynamicApi.staticwebassets.endpoints.json
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-session-policy\DynamicApi.exe
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-session-policy\DynamicApi.deps.json
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-session-policy\DynamicApi.runtimeconfig.json
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-session-policy\DynamicApi.dll
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-session-policy\DynamicApi.pdb

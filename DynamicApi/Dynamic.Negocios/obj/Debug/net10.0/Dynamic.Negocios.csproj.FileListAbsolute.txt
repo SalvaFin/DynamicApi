@@ -17,3 +17,6 @@ C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify\Dynamic.Negocios.pdb
 C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-rowfix\Dynamic.Negocios.deps.json
 C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-rowfix\Dynamic.Negocios.dll
 C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-rowfix\Dynamic.Negocios.pdb
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-session-policy\Dynamic.Negocios.deps.json
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-session-policy\Dynamic.Negocios.dll
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-session-policy\Dynamic.Negocios.pdb

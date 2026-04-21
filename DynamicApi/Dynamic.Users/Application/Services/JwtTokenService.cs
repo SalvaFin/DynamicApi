@@ -6,6 +6,7 @@ using Dynamic.Users.Application.Contracts.Services;
 using Dynamic.Users.Application.Models;
 using Dynamic.Users.Application.Options;
 using Dynamic.Users.Domain.Entities;
+using Dynamic.Users.Domain.Enums;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
@@ -23,8 +24,7 @@ public class JwtTokenService : IJwtTokenService
     public GeneratedTokenEnvelope GenerateTokens(UserAccount user, UserSession session)
     {
         DateTime now = DateTime.UtcNow;
-        DateTime accessTokenExpiresAt = now.AddMinutes(_jwtOptions.AccessTokenExpirationMinutes);
-        DateTime refreshTokenExpiresAt = now.AddDays(_jwtOptions.RefreshTokenExpirationDays);
+        (DateTime accessTokenExpiresAt, DateTime refreshTokenExpiresAt) = ResolveExpirationWindow(user.Role, now);
         string jwtId = Guid.NewGuid().ToString("N");
 
         List<Claim> claims =
@@ -75,6 +75,18 @@ public class JwtTokenService : IJwtTokenService
             AccessTokenExpiresAtUtc = accessTokenExpiresAt,
             RefreshTokenExpiresAtUtc = refreshTokenExpiresAt
         };
+    }
+
+    private (DateTime AccessTokenExpiresAtUtc, DateTime RefreshTokenExpiresAtUtc) ResolveExpirationWindow(UserRole role, DateTime now)
+    {
+        if (role == UserRole.Admin)
+        {
+            DateTime expiresAt = now.AddHours(_jwtOptions.AdminSessionExpirationHours);
+            return (expiresAt, expiresAt);
+        }
+
+        DateTime persistentExpiry = now.AddDays(_jwtOptions.NonAdminPersistentSessionDays);
+        return (persistentExpiry, persistentExpiry);
     }
 
     public string HashRefreshToken(string refreshToken)
