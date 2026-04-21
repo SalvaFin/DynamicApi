@@ -168,3 +168,11 @@ C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-session-policy\DynamicAp
 C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-session-policy\DynamicApi.runtimeconfig.json
 C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-session-policy\DynamicApi.dll
 C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-session-policy\DynamicApi.pdb
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-cors-open\appsettings.Development.json
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-cors-open\appsettings.json
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-cors-open\DynamicApi.staticwebassets.endpoints.json
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-cors-open\DynamicApi.exe
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-cors-open\DynamicApi.deps.json
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-cors-open\DynamicApi.runtimeconfig.json
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-cors-open\DynamicApi.dll
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-cors-open\DynamicApi.pdb

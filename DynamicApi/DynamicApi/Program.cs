@@ -19,6 +19,16 @@ if (string.IsNullOrWhiteSpace(jwtOptions.Secret) || jwtOptions.Secret.Length < 3
 }
 
 builder.Services.AddDynamicModules(builder.Configuration);
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("OpenCors", policy =>
+    {
+        policy
+            .AllowAnyOrigin()
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminAuth", policy =>
@@ -64,6 +74,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseCors("OpenCors");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

@@ -27,3 +27,6 @@ C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-rowfix\Dynamic.Users.pdb
 C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-session-policy\Dynamic.Users.deps.json
 C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-session-policy\Dynamic.Users.dll
 C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-session-policy\Dynamic.Users.pdb
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-cors-open\Dynamic.Users.deps.json
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-cors-open\Dynamic.Users.dll
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-cors-open\Dynamic.Users.pdb
