@@ -335,7 +335,6 @@ public class AuthService : IAuthService
 
     public async Task<ServiceResult<UserSummaryResponse>> ClassicRegisterAsync(
         ClassicRegisterRequest request,
-        bool allowPrivilegedRoleCreation,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(request.UserName) ||
@@ -353,12 +352,6 @@ public class AuthService : IAuthService
         if (string.IsNullOrWhiteSpace(request.Email) && string.IsNullOrWhiteSpace(request.PhoneNumber))
         {
             return ServiceResult<UserSummaryResponse>.Failure("validation_error", "Debes indicar al menos un email o un número de teléfono.");
-        }
-
-        if (!allowPrivilegedRoleCreation &&
-            request.Role is UserRole.Admin or UserRole.PropietarioNegocio or UserRole.TrabajadorNegocio)
-        {
-            return ServiceResult<UserSummaryResponse>.Failure("unauthorized", "No tienes permisos para crear usuarios con ese rol.");
         }
 
         string normalizedUserName = request.UserName.Trim().ToUpperInvariant();
@@ -416,7 +409,7 @@ public class AuthService : IAuthService
             RegistrationCompleted = true,
             RegistrationInitiatedAtUtc = now,
             RegistrationCompletedAtUtc = now,
-            Role = request.Role,
+            Role = UserRole.User,
             Status = UserStatus.Active,
             CreatedAtUtc = now,
             UpdatedAtUtc = now,

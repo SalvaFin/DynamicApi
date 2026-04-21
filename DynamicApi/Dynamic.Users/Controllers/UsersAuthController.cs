@@ -7,7 +7,6 @@ using Dynamic.Users.Application.Options;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
 
 namespace Dynamic.Users.Controllers;
 
@@ -17,13 +16,11 @@ public class UsersAuthController : ControllerBase
 {
     private readonly IAuthService _authService;
     private readonly IUserService _userService;
-    private readonly UserRegistrationOptions _userRegistrationOptions;
 
-    public UsersAuthController(IAuthService authService, IUserService userService, IOptions<UserRegistrationOptions> userRegistrationOptions)
+    public UsersAuthController(IAuthService authService, IUserService userService)
     {
         _authService = authService;
         _userService = userService;
-        _userRegistrationOptions = userRegistrationOptions.Value;
     }
 
     [HttpPost("register")]
@@ -49,24 +46,8 @@ public class UsersAuthController : ControllerBase
     [HttpPost("register/classic")]
     public async Task<IActionResult> ClassicRegister([FromBody] ClassicRegisterRequest request, CancellationToken cancellationToken)
     {
-        bool isAuthenticatedAdmin = User.Identity?.IsAuthenticated == true && User.IsInRole("Admin");
-        bool hasValidBootstrapKey =
-            !string.IsNullOrWhiteSpace(_userRegistrationOptions.ClassicRegisterBootstrapKey) &&
-            string.Equals(
-                _userRegistrationOptions.ClassicRegisterBootstrapKey,
-                request.BootstrapKey?.Trim(),
-                StringComparison.Ordinal);
-
-        if (!isAuthenticatedAdmin && !hasValidBootstrapKey)
-        {
-            return Unauthorized(new
-            {
-                message = "El registro cl\u00e1sico requiere un administrador autenticado o una bootstrap key v\u00e1lida."
-            });
-        }
-
         ServiceResult<UserSummaryResponse> result =
-            await _authService.ClassicRegisterAsync(request, isAuthenticatedAdmin || hasValidBootstrapKey, cancellationToken);
+            await _authService.ClassicRegisterAsync(request, cancellationToken);
 
         return ToActionResult(result, Created);
     }

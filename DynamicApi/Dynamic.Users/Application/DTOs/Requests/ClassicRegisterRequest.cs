@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using Dynamic.Users.Domain.Enums;
 
 namespace Dynamic.Users.Application.DTOs.Requests;
 
@@ -30,9 +29,4 @@ public class ClassicRegisterRequest
 
     [MaxLength(128)]
     public string? LastName { get; set; }
-
-    public UserRole Role { get; set; } = UserRole.User;
-
-    [MaxLength(128)]
-    public string? BootstrapKey { get; set; }
 }

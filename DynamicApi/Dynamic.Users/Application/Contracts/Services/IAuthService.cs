@@ -18,7 +18,6 @@ public interface IAuthService
 
     Task<ServiceResult<UserSummaryResponse>> ClassicRegisterAsync(
         ClassicRegisterRequest request,
-        bool allowPrivilegedRoleCreation,
         CancellationToken cancellationToken = default);
 
     Task<ServiceResult<AuthResponse>> LoginAsync(
