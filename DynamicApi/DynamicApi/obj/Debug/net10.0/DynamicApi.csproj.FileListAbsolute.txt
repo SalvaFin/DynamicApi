@@ -142,3 +142,14 @@ C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\DynamicApi\bin\Debug\net10.0\S
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\DynamicApi\bin\Debug\net10.0\runtimes\win\lib\net6.0\Microsoft.Win32.SystemEvents.dll
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\DynamicApi\bin\Debug\net10.0\runtimes\unix\lib\net6.0\System.Drawing.Common.dll
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\DynamicApi\bin\Debug\net10.0\runtimes\win\lib\net6.0\System.Drawing.Common.dll
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\DynamicApi\bin\Debug\net10.0\Swashbuckle.AspNetCore.Swagger.dll
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\DynamicApi\bin\Debug\net10.0\Swashbuckle.AspNetCore.SwaggerGen.dll
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\DynamicApi\bin\Debug\net10.0\Swashbuckle.AspNetCore.SwaggerUI.dll
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify\appsettings.Development.json
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify\appsettings.json
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify\DynamicApi.staticwebassets.endpoints.json
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify\DynamicApi.exe
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify\DynamicApi.deps.json
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify\DynamicApi.runtimeconfig.json
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify\DynamicApi.dll
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify\DynamicApi.pdb

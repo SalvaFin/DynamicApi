@@ -1,6 +1,10 @@
 using System.Text;
+using Dynamic.Fidelity.Infrastructure.Persistence;
+using Dynamic.Negocios.Infrastructure.Persistence;
 using Dynamic.Users.Application.Options;
+using Dynamic.Users.Infrastructure.Persistence;
 using DynamicApi.Infrastructure.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 
@@ -43,13 +47,20 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-builder.Services.AddOpenApi();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    await using AsyncServiceScope scope = app.Services.CreateAsyncScope();
+    await scope.ServiceProvider.GetRequiredService<DynamicUsersDbContext>().Database.MigrateAsync();
+    await scope.ServiceProvider.GetRequiredService<DynamicNegociosDbContext>().Database.MigrateAsync();
+    await scope.ServiceProvider.GetRequiredService<DynamicFidelityDbContext>().Database.MigrateAsync();
+
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
 
 app.UseHttpsRedirection();
