@@ -4,6 +4,7 @@ using Dynamic.Negocios.Infrastructure.Persistence;
 using Dynamic.Users.Application.Options;
 using Dynamic.Users.Infrastructure.Persistence;
 using DynamicApi.Infrastructure.DependencyInjection;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -60,6 +61,13 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -73,6 +81,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseForwardedHeaders();
 app.UseHttpsRedirection();
 app.UseCors("OpenCors");
 app.UseAuthentication();

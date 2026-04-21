@@ -3,6 +3,10 @@
   "WorkspaceRootPath": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{0144C533-88DB-0D10-F994-F05BBF853BF0}|DynamicApi\\DynamicApi.csproj|c:\\users\\salva\\source\\repos\\dynamicapi\\dynamicapi\\dynamicapi\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{0144C533-88DB-0D10-F994-F05BBF853BF0}|DynamicApi\\DynamicApi.csproj|solutionrelative:dynamicapi\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{0144C533-88DB-0D10-F994-F05BBF853BF0}|DynamicApi\\DynamicApi.csproj|c:\\users\\salva\\source\\repos\\dynamicapi\\dynamicapi\\dynamicapi\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
       "RelativeMoniker": "D:0:0:{0144C533-88DB-0D10-F994-F05BBF853BF0}|DynamicApi\\DynamicApi.csproj|solutionrelative:dynamicapi\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
     },
@@ -22,8 +26,21 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 3,
+          "SelectedChildIndex": 0,
           "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "Program.cs",
+              "DocumentMoniker": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\DynamicApi\\Program.cs",
+              "RelativeDocumentMoniker": "DynamicApi\\Program.cs",
+              "ToolTip": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\DynamicApi\\Program.cs",
+              "RelativeToolTip": "DynamicApi\\Program.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABwAAAAeAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-21T17:41:35.458Z",
+              "EditorCaption": ""
+            },
             {
               "$type": "Bookmark",
               "Name": "ST:129:0:{1fc202d4-d401-403c-9834-5b218574bb67}"
@@ -34,7 +51,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 2,
               "Title": "appsettings.Development.json",
               "DocumentMoniker": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\DynamicApi\\appsettings.Development.json",
               "RelativeDocumentMoniker": "DynamicApi\\appsettings.Development.json",
@@ -47,7 +64,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 1,
               "Title": "appsettings.json",
               "DocumentMoniker": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\DynamicApi\\appsettings.json",
               "RelativeDocumentMoniker": "DynamicApi\\appsettings.json",
@@ -60,7 +77,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 3,
               "Title": "20260418101408_InitialDynamicUsersAuth.cs",
               "DocumentMoniker": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\DynamicApi\\Migrations\\20260418101408_InitialDynamicUsersAuth.cs",
               "RelativeDocumentMoniker": "DynamicApi\\Migrations\\20260418101408_InitialDynamicUsersAuth.cs",

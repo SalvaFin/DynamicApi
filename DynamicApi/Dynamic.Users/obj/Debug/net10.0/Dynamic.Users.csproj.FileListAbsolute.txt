@@ -36,3 +36,9 @@ C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-classic-register-open\Dy
 C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-classic-register-open-2\Dynamic.Users.deps.json
 C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-classic-register-open-2\Dynamic.Users.dll
 C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-classic-register-open-2\Dynamic.Users.pdb
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-forwarded-headers\Dynamic.Users.deps.json
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-forwarded-headers\Dynamic.Users.dll
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-forwarded-headers\Dynamic.Users.pdb
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-forwarded-headers-2\Dynamic.Users.deps.json
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-forwarded-headers-2\Dynamic.Users.dll
+C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-forwarded-headers-2\Dynamic.Users.pdb
