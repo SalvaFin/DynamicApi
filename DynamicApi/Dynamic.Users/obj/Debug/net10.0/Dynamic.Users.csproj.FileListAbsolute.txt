@@ -16,3 +16,5 @@ C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Users\bin\Debug\net10.
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Users\obj\Debug\net10.0\Dynamic..34D3F100.Up2Date
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Users\bin\Debug\net10.0\Dynamic.Fidelity.dll
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Users\bin\Debug\net10.0\Dynamic.Fidelity.pdb
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Users\bin\Debug\net10.0\Dynamic.Negocios.dll
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Users\bin\Debug\net10.0\Dynamic.Negocios.pdb

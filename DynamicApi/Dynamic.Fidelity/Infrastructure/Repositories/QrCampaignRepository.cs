@@ -16,4 +16,7 @@ public class QrCampaignRepository : IQrCampaignRepository
 
     public Task<QrCampaign?> GetByTokenAsync(string token, CancellationToken cancellationToken = default)
         => _dbContext.QrCampaigns.FirstOrDefaultAsync(qrCampaign => qrCampaign.Token == token, cancellationToken);
+
+    public Task AddAsync(QrCampaign qrCampaign, CancellationToken cancellationToken = default)
+        => _dbContext.QrCampaigns.AddAsync(qrCampaign, cancellationToken).AsTask();
 }

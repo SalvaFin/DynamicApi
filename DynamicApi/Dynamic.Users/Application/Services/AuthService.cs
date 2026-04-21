@@ -35,6 +35,7 @@ public class AuthService : IAuthService
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IEmailNotificationService _emailNotificationService;
     private readonly IRegistrationRewardService _registrationRewardService;
+    private readonly IUserCodeDirectoryService _userCodeDirectoryService;
     private readonly UserRegistrationOptions _userRegistrationOptions;
     private readonly ILogger<AuthService> _logger;
 
@@ -48,6 +49,7 @@ public class AuthService : IAuthService
         IJwtTokenService jwtTokenService,
         IEmailNotificationService emailNotificationService,
         IRegistrationRewardService registrationRewardService,
+        IUserCodeDirectoryService userCodeDirectoryService,
         IOptions<UserRegistrationOptions> userRegistrationOptions,
         ILogger<AuthService> logger)
     {
@@ -60,6 +62,7 @@ public class AuthService : IAuthService
         _jwtTokenService = jwtTokenService;
         _emailNotificationService = emailNotificationService;
         _registrationRewardService = registrationRewardService;
+        _userCodeDirectoryService = userCodeDirectoryService;
         _userRegistrationOptions = userRegistrationOptions.Value;
         _logger = logger;
     }
@@ -213,6 +216,8 @@ public class AuthService : IAuthService
                     _logger.LogError(ex, "No se pudo preparar la recompensa de registro para el usuario {UserId}", user.Id);
                 }
             }
+
+            await _userCodeDirectoryService.EnsureUserCodeAsync(user.Id, cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
 
@@ -426,7 +431,8 @@ public class AuthService : IAuthService
             cancellationToken);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
-        return ServiceResult<UserSummaryResponse>.Success(user.ToResponse());
+        string userCode = await _userCodeDirectoryService.EnsureUserCodeAsync(user.Id, cancellationToken);
+        return ServiceResult<UserSummaryResponse>.Success(user.ToResponse(userCode));
     }
 
     public async Task<ServiceResult<AuthResponse>> LoginAsync(
@@ -508,7 +514,8 @@ public class AuthService : IAuthService
             await _dbContext.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
 
-            return ServiceResult<AuthResponse>.Success(BuildAuthResponse(user, session, tokens));
+            string userCode = await _userCodeDirectoryService.EnsureUserCodeAsync(user.Id, cancellationToken);
+            return ServiceResult<AuthResponse>.Success(BuildAuthResponse(user, userCode, session, tokens));
         }
         catch (Exception ex)
         {
@@ -586,7 +593,8 @@ public class AuthService : IAuthService
             await _dbContext.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
 
-            return ServiceResult<AuthResponse>.Success(BuildAuthResponse(session.User, session, tokens));
+            string userCode = await _userCodeDirectoryService.EnsureUserCodeAsync(session.User.Id, cancellationToken);
+            return ServiceResult<AuthResponse>.Success(BuildAuthResponse(session.User, userCode, session, tokens));
         }
         catch (Exception ex)
         {
@@ -864,14 +872,14 @@ public class AuthService : IAuthService
         return string.IsNullOrWhiteSpace(summary) ? null : summary;
     }
 
-    private static AuthResponse BuildAuthResponse(UserAccount user, UserSession session, GeneratedTokenEnvelope tokens)
+    private static AuthResponse BuildAuthResponse(UserAccount user, string userCode, UserSession session, GeneratedTokenEnvelope tokens)
         => new()
         {
             AccessToken = tokens.AccessToken,
             RefreshToken = tokens.RefreshToken,
             AccessTokenExpiresAtUtc = tokens.AccessTokenExpiresAtUtc,
             RefreshTokenExpiresAtUtc = tokens.RefreshTokenExpiresAtUtc,
-            User = user.ToResponse(),
+            User = user.ToResponse(userCode),
             CurrentSession = session.ToResponse(session.Id)
         };
 

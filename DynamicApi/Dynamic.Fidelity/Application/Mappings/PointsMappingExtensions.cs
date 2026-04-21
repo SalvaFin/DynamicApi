@@ -1,3 +1,4 @@
+using Dynamic.Fidelity.Application.DTOs.Responses;
 using Dynamic.Fidelity.Application.Models;
 using Dynamic.Fidelity.Domain.Entities;
 
@@ -23,5 +24,39 @@ public static class PointsMappingExtensions
             LastReference = points.LastReference,
             CreatedAtUtc = points.CreatedAtUtc,
             UpdatedAtUtc = points.UpdatedAtUtc
+        };
+
+    public static PointsTransactionResponse ToResponse(this PointsTransaction transaction)
+        => new()
+        {
+            TransactionId = transaction.Id,
+            UserId = transaction.UserId,
+            NegocioId = transaction.NegocioId,
+            OperationId = transaction.OperationId,
+            ValidatorUserId = transaction.ValidatorUserId,
+            TransactionType = transaction.TransactionType,
+            AmountEuros = transaction.AmountEuros,
+            PointsAmount = transaction.PointsAmount,
+            BalanceBefore = transaction.BalanceBefore,
+            BalanceAfter = transaction.BalanceAfter,
+            UserCodeSnapshot = transaction.UserCodeSnapshot,
+            Reason = transaction.Reason,
+            Reference = transaction.Reference,
+            CreatedAtUtc = transaction.CreatedAtUtc
+        };
+
+    public static PointsFailedAttemptResponse ToResponse(this PointsOperationAttempt attempt)
+        => new()
+        {
+            AttemptId = attempt.Id,
+            OperationId = attempt.OperationId,
+            UserId = attempt.UserId,
+            NegocioId = attempt.NegocioId,
+            AttemptedByUserId = attempt.AttemptedByUserId,
+            AttemptNumber = attempt.AttemptNumber,
+            Succeeded = attempt.Succeeded,
+            CancelledOperation = attempt.CancelledOperation,
+            FailureReason = attempt.FailureReason,
+            CreatedAtUtc = attempt.CreatedAtUtc
         };
 }

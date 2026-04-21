@@ -136,3 +136,9 @@ C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\DynamicApi\bin\Debug\net10.0\D
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\DynamicApi\bin\Debug\net10.0\Dynamic.Fidelity.pdb
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\DynamicApi\bin\Debug\net10.0\Dynamic.Notify.dll
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\DynamicApi\bin\Debug\net10.0\Dynamic.Notify.pdb
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\DynamicApi\bin\Debug\net10.0\Microsoft.Win32.SystemEvents.dll
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\DynamicApi\bin\Debug\net10.0\QRCoder.dll
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\DynamicApi\bin\Debug\net10.0\System.Drawing.Common.dll
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\DynamicApi\bin\Debug\net10.0\runtimes\win\lib\net6.0\Microsoft.Win32.SystemEvents.dll
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\DynamicApi\bin\Debug\net10.0\runtimes\unix\lib\net6.0\System.Drawing.Common.dll
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\DynamicApi\bin\Debug\net10.0\runtimes\win\lib\net6.0\System.Drawing.Common.dll

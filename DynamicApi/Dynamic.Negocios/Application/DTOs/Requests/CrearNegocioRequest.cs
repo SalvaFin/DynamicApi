@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.RegularExpressions;
 using Dynamic.Negocios.Domain.Enums;
 
 namespace Dynamic.Negocios.Application.DTOs.Requests;
@@ -6,6 +7,7 @@ namespace Dynamic.Negocios.Application.DTOs.Requests;
 public class CrearNegocioRequest
 {
     public Guid? OwnerUserId { get; set; }
+    public Guid? BonoBienvenidaTicketId { get; set; }
 
     [Required]
     [MaxLength(160)]
@@ -242,6 +244,12 @@ public class CrearNegocioRequest
 
     [MaxLength(2000)]
     public string? DescripcionProgramaFidelizacion { get; set; }
+
+    [Range(typeof(decimal), "0.01", "999999")]
+    public decimal? RatioConversionEurosAPuntos { get; set; }
+
+    [RegularExpression(@"^\d{4}$", ErrorMessage = "La clave maestra del local debe tener exactamente 4 dígitos.")]
+    public string? ClaveMaestraLocal { get; set; }
 
     public int? PuntosBienvenida { get; set; }
     public int? PuntosCumpleanos { get; set; }

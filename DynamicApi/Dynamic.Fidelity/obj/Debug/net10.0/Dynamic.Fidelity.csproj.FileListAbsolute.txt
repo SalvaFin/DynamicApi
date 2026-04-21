@@ -11,3 +11,6 @@ C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Fidelity\obj\Debug\net
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Fidelity\obj\Debug\net10.0\refint\Dynamic.Fidelity.dll
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Fidelity\obj\Debug\net10.0\Dynamic.Fidelity.pdb
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Fidelity\obj\Debug\net10.0\ref\Dynamic.Fidelity.dll
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Fidelity\bin\Debug\net10.0\Dynamic.Negocios.dll
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Fidelity\bin\Debug\net10.0\Dynamic.Negocios.pdb
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Fidelity\obj\Debug\net10.0\Dynamic..779A40B6.Up2Date

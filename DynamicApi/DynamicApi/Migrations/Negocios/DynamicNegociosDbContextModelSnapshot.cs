@@ -31,6 +31,9 @@ namespace DynamicApi.Migrations.Negocios
                     b.Property<bool>("Activo")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<Guid?>("BonoBienvenidaTicketId")
+                        .HasColumnType("char(36)");
+
                     b.Property<int?>("CaducidadPuntosDias")
                         .HasColumnType("int");
 
@@ -41,6 +44,13 @@ namespace DynamicApi.Migrations.Negocios
                     b.Property<string>("Ciudad")
                         .HasMaxLength(128)
                         .HasColumnType("varchar(128)");
+
+                    b.Property<string>("ClaveMaestraLocalHash")
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<DateTime?>("ClaveMaestraLocalUpdatedAtUtc")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("CodigoInterno")
                         .HasMaxLength(64)
@@ -323,6 +333,10 @@ namespace DynamicApi.Migrations.Negocios
                     b.Property<int?>("PuntosCumpleanos")
                         .HasColumnType("int");
 
+                    b.Property<decimal?>("RatioConversionEurosAPuntos")
+                        .HasPrecision(10, 4)
+                        .HasColumnType("decimal(10,4)");
+
                     b.Property<string>("RazonSocial")
                         .HasMaxLength(180)
                         .HasColumnType("varchar(180)");
@@ -436,6 +450,8 @@ namespace DynamicApi.Migrations.Negocios
                         .HasColumnType("varchar(64)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("BonoBienvenidaTicketId");
 
                     b.HasIndex("Estado");
 

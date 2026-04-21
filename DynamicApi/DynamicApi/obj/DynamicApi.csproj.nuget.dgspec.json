@@ -31,8 +31,13 @@
         },
         "frameworks": {
           "net10.0": {
+            "framework": "net10.0",
             "targetAlias": "net10.0",
-            "projectReferences": {}
+            "projectReferences": {
+              "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\Dynamic.Negocios\\Dynamic.Negocios.csproj": {
+                "projectPath": "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\Dynamic.Negocios\\Dynamic.Negocios.csproj"
+              }
+            }
           }
         },
         "warningProperties": {
@@ -49,6 +54,7 @@
       },
       "frameworks": {
         "net10.0": {
+          "framework": "net10.0",
           "targetAlias": "net10.0",
           "dependencies": {
             "Microsoft.EntityFrameworkCore": {
@@ -58,6 +64,10 @@
             "Pomelo.EntityFrameworkCore.MySql": {
               "target": "Package",
               "version": "[9.0.0, )"
+            },
+            "QRCoder": {
+              "target": "Package",
+              "version": "[1.8.0, )"
             }
           },
           "imports": [
@@ -524,6 +534,7 @@
         },
         "frameworks": {
           "net10.0": {
+            "framework": "net10.0",
             "targetAlias": "net10.0",
             "projectReferences": {}
           }
@@ -542,6 +553,7 @@
       },
       "frameworks": {
         "net10.0": {
+          "framework": "net10.0",
           "targetAlias": "net10.0",
           "dependencies": {
             "Microsoft.EntityFrameworkCore": {
@@ -1017,6 +1029,7 @@
         },
         "frameworks": {
           "net10.0": {
+            "framework": "net10.0",
             "targetAlias": "net10.0",
             "projectReferences": {}
           }
@@ -1035,6 +1048,7 @@
       },
       "frameworks": {
         "net10.0": {
+          "framework": "net10.0",
           "targetAlias": "net10.0",
           "imports": [
             "net461",
@@ -1500,6 +1514,7 @@
         },
         "frameworks": {
           "net10.0": {
+            "framework": "net10.0",
             "targetAlias": "net10.0",
             "projectReferences": {
               "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\Dynamic.Fidelity\\Dynamic.Fidelity.csproj": {
@@ -1525,6 +1540,7 @@
       },
       "frameworks": {
         "net10.0": {
+          "framework": "net10.0",
           "targetAlias": "net10.0",
           "dependencies": {
             "Microsoft.AspNetCore.Authentication.JwtBearer": {
@@ -2004,6 +2020,7 @@
         },
         "frameworks": {
           "net10.0": {
+            "framework": "net10.0",
             "targetAlias": "net10.0",
             "projectReferences": {
               "C:\\Users\\salva\\Source\\Repos\\DynamicApi\\DynamicApi\\Dynamic.Fidelity\\Dynamic.Fidelity.csproj": {
@@ -2035,6 +2052,7 @@
       },
       "frameworks": {
         "net10.0": {
+          "framework": "net10.0",
           "targetAlias": "net10.0",
           "dependencies": {
             "Microsoft.AspNetCore.Authentication.JwtBearer": {

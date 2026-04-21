@@ -6,6 +6,7 @@ public class NegocioResponse
 {
     public Guid Id { get; set; }
     public Guid? OwnerUserId { get; set; }
+    public Guid? BonoBienvenidaTicketId { get; set; }
     public string NombreComercial { get; set; } = string.Empty;
     public string SlugPortal { get; set; } = string.Empty;
     public string? CodigoInterno { get; set; }
@@ -86,6 +87,9 @@ public class NegocioResponse
     public string? TextoPoliticaPuntos { get; set; }
     public string? NombreProgramaFidelizacion { get; set; }
     public string? DescripcionProgramaFidelizacion { get; set; }
+    public decimal? RatioConversionEurosAPuntos { get; set; }
+    public bool TieneClaveMaestraLocalConfigurada { get; set; }
+    public DateTime? ClaveMaestraLocalUpdatedAtUtc { get; set; }
     public int? PuntosBienvenida { get; set; }
     public int? PuntosCumpleanos { get; set; }
     public decimal? ValorMonetarioPunto { get; set; }

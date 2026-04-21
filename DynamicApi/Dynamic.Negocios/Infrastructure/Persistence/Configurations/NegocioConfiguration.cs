@@ -91,10 +91,13 @@ public class NegocioConfiguration : IEntityTypeConfiguration<Negocio>
         builder.Property(negocio => negocio.TextoPoliticaPuntos).HasMaxLength(4000);
         builder.Property(negocio => negocio.NombreProgramaFidelizacion).HasMaxLength(180);
         builder.Property(negocio => negocio.DescripcionProgramaFidelizacion).HasMaxLength(2000);
+        builder.Property(negocio => negocio.RatioConversionEurosAPuntos).HasPrecision(10, 4);
+        builder.Property(negocio => negocio.ClaveMaestraLocalHash).HasMaxLength(128);
         builder.Property(negocio => negocio.ValorMonetarioPunto).HasPrecision(10, 2);
 
         builder.HasIndex(negocio => negocio.SlugPortal).IsUnique();
         builder.HasIndex(negocio => negocio.OwnerUserId);
+        builder.HasIndex(negocio => negocio.BonoBienvenidaTicketId);
         builder.HasIndex(negocio => negocio.Estado);
         builder.HasIndex(negocio => negocio.IsDeleted);
 

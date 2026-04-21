@@ -11,6 +11,10 @@ public class DynamicFidelityDbContext : DbContext
     }
 
     public DbSet<Points> Points => Set<Points>();
+    public DbSet<PointsTransaction> PointsTransactions => Set<PointsTransaction>();
+    public DbSet<PointsOperation> PointsOperations => Set<PointsOperation>();
+    public DbSet<PointsOperationAttempt> PointsOperationAttempts => Set<PointsOperationAttempt>();
+    public DbSet<UserCodeDirectoryEntry> UserCodeDirectoryEntries => Set<UserCodeDirectoryEntry>();
     public DbSet<Ticket> Tickets => Set<Ticket>();
     public DbSet<QrCampaign> QrCampaigns => Set<QrCampaign>();
     public DbSet<PendingTicketAssignment> PendingTicketAssignments => Set<PendingTicketAssignment>();

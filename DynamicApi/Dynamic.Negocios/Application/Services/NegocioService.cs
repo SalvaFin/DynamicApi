@@ -135,6 +135,17 @@ public class NegocioService : INegocioService
             return "El slug del portal es obligatorio.";
         }
 
+        if (request.RatioConversionEurosAPuntos.HasValue && request.RatioConversionEurosAPuntos.Value <= 0)
+        {
+            return "El ratio de conversión de euros a puntos debe ser mayor que cero.";
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.ClaveMaestraLocal) &&
+            (request.ClaveMaestraLocal.Length != 4 || request.ClaveMaestraLocal.Any(character => !char.IsDigit(character))))
+        {
+            return "La clave maestra del local debe tener exactamente 4 dígitos.";
+        }
+
         return request.SlugPortal.Any(char.IsWhiteSpace)
             ? "El slug del portal no puede contener espacios."
             : null;

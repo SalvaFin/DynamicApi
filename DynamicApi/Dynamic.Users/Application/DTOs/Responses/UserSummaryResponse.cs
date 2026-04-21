@@ -5,6 +5,7 @@ namespace Dynamic.Users.Application.DTOs.Responses;
 public class UserSummaryResponse
 {
     public Guid Id { get; set; }
+    public string? UserCode { get; set; }
     public string? Email { get; set; }
     public string UserName { get; set; } = string.Empty;
     public string? FirstName { get; set; }

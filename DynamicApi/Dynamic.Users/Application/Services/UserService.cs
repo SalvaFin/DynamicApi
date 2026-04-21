@@ -5,6 +5,7 @@ using Dynamic.Users.Application.DTOs.Requests;
 using Dynamic.Users.Application.DTOs.Responses;
 using Dynamic.Users.Application.Mappings;
 using Dynamic.Users.Infrastructure.Persistence;
+using Dynamic.Fidelity.Application.Contracts.Services;
 
 namespace Dynamic.Users.Application.Services;
 
@@ -14,25 +15,32 @@ public class UserService : IUserService
     private readonly IUserRepository _userRepository;
     private readonly IUserSessionRepository _userSessionRepository;
     private readonly IUserDeviceRepository _userDeviceRepository;
+    private readonly IUserCodeDirectoryService _userCodeDirectoryService;
 
     public UserService(
         DynamicUsersDbContext dbContext,
         IUserRepository userRepository,
         IUserSessionRepository userSessionRepository,
-        IUserDeviceRepository userDeviceRepository)
+        IUserDeviceRepository userDeviceRepository,
+        IUserCodeDirectoryService userCodeDirectoryService)
     {
         _dbContext = dbContext;
         _userRepository = userRepository;
         _userSessionRepository = userSessionRepository;
         _userDeviceRepository = userDeviceRepository;
+        _userCodeDirectoryService = userCodeDirectoryService;
     }
 
     public async Task<ServiceResult<UserSummaryResponse>> GetCurrentUserAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         Domain.Entities.UserAccount? user = await _userRepository.GetByIdAsync(userId, cancellationToken);
-        return user is null
-            ? ServiceResult<UserSummaryResponse>.Failure("not_found", "Usuario no encontrado.")
-            : ServiceResult<UserSummaryResponse>.Success(user.ToResponse());
+        if (user is null)
+        {
+            return ServiceResult<UserSummaryResponse>.Failure("not_found", "Usuario no encontrado.");
+        }
+
+        string userCode = await _userCodeDirectoryService.EnsureUserCodeAsync(user.Id, cancellationToken);
+        return ServiceResult<UserSummaryResponse>.Success(user.ToResponse(userCode));
     }
 
     public async Task<ServiceResult<IReadOnlyCollection<UserSessionResponse>>> GetActiveSessionsAsync(

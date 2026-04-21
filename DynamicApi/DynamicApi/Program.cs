@@ -19,6 +19,8 @@ builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminAuth", policy =>
         policy.RequireRole("Admin"));
+    options.AddPolicy("BusinessStaffAuth", policy =>
+        policy.RequireRole("Admin", "PropietarioNegocio", "TrabajadorNegocio"));
 });
 builder.Services.AddAuthentication(options =>
 {

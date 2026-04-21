@@ -1,6 +1,8 @@
 using Dynamic.Negocios.Application.DTOs.Requests;
 using Dynamic.Negocios.Application.DTOs.Responses;
 using Dynamic.Negocios.Domain.Entities;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Dynamic.Negocios.Application.Mappings;
 
@@ -11,6 +13,7 @@ public static class NegocioMappingExtensions
         {
             Id = negocio.Id,
             OwnerUserId = negocio.OwnerUserId,
+            BonoBienvenidaTicketId = negocio.BonoBienvenidaTicketId,
             NombreComercial = negocio.NombreComercial,
             SlugPortal = negocio.SlugPortal,
             CodigoInterno = negocio.CodigoInterno,
@@ -91,6 +94,9 @@ public static class NegocioMappingExtensions
             TextoPoliticaPuntos = negocio.TextoPoliticaPuntos,
             NombreProgramaFidelizacion = negocio.NombreProgramaFidelizacion,
             DescripcionProgramaFidelizacion = negocio.DescripcionProgramaFidelizacion,
+            RatioConversionEurosAPuntos = negocio.RatioConversionEurosAPuntos,
+            TieneClaveMaestraLocalConfigurada = !string.IsNullOrWhiteSpace(negocio.ClaveMaestraLocalHash),
+            ClaveMaestraLocalUpdatedAtUtc = negocio.ClaveMaestraLocalUpdatedAtUtc,
             PuntosBienvenida = negocio.PuntosBienvenida,
             PuntosCumpleanos = negocio.PuntosCumpleanos,
             ValorMonetarioPunto = negocio.ValorMonetarioPunto,
@@ -179,6 +185,7 @@ public static class NegocioMappingExtensions
     public static void Apply(this CrearNegocioRequest request, Negocio negocio)
     {
         negocio.OwnerUserId = request.OwnerUserId;
+        negocio.BonoBienvenidaTicketId = request.BonoBienvenidaTicketId;
         negocio.NombreComercial = request.NombreComercial.Trim();
         negocio.SlugPortal = request.SlugPortal.Trim().ToLowerInvariant();
         negocio.CodigoInterno = Normalize(request.CodigoInterno);
@@ -259,6 +266,13 @@ public static class NegocioMappingExtensions
         negocio.TextoPoliticaPuntos = Normalize(request.TextoPoliticaPuntos);
         negocio.NombreProgramaFidelizacion = Normalize(request.NombreProgramaFidelizacion);
         negocio.DescripcionProgramaFidelizacion = Normalize(request.DescripcionProgramaFidelizacion);
+        negocio.RatioConversionEurosAPuntos = request.RatioConversionEurosAPuntos;
+        if (!string.IsNullOrWhiteSpace(request.ClaveMaestraLocal))
+        {
+            negocio.ClaveMaestraLocalHash = HashLocalMasterKey(request.ClaveMaestraLocal);
+            negocio.ClaveMaestraLocalUpdatedAtUtc = DateTime.UtcNow;
+        }
+
         negocio.PuntosBienvenida = request.PuntosBienvenida;
         negocio.PuntosCumpleanos = request.PuntosCumpleanos;
         negocio.ValorMonetarioPunto = request.ValorMonetarioPunto;
@@ -285,4 +299,10 @@ public static class NegocioMappingExtensions
 
     private static string? Normalize(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string HashLocalMasterKey(string masterKey)
+    {
+        byte[] hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(masterKey.Trim()));
+        return Convert.ToHexString(hashBytes);
+    }
 }

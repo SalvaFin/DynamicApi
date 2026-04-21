@@ -133,6 +133,182 @@ namespace DynamicApi.Migrations.Fidelity
                     b.ToTable("fidelity_points", (string)null);
                 });
 
+            modelBuilder.Entity("Dynamic.Fidelity.Domain.Entities.PointsOperation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<decimal>("AmountEuros")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<string>("CancelReason")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime?>("CancelledAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("CompletedTransactionId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("ExpectedPoints")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MaxValidationAttempts")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("NegocioId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<decimal>("RatioSnapshot")
+                        .HasPrecision(10, 4)
+                        .HasColumnType("decimal(10,4)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("ValidatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("ValidatedByUserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("ValidationAttempts")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NegocioId");
+
+                    b.HasIndex("UserId", "NegocioId", "Status");
+
+                    b.ToTable("fidelity_points_operations", (string)null);
+                });
+
+            modelBuilder.Entity("Dynamic.Fidelity.Domain.Entities.PointsOperationAttempt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("AttemptNumber")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("AttemptedByUserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<bool>("CancelledOperation")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("FailureReason")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<Guid>("NegocioId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("OperationId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<bool>("Succeeded")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAtUtc");
+
+                    b.HasIndex("NegocioId");
+
+                    b.HasIndex("OperationId", "AttemptNumber")
+                        .IsUnique();
+
+                    b.ToTable("fidelity_points_operation_attempts", (string)null);
+                });
+
+            modelBuilder.Entity("Dynamic.Fidelity.Domain.Entities.PointsTransaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<decimal?>("AmountEuros")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int>("BalanceAfter")
+                        .HasColumnType("int");
+
+                    b.Property<int>("BalanceBefore")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("NegocioId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid?>("OperationId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("PointsAmount")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("PointsId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(512)
+                        .HasColumnType("varchar(512)");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("TransactionType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<string>("UserCodeSnapshot")
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid?>("ValidatorUserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NegocioId");
+
+                    b.HasIndex("OperationId");
+
+                    b.HasIndex("UserId", "NegocioId", "CreatedAtUtc");
+
+                    b.ToTable("fidelity_points_transactions", (string)null);
+                });
+
             modelBuilder.Entity("Dynamic.Fidelity.Domain.Entities.QrCampaign", b =>
                 {
                     b.Property<Guid>("Id")
@@ -342,6 +518,37 @@ namespace DynamicApi.Migrations.Fidelity
                     b.HasIndex("NegocioId", "CodigoVisible");
 
                     b.ToTable("fidelity_tickets", (string)null);
+                });
+
+            modelBuilder.Entity("Dynamic.Fidelity.Domain.Entities.UserCodeDirectoryEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UserCode")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserCode")
+                        .IsUnique();
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("fidelity_user_codes", (string)null);
                 });
 #pragma warning restore 612, 618
         }

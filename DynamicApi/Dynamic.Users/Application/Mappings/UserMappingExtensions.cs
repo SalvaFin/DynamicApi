@@ -6,10 +6,11 @@ namespace Dynamic.Users.Application.Mappings;
 
 public static class UserMappingExtensions
 {
-    public static UserSummaryResponse ToResponse(this UserAccount user)
+    public static UserSummaryResponse ToResponse(this UserAccount user, string? userCode = null)
         => new()
         {
             Id = user.Id,
+            UserCode = userCode,
             Email = user.Email,
             UserName = user.UserName,
             FirstName = user.FirstName,
