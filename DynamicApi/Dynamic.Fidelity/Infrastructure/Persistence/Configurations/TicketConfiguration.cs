@@ -16,6 +16,7 @@ public class TicketConfiguration : IEntityTypeConfiguration<Ticket>
         builder.Property(ticket => ticket.Nombre).HasMaxLength(180).IsRequired();
         builder.Property(ticket => ticket.Descripcion).HasMaxLength(2000);
         builder.Property(ticket => ticket.Tipo).HasConversion<string>().HasMaxLength(32).IsRequired();
+        builder.Property(ticket => ticket.Valor).HasPrecision(10, 2).IsRequired();
         builder.Property(ticket => ticket.CodigoInterno).HasMaxLength(64);
         builder.Property(ticket => ticket.CodigoVisible).HasMaxLength(64);
         builder.Property(ticket => ticket.TituloCanje).HasMaxLength(255);

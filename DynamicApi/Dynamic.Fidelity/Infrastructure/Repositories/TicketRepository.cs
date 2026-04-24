@@ -17,6 +17,19 @@ public class TicketRepository : ITicketRepository
     public Task<Ticket?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         => _dbContext.Tickets.FirstOrDefaultAsync(ticket => ticket.Id == id, cancellationToken);
 
+    public async Task<IReadOnlyCollection<Ticket>> GetTemplatesByNegocioAsync(Guid negocioId, CancellationToken cancellationToken = default)
+        => await _dbContext.Tickets
+            .Where(ticket => ticket.NegocioId == negocioId && ticket.EsPlantilla && ticket.UserId == null)
+            .OrderByDescending(ticket => ticket.UpdatedAtUtc)
+            .ThenByDescending(ticket => ticket.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+
     public Task AddAsync(Ticket ticket, CancellationToken cancellationToken = default)
         => _dbContext.Tickets.AddAsync(ticket, cancellationToken).AsTask();
+
+    public void Update(Ticket ticket)
+        => _dbContext.Tickets.Update(ticket);
+
+    public void Remove(Ticket ticket)
+        => _dbContext.Tickets.Remove(ticket);
 }

@@ -38,3 +38,6 @@ C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-forwarded-headers-2\Dyna
 C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-decimal-range-fix\Dynamic.Negocios.deps.json
 C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-decimal-range-fix\Dynamic.Negocios.dll
 C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-decimal-range-fix\Dynamic.Negocios.pdb
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\build-temp\Dynamic.Negocios.deps.json
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\build-temp\Dynamic.Negocios.dll
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\build-temp\Dynamic.Negocios.pdb

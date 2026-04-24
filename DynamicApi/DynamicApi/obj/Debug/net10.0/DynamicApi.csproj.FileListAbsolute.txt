@@ -216,3 +216,11 @@ C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-decimal-range-fix\Dynami
 C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-decimal-range-fix\DynamicApi.runtimeconfig.json
 C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-decimal-range-fix\DynamicApi.dll
 C:\Users\salva\Source\Repos\DynamicApi\artifacts\verify-decimal-range-fix\DynamicApi.pdb
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\build-temp\appsettings.Development.json
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\build-temp\appsettings.json
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\build-temp\DynamicApi.staticwebassets.endpoints.json
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\build-temp\DynamicApi.exe
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\build-temp\DynamicApi.deps.json
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\build-temp\DynamicApi.runtimeconfig.json
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\build-temp\DynamicApi.dll
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\build-temp\DynamicApi.pdb

@@ -12,6 +12,7 @@ public class Ticket
     public string Nombre { get; set; } = string.Empty;
     public string? Descripcion { get; set; }
     public TipoTicket Tipo { get; set; } = TipoTicket.Especial;
+    public decimal Valor { get; set; }
     public string? CodigoInterno { get; set; }
     public string? CodigoVisible { get; set; }
     public string? TituloCanje { get; set; }
