@@ -101,6 +101,7 @@ public class RegistrationRewardService : IRegistrationRewardService
                 Nombre = template.Nombre,
                 Descripcion = template.Descripcion,
                 Tipo = template.Tipo,
+                Valor = template.Valor,
                 CodigoInterno = template.CodigoInterno,
                 CodigoVisible = $"{template.CodigoVisible ?? "WELCOME"}-{Guid.NewGuid():N}"[..20],
                 TituloCanje = template.TituloCanje,
@@ -113,15 +114,18 @@ public class RegistrationRewardService : IRegistrationRewardService
                 BeneficioEspecialDetalle = template.BeneficioEspecialDetalle,
                 GastoMinimoRequerido = template.GastoMinimoRequerido,
                 PuntosCoste = template.PuntosCoste,
-                RequiereValidacionManual = true,
-                EsDeUnSoloUso = true,
+                MaxUsosPorCliente = template.MaxUsosPorCliente,
+                UsosConsumidos = 0,
+                ValidezDiasDesdeAsignacion = template.ValidezDiasDesdeAsignacion,
+                RequiereValidacionManual = template.RequiereValidacionManual,
+                EsDeUnSoloUso = template.EsDeUnSoloUso,
                 EsPlantilla = false,
                 Activo = template.Activo,
                 Publicado = template.Publicado,
                 Usado = false,
                 CreatedAtUtc = now,
                 AvailableFromUtc = template.AvailableFromUtc ?? now,
-                ExpiresAtUtc = template.ExpiresAtUtc,
+                ExpiresAtUtc = ResolveAssignedExpiration(template, now),
                 UpdatedAtUtc = now
             };
 
@@ -157,4 +161,9 @@ public class RegistrationRewardService : IRegistrationRewardService
 
         return true;
     }
+
+    private static DateTime ResolveAssignedExpiration(Ticket template, DateTime assignedAtUtc)
+        => template.ValidezDiasDesdeAsignacion.HasValue
+            ? assignedAtUtc.AddDays(template.ValidezDiasDesdeAsignacion.Value)
+            : template.ExpiresAtUtc;
 }

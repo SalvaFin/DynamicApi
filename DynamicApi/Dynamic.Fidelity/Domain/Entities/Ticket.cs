@@ -25,6 +25,9 @@ public class Ticket
     public string? BeneficioEspecialDetalle { get; set; }
     public decimal? GastoMinimoRequerido { get; set; }
     public int? PuntosCoste { get; set; }
+    public int? MaxUsosPorCliente { get; set; }
+    public int UsosConsumidos { get; set; }
+    public int? ValidezDiasDesdeAsignacion { get; set; }
     public bool RequiereValidacionManual { get; set; } = true;
     public bool EsDeUnSoloUso { get; set; } = true;
     public bool EsPlantilla { get; set; }

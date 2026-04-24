@@ -9,6 +9,7 @@
       "Dynamic.Users/1.0.0": {
         "dependencies": {
           "Dynamic.Fidelity": "1.0.0",
+          "Dynamic.Negocios": "1.0.0",
           "Dynamic.Notify": "1.0.0",
           "Microsoft.AspNetCore.Authentication.JwtBearer": "10.0.6",
           "Microsoft.EntityFrameworkCore": "9.0.0",

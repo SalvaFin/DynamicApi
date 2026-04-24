@@ -28,6 +28,9 @@ public class TicketConfiguration : IEntityTypeConfiguration<Ticket>
         builder.Property(ticket => ticket.BeneficioEspecialResumen).HasMaxLength(255);
         builder.Property(ticket => ticket.BeneficioEspecialDetalle).HasMaxLength(2000);
         builder.Property(ticket => ticket.GastoMinimoRequerido).HasPrecision(10, 2);
+        builder.Property(ticket => ticket.MaxUsosPorCliente);
+        builder.Property(ticket => ticket.UsosConsumidos).IsRequired();
+        builder.Property(ticket => ticket.ValidezDiasDesdeAsignacion);
         builder.Property(ticket => ticket.UsedInStoreReference).HasMaxLength(128);
         builder.Property(ticket => ticket.UsedByEmployeeReference).HasMaxLength(128);
         builder.Property(ticket => ticket.NotasInternas).HasMaxLength(2000);

@@ -443,6 +443,9 @@ namespace DynamicApi.Migrations.Fidelity
                         .HasMaxLength(1000)
                         .HasColumnType("varchar(1000)");
 
+                    b.Property<int?>("MaxUsosPorCliente")
+                        .HasColumnType("int");
+
                     b.Property<Guid>("NegocioId")
                         .HasColumnType("char(36)");
 
@@ -482,6 +485,9 @@ namespace DynamicApi.Migrations.Fidelity
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<int>("UsosConsumidos")
+                        .HasColumnType("int");
+
                     b.Property<bool>("Usado")
                         .HasColumnType("tinyint(1)");
 
@@ -502,6 +508,9 @@ namespace DynamicApi.Migrations.Fidelity
                     b.Property<decimal>("Valor")
                         .HasPrecision(10, 2)
                         .HasColumnType("decimal(10,2)");
+
+                    b.Property<int?>("ValidezDiasDesdeAsignacion")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 

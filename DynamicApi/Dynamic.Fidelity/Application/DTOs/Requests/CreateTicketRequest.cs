@@ -16,6 +16,9 @@ public class CreateTicketRequest
 
     public decimal Valor { get; set; }
 
+    public int? MaxUsosPorCliente { get; set; }
+    public int? ValidezDiasDesdeAsignacion { get; set; }
+
     public bool Activo { get; set; } = true;
     public bool Publicado { get; set; }
     public bool EsDeUnSoloUso { get; set; } = true;

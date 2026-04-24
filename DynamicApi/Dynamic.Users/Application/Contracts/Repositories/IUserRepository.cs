@@ -12,4 +12,5 @@ public interface IUserRepository
     Task<UserAccount?> GetByValidationTokenAsync(string validationToken, CancellationToken cancellationToken = default);
     Task AddAsync(UserAccount user, CancellationToken cancellationToken = default);
     void Update(UserAccount user);
+    void Remove(UserAccount user);
 }

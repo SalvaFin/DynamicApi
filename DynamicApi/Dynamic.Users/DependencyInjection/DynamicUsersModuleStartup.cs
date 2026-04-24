@@ -59,6 +59,7 @@ public class DynamicUsersModuleStartup
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUserService, UserService>();
+        services.AddScoped<IBusinessUserProvisioningService, BusinessUserProvisioningService>();
         services.AddScoped<IPasswordHasher<UserAccount>, PasswordHasher<UserAccount>>();
         services.AddHttpContextAccessor();
 

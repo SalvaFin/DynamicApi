@@ -94,7 +94,14 @@ public class TicketService : ITicketService
                 authorization.ErrorMessage ?? "Sin permisos.");
         }
 
-        ServiceResult validation = ValidateRequest(request.Nombre, request.Tipo, request.Valor, request.AvailableFromUtc, request.ExpiresAtUtc);
+        ServiceResult validation = ValidateRequest(
+            request.Nombre,
+            request.Tipo,
+            request.Valor,
+            request.MaxUsosPorCliente,
+            request.ValidezDiasDesdeAsignacion,
+            request.AvailableFromUtc,
+            request.ExpiresAtUtc);
         if (!validation.Succeeded)
         {
             return ServiceResult<TicketResponse>.Failure(
@@ -114,8 +121,11 @@ public class TicketService : ITicketService
             Valor = NormalizeValue(request.Valor),
             TituloCanje = request.Nombre.Trim(),
             InstruccionesCanje = Normalize(request.Descripcion),
+            MaxUsosPorCliente = ResolveMaxUsosPorCliente(request.MaxUsosPorCliente, request.EsDeUnSoloUso),
+            UsosConsumidos = 0,
+            ValidezDiasDesdeAsignacion = request.ValidezDiasDesdeAsignacion,
             RequiereValidacionManual = request.RequiereValidacionManual,
-            EsDeUnSoloUso = request.EsDeUnSoloUso,
+            EsDeUnSoloUso = ResolveIsSingleUse(request.MaxUsosPorCliente, request.EsDeUnSoloUso),
             EsPlantilla = true,
             Activo = request.Activo,
             Publicado = request.Publicado,
@@ -149,7 +159,14 @@ public class TicketService : ITicketService
                 authorization.ErrorMessage ?? "Sin permisos.");
         }
 
-        ServiceResult validation = ValidateRequest(request.Nombre, request.Tipo, request.Valor, request.AvailableFromUtc, request.ExpiresAtUtc);
+        ServiceResult validation = ValidateRequest(
+            request.Nombre,
+            request.Tipo,
+            request.Valor,
+            request.MaxUsosPorCliente,
+            request.ValidezDiasDesdeAsignacion,
+            request.AvailableFromUtc,
+            request.ExpiresAtUtc);
         if (!validation.Succeeded)
         {
             return ServiceResult<TicketResponse>.Failure(
@@ -169,8 +186,10 @@ public class TicketService : ITicketService
         ticket.Valor = NormalizeValue(request.Valor);
         ticket.TituloCanje = request.Nombre.Trim();
         ticket.InstruccionesCanje = Normalize(request.Descripcion);
+        ticket.MaxUsosPorCliente = ResolveMaxUsosPorCliente(request.MaxUsosPorCliente, request.EsDeUnSoloUso);
+        ticket.ValidezDiasDesdeAsignacion = request.ValidezDiasDesdeAsignacion;
         ticket.RequiereValidacionManual = request.RequiereValidacionManual;
-        ticket.EsDeUnSoloUso = request.EsDeUnSoloUso;
+        ticket.EsDeUnSoloUso = ResolveIsSingleUse(request.MaxUsosPorCliente, request.EsDeUnSoloUso);
         ticket.Activo = request.Activo;
         ticket.Publicado = request.Publicado;
         ticket.AvailableFromUtc = request.AvailableFromUtc;
@@ -272,6 +291,8 @@ public class TicketService : ITicketService
         string? nombre,
         TipoTicket tipo,
         decimal valor,
+        int? maxUsosPorCliente,
+        int? validezDiasDesdeAsignacion,
         DateTime? availableFromUtc,
         DateTime? expiresAtUtc)
     {
@@ -288,6 +309,16 @@ public class TicketService : ITicketService
         if (valor < 0)
         {
             return ServiceResult.Failure("validation_error", "El valor del ticket no puede ser negativo.");
+        }
+
+        if (maxUsosPorCliente.HasValue && maxUsosPorCliente.Value <= 0)
+        {
+            return ServiceResult.Failure("validation_error", "El uso máximo por cliente debe ser mayor que 0.");
+        }
+
+        if (validezDiasDesdeAsignacion.HasValue && validezDiasDesdeAsignacion.Value <= 0)
+        {
+            return ServiceResult.Failure("validation_error", "La validez en días desde la asignación debe ser mayor que 0.");
         }
 
         if (tipo == TipoTicket.DescuentoPorcentual)
@@ -324,6 +355,12 @@ public class TicketService : ITicketService
 
     private static decimal NormalizeValue(decimal value)
         => decimal.Round(value, 2, MidpointRounding.AwayFromZero);
+
+    private static int? ResolveMaxUsosPorCliente(int? maxUsosPorCliente, bool esDeUnSoloUso)
+        => maxUsosPorCliente ?? (esDeUnSoloUso ? 1 : null);
+
+    private static bool ResolveIsSingleUse(int? maxUsosPorCliente, bool esDeUnSoloUso)
+        => maxUsosPorCliente.HasValue ? maxUsosPorCliente.Value <= 1 : esDeUnSoloUso;
 
     private static string? Normalize(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

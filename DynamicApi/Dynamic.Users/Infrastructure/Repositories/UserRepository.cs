@@ -41,4 +41,7 @@ public class UserRepository : IUserRepository
 
     public void Update(UserAccount user)
         => _dbContext.Users.Update(user);
+
+    public void Remove(UserAccount user)
+        => _dbContext.Users.Remove(user);
 }
