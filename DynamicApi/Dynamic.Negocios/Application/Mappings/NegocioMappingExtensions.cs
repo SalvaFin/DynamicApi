@@ -1,8 +1,10 @@
 using Dynamic.Negocios.Application.DTOs.Requests;
 using Dynamic.Negocios.Application.DTOs.Responses;
+using Dynamic.Negocios.Application.Options;
 using Dynamic.Negocios.Domain.Entities;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
 namespace Dynamic.Negocios.Application.Mappings;
 
@@ -232,13 +234,13 @@ public static class NegocioMappingExtensions
         negocio.MonedaCodigo = Normalize(request.MonedaCodigo)?.ToUpperInvariant();
         negocio.HorarioAperturaJson = Normalize(request.HorarioAperturaJson);
         negocio.DiasFestivosJson = Normalize(request.DiasFestivosJson);
-        negocio.LogoPrincipalUrl = Normalize(request.LogoPrincipalUrl);
-        negocio.LogoSecundarioUrl = Normalize(request.LogoSecundarioUrl);
-        negocio.IconoUrl = Normalize(request.IconoUrl);
-        negocio.ImagenHeroUrl = Normalize(request.ImagenHeroUrl);
-        negocio.ImagenCoverUrl = Normalize(request.ImagenCoverUrl);
-        negocio.ImagenMobileUrl = Normalize(request.ImagenMobileUrl);
-        negocio.GaleriaImagenesJson = Normalize(request.GaleriaImagenesJson);
+        negocio.LogoPrincipalUrl = NormalizeMediaUrl(request.LogoPrincipalUrl);
+        negocio.LogoSecundarioUrl = NormalizeMediaUrl(request.LogoSecundarioUrl);
+        negocio.IconoUrl = NormalizeMediaUrl(request.IconoUrl);
+        negocio.ImagenHeroUrl = NormalizeMediaUrl(request.ImagenHeroUrl);
+        negocio.ImagenCoverUrl = NormalizeMediaUrl(request.ImagenCoverUrl);
+        negocio.ImagenMobileUrl = NormalizeMediaUrl(request.ImagenMobileUrl);
+        negocio.GaleriaImagenesJson = NormalizeMediaGalleryJson(request.GaleriaImagenesJson);
         negocio.VideoPromocionalUrl = Normalize(request.VideoPromocionalUrl);
         negocio.ColorPrimario = Normalize(request.ColorPrimario);
         negocio.ColorSecundario = Normalize(request.ColorSecundario);
@@ -254,7 +256,7 @@ public static class NegocioMappingExtensions
         negocio.SeoTitle = Normalize(request.SeoTitle);
         negocio.SeoDescription = Normalize(request.SeoDescription);
         negocio.SeoKeywords = Normalize(request.SeoKeywords);
-        negocio.OpenGraphImageUrl = Normalize(request.OpenGraphImageUrl);
+        negocio.OpenGraphImageUrl = NormalizeMediaUrl(request.OpenGraphImageUrl);
         negocio.FacebookUrl = Normalize(request.FacebookUrl);
         negocio.InstagramUrl = Normalize(request.InstagramUrl);
         negocio.TikTokUrl = Normalize(request.TikTokUrl);
@@ -301,6 +303,54 @@ public static class NegocioMappingExtensions
 
     private static string? Normalize(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string? NormalizeMediaUrl(string? value)
+    {
+        string? normalized = Normalize(value);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return normalized;
+        }
+
+        if (!Uri.TryCreate(normalized, UriKind.Absolute, out Uri? absoluteUri))
+        {
+            if (normalized.StartsWith(NegocioMediaOptions.PublicRequestPath, StringComparison.OrdinalIgnoreCase))
+            {
+                return normalized.StartsWith('/') ? normalized : $"/{normalized}";
+            }
+
+            return normalized;
+        }
+
+        return absoluteUri.AbsolutePath.StartsWith(NegocioMediaOptions.PublicRequestPath, StringComparison.OrdinalIgnoreCase)
+            ? $"{absoluteUri.AbsolutePath}{absoluteUri.Query}"
+            : normalized;
+    }
+
+    private static string? NormalizeMediaGalleryJson(string? galleryJson)
+    {
+        string? normalized = Normalize(galleryJson);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return normalized;
+        }
+
+        try
+        {
+            List<string>? urls = JsonSerializer.Deserialize<List<string>>(normalized);
+            if (urls is null)
+            {
+                return normalized;
+            }
+
+            return JsonSerializer.Serialize(urls.Select(url => NormalizeMediaUrl(url) ?? string.Empty)
+                .Where(url => !string.IsNullOrWhiteSpace(url)));
+        }
+        catch
+        {
+            return normalized;
+        }
+    }
 
     private static string HashLocalMasterKey(string masterKey)
     {

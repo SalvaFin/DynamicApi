@@ -3,6 +3,7 @@ using Dynamic.Negocios.Application.Common;
 using Dynamic.Negocios.Application.Contracts.Services;
 using Dynamic.Negocios.Application.DTOs.Requests;
 using Dynamic.Negocios.Application.DTOs.Responses;
+using Dynamic.Negocios.Application.Mappings;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -33,7 +34,7 @@ public class NegocioVinculacionesController : ControllerBase
         ServiceResult<IReadOnlyCollection<NegocioVinculadoResponse>> result =
             await _negocioUsuarioVinculacionService.GetNegociosByUserAsync(userId.Value, cancellationToken);
 
-        return ToActionResult(result, Ok);
+        return ToActionResult(result, data => Ok(data.WithResolvedMediaUrls(Request)));
     }
 
     [Authorize(Policy = "AdminAuth")]

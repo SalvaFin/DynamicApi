@@ -2,6 +2,7 @@ using Dynamic.Negocios.Application.Common;
 using Dynamic.Negocios.Application.Contracts.Services;
 using Dynamic.Negocios.Application.DTOs.Requests;
 using Dynamic.Negocios.Application.DTOs.Responses;
+using Dynamic.Negocios.Application.Mappings;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -24,21 +25,21 @@ public class NegociosController : ControllerBase
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
         ServiceResult<IReadOnlyCollection<NegocioResponse>> result = await _negocioService.GetAllAsync(cancellationToken);
-        return ToActionResult(result, Ok);
+        return ToActionResult(result, data => Ok(data.WithResolvedMediaUrls(Request)));
     }
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
     {
         ServiceResult<NegocioResponse> result = await _negocioService.GetByIdAsync(id, cancellationToken);
-        return ToActionResult(result, Ok);
+        return ToActionResult(result, data => Ok(data.WithResolvedMediaUrls(Request)));
     }
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CrearNegocioRequest request, CancellationToken cancellationToken)
     {
         ServiceResult<NegocioResponse> result = await _negocioService.CreateAsync(request, cancellationToken);
-        return ToActionResult(result, data => StatusCode(StatusCodes.Status201Created, data));
+        return ToActionResult(result, data => StatusCode(StatusCodes.Status201Created, data.WithResolvedMediaUrls(Request)));
     }
 
     [HttpPut("{id:guid}")]
@@ -46,7 +47,7 @@ public class NegociosController : ControllerBase
     public async Task<IActionResult> Update(Guid id, [FromForm] ActualizarNegocioMultipartRequest request, CancellationToken cancellationToken)
     {
         ServiceResult<NegocioResponse> result = await _negocioService.UpdateAsync(id, request, cancellationToken);
-        return ToActionResult(result, Ok);
+        return ToActionResult(result, data => Ok(data.WithResolvedMediaUrls(Request)));
     }
 
     [HttpDelete("{id:guid}")]
