@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DynamicApi.Infrastructure.DependencyInjection;
@@ -9,7 +10,12 @@ public static class DynamicModuleRegistrationExtensions
 
     public static IMvcBuilder AddDynamicModules(this IServiceCollection services, IConfiguration configuration)
     {
-        IMvcBuilder mvcBuilder = services.AddControllers();
+        IMvcBuilder mvcBuilder = services
+            .AddControllers()
+            .AddJsonOptions(options =>
+            {
+                options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+            });
 
         foreach (Assembly assembly in DiscoverModuleAssemblies())
         {
