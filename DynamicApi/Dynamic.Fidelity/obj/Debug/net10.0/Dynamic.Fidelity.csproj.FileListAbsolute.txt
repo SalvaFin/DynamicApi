@@ -62,3 +62,6 @@ C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-ticket-qr-lov
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-public-ticket-endpoints\Dynamic.Fidelity.deps.json
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-public-ticket-endpoints\Dynamic.Fidelity.dll
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-public-ticket-endpoints\Dynamic.Fidelity.pdb
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-public-media-origin\Dynamic.Fidelity.deps.json
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-public-media-origin\Dynamic.Fidelity.dll
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-public-media-origin\Dynamic.Fidelity.pdb

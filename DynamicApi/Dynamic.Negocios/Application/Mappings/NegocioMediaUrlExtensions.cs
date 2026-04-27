@@ -1,6 +1,8 @@
 using System.Text.Json;
 using Dynamic.Negocios.Application.DTOs.Responses;
+using Dynamic.Negocios.Application.Options;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
 
 namespace Dynamic.Negocios.Application.Mappings;
 
@@ -77,6 +79,17 @@ public static class NegocioMediaUrlExtensions
         }
 
         string normalizedPath = url.StartsWith('/') ? url : $"/{url}";
+        NegocioMediaOptions? mediaOptions =
+            request.HttpContext.RequestServices.GetService(typeof(IOptions<NegocioMediaOptions>)) is IOptions<NegocioMediaOptions> optionsAccessor
+                ? optionsAccessor.Value
+                : null;
+
+        if (!string.IsNullOrWhiteSpace(mediaOptions?.PublicBaseUrl))
+        {
+            string normalizedBaseUrl = mediaOptions.PublicBaseUrl.TrimEnd('/');
+            return $"{normalizedBaseUrl}{normalizedPath}";
+        }
+
         return $"{request.Scheme}://{request.Host}{request.PathBase}{normalizedPath}";
     }
 }

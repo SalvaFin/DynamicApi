@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Dynamic.Negocios")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a51c6adc87c72f5f2d2b156f463f767abe283cd0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8c901ff72ed8012ecfd873c61258f9450328027c")]
 [assembly: System.Reflection.AssemblyProductAttribute("Dynamic.Negocios")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Dynamic.Negocios")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

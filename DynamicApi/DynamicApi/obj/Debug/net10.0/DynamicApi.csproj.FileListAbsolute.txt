@@ -272,3 +272,11 @@ C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-public-ticket
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-public-ticket-endpoints\DynamicApi.runtimeconfig.json
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-public-ticket-endpoints\DynamicApi.dll
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-public-ticket-endpoints\DynamicApi.pdb
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-public-media-origin\appsettings.Development.json
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-public-media-origin\appsettings.json
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-public-media-origin\DynamicApi.staticwebassets.endpoints.json
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-public-media-origin\DynamicApi.exe
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-public-media-origin\DynamicApi.deps.json
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-public-media-origin\DynamicApi.runtimeconfig.json
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-public-media-origin\DynamicApi.dll
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-public-media-origin\DynamicApi.pdb

@@ -97,7 +97,12 @@ app.UseForwardedHeaders();
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new PhysicalFileProvider(negocioMediaRootPath),
-    RequestPath = NegocioMediaOptions.PublicRequestPath
+    RequestPath = NegocioMediaOptions.PublicRequestPath,
+    OnPrepareResponse = context =>
+    {
+        context.Context.Response.Headers["Access-Control-Allow-Origin"] = "*";
+        context.Context.Response.Headers["Cross-Origin-Resource-Policy"] = "cross-origin";
+    }
 });
 app.UseHttpsRedirection();
 app.UseCors("OpenCors");

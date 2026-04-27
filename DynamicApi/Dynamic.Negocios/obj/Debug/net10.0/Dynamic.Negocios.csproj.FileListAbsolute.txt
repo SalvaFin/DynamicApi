@@ -59,3 +59,6 @@ C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-ticket-qr-lov
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-public-ticket-endpoints\Dynamic.Negocios.deps.json
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-public-ticket-endpoints\Dynamic.Negocios.dll
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-public-ticket-endpoints\Dynamic.Negocios.pdb
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-public-media-origin\Dynamic.Negocios.deps.json
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-public-media-origin\Dynamic.Negocios.dll
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-public-media-origin\Dynamic.Negocios.pdb

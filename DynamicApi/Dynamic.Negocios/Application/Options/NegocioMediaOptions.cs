@@ -10,6 +10,8 @@ public class NegocioMediaOptions
     [Required]
     public string StorageRootPath { get; set; } = "uploads/negocios-media";
 
+    public string? PublicBaseUrl { get; set; }
+
     [Range(1, long.MaxValue)]
     public long MaxFileSizeBytes { get; set; } = 5 * 1024 * 1024;
 }
