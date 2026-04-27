@@ -34,6 +34,9 @@ C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-negocio-media
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-single-media-path\Dynamic.Fidelity.deps.json
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-single-media-path\Dynamic.Fidelity.dll
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-single-media-path\Dynamic.Fidelity.pdb
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-ticket-json\Dynamic.Fidelity.deps.json
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-ticket-json\Dynamic.Fidelity.dll
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-ticket-json\Dynamic.Fidelity.pdb
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Fidelity\bin\Debug\net10.0\Dynamic.Fidelity.deps.json
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Fidelity\bin\Debug\net10.0\Dynamic.Fidelity.dll
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Fidelity\bin\Debug\net10.0\Dynamic.Fidelity.pdb
@@ -50,6 +53,6 @@ C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Fidelity\obj\Debug\net
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Fidelity\obj\Debug\net10.0\refint\Dynamic.Fidelity.dll
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Fidelity\obj\Debug\net10.0\Dynamic.Fidelity.pdb
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Fidelity\obj\Debug\net10.0\ref\Dynamic.Fidelity.dll
-C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-ticket-json\Dynamic.Fidelity.deps.json
-C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-ticket-json\Dynamic.Fidelity.dll
-C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-ticket-json\Dynamic.Fidelity.pdb
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-negocio-slug\Dynamic.Fidelity.deps.json
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-negocio-slug\Dynamic.Fidelity.dll
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-negocio-slug\Dynamic.Fidelity.pdb

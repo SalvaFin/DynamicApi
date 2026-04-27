@@ -35,6 +35,14 @@ public class NegociosController : ControllerBase
         return ToActionResult(result, data => Ok(data.WithResolvedMediaUrls(Request)));
     }
 
+    [AllowAnonymous]
+    [HttpGet("slug/{slugPortal}")]
+    public async Task<IActionResult> GetBySlug(string slugPortal, CancellationToken cancellationToken)
+    {
+        ServiceResult<NegocioResponse> result = await _negocioService.GetBySlugAsync(slugPortal, cancellationToken);
+        return ToActionResult(result, data => Ok(data.WithResolvedMediaUrls(Request)));
+    }
+
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CrearNegocioRequest request, CancellationToken cancellationToken)
     {

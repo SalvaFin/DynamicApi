@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Dynamic.Negocios")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+3092420a063f5119afaa312a1f814eef8ca7d50e")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8ffe9c27e4b7838b8ed1c9b1793685202e97544d")]
 [assembly: System.Reflection.AssemblyProductAttribute("Dynamic.Negocios")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Dynamic.Negocios")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

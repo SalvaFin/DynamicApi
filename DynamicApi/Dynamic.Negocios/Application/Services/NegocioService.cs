@@ -50,6 +50,21 @@ public class NegocioService : INegocioService
             : ServiceResult<NegocioResponse>.Success(negocio.ToResponse());
     }
 
+    public async Task<ServiceResult<NegocioResponse>> GetBySlugAsync(string slugPortal, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(slugPortal))
+        {
+            return ServiceResult<NegocioResponse>.Failure("validation_error", "El slug del negocio es obligatorio.");
+        }
+
+        string normalizedSlug = slugPortal.Trim().ToLowerInvariant();
+        Negocio? negocio = await _negocioRepository.GetBySlugAsync(normalizedSlug, cancellationToken);
+
+        return negocio is null
+            ? ServiceResult<NegocioResponse>.Failure("not_found", "Negocio no encontrado.")
+            : ServiceResult<NegocioResponse>.Success(negocio.ToResponse());
+    }
+
     public async Task<ServiceResult<NegocioResponse>> CreateAsync(CrearNegocioRequest request, CancellationToken cancellationToken = default)
     {
         string? validationError = ValidateRequest(request);
