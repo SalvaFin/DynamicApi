@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("DynamicApi")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8ffe9c27e4b7838b8ed1c9b1793685202e97544d")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d055b44cf6793735435c26dc003532fd7b05d7a0")]
 [assembly: System.Reflection.AssemblyProductAttribute("DynamicApi")]
 [assembly: System.Reflection.AssemblyTitleAttribute("DynamicApi")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

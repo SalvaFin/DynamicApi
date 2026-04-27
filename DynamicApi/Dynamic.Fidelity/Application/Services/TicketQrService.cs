@@ -74,7 +74,15 @@ public class TicketQrService : ITicketQrService
 
         DateTime now = DateTime.UtcNow;
         string qrToken = GenerateQrToken();
-        string publicUrl = BuildPublicUrl(qrToken);
+        Negocio? negocio = await _negocioRepository.GetByIdAsync(negocioId, cancellationToken);
+        if (negocio is null || negocio.IsDeleted || string.IsNullOrWhiteSpace(negocio.SlugPortal))
+        {
+            return ServiceResult<TicketQrResponse>.Failure(
+                "not_found",
+                "No se ha podido resolver el slug público del negocio para generar el QR.");
+        }
+
+        string publicUrl = BuildPublicUrl(negocio.SlugPortal, qrToken);
 
         QrCampaign qrCampaign = new()
         {
@@ -84,7 +92,7 @@ public class TicketQrService : ITicketQrService
             Nombre = $"QR-{ticket.Nombre}",
             Token = qrToken,
             Descripcion = $"QR generado para el ticket {ticket.Nombre}.",
-            LandingPath = BuildLandingPath(qrToken),
+            LandingPath = BuildLandingPath(negocio.SlugPortal, qrToken),
             Activa = true,
             Visible = true,
             UnSoloUsoPorUsuario = true,
@@ -153,19 +161,41 @@ public class TicketQrService : ITicketQrService
         });
     }
 
-    private string BuildPublicUrl(string qrToken)
+    private string BuildPublicUrl(string slugPortal, string qrToken)
     {
         string baseUrl = _fidelityQrOptions.PublicBaseUrl.TrimEnd('/');
-        string registerPath = NormalizePath(_fidelityQrOptions.RegisterPath);
-        return $"{baseUrl}{registerPath}?qr={Uri.EscapeDataString(qrToken)}";
+        string landingPath = BuildLandingPath(slugPortal, qrToken);
+        return $"{baseUrl}{landingPath}";
     }
 
-    private string BuildLandingPath(string qrToken)
-        => $"{NormalizePath(_fidelityQrOptions.RegisterPath)}?qr={Uri.EscapeDataString(qrToken)}";
-
-    private static string NormalizePath(string path)
+    private string BuildLandingPath(string slugPortal, string qrToken)
     {
-        string normalized = string.IsNullOrWhiteSpace(path) ? "/register" : path.Trim();
+        string pathTemplate = NormalizePathTemplate(_fidelityQrOptions.BusinessLandingPathTemplate);
+        string resolvedPath = pathTemplate
+            .Replace("{slug}", Uri.EscapeDataString(slugPortal.Trim().ToLowerInvariant()), StringComparison.OrdinalIgnoreCase)
+            .Replace("{qrToken}", Uri.EscapeDataString(qrToken), StringComparison.OrdinalIgnoreCase);
+
+        if (resolvedPath.Contains("{slug}", StringComparison.OrdinalIgnoreCase))
+        {
+            resolvedPath = resolvedPath.Replace("{slug}", Uri.EscapeDataString(slugPortal.Trim().ToLowerInvariant()), StringComparison.Ordinal);
+        }
+
+        if (resolvedPath.Contains("{qrToken}", StringComparison.OrdinalIgnoreCase))
+        {
+            return resolvedPath.Replace("{qrToken}", Uri.EscapeDataString(qrToken), StringComparison.Ordinal);
+        }
+
+        string queryParameterName = string.IsNullOrWhiteSpace(_fidelityQrOptions.QrQueryParameterName)
+            ? "qr"
+            : _fidelityQrOptions.QrQueryParameterName.Trim();
+
+        char querySeparator = resolvedPath.Contains('?') ? '&' : '?';
+        return $"{resolvedPath}{querySeparator}{Uri.EscapeDataString(queryParameterName)}={Uri.EscapeDataString(qrToken)}";
+    }
+
+    private static string NormalizePathTemplate(string pathTemplate)
+    {
+        string normalized = string.IsNullOrWhiteSpace(pathTemplate) ? "/negocio/{slug}" : pathTemplate.Trim();
         return normalized.StartsWith('/') ? normalized : $"/{normalized}";
     }
 

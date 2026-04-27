@@ -256,3 +256,11 @@ C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-negocio-slug\
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-negocio-slug\DynamicApi.runtimeconfig.json
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-negocio-slug\DynamicApi.dll
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-negocio-slug\DynamicApi.pdb
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-ticket-qr-lovable\appsettings.Development.json
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-ticket-qr-lovable\appsettings.json
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-ticket-qr-lovable\DynamicApi.staticwebassets.endpoints.json
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-ticket-qr-lovable\DynamicApi.exe
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-ticket-qr-lovable\DynamicApi.deps.json
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-ticket-qr-lovable\DynamicApi.runtimeconfig.json
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-ticket-qr-lovable\DynamicApi.dll
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-ticket-qr-lovable\DynamicApi.pdb
