@@ -12,6 +12,11 @@ public interface ITicketQrService
         bool isAdmin,
         CancellationToken cancellationToken = default);
 
+    Task<ServiceResult<TicketQrLookupResponse>> GetTicketByQrAsync(
+        string slugPortal,
+        string qrToken,
+        CancellationToken cancellationToken = default);
+
     Task<ServiceResult<TicketQrScanResponse>> ScanTicketQrAsync(
         Guid userId,
         string qrToken,

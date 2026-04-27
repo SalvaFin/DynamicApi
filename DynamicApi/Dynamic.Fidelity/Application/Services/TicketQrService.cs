@@ -117,6 +117,53 @@ public class TicketQrService : ITicketQrService
         });
     }
 
+    public async Task<ServiceResult<TicketQrLookupResponse>> GetTicketByQrAsync(
+        string slugPortal,
+        string qrToken,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(slugPortal) || string.IsNullOrWhiteSpace(qrToken))
+        {
+            return ServiceResult<TicketQrLookupResponse>.Failure("validation_error", "El slug del negocio y el qr son obligatorios.");
+        }
+
+        string normalizedSlug = slugPortal.Trim().ToLowerInvariant();
+        QrCampaign? campaign = await _qrCampaignRepository.GetByTokenAsync(qrToken.Trim(), cancellationToken);
+        if (!IsCampaignValid(campaign) || !campaign!.WelcomeTicketTemplateId.HasValue)
+        {
+            return ServiceResult<TicketQrLookupResponse>.Failure("not_found", "El QR no existe o no tiene un ticket asociado.");
+        }
+
+        Negocio? negocio = await _negocioRepository.GetByIdAsync(campaign.NegocioId, cancellationToken);
+        if (negocio is null ||
+            negocio.IsDeleted ||
+            !string.Equals(negocio.SlugPortal, normalizedSlug, StringComparison.OrdinalIgnoreCase))
+        {
+            return ServiceResult<TicketQrLookupResponse>.Failure("not_found", "El QR no pertenece al negocio indicado.");
+        }
+
+        Ticket? ticket = await _ticketRepository.GetByIdAsync(campaign.WelcomeTicketTemplateId.Value, cancellationToken);
+        if (ticket is null || ticket.NegocioId != campaign.NegocioId || !ticket.EsPlantilla || ticket.UserId.HasValue)
+        {
+            return ServiceResult<TicketQrLookupResponse>.Failure("not_found", "El ticket asociado al QR ya no está disponible.");
+        }
+
+        string publicUrl = BuildPublicUrl(negocio.SlugPortal, campaign.Token);
+        string landingPath = BuildLandingPath(negocio.SlugPortal, campaign.Token);
+
+        return ServiceResult<TicketQrLookupResponse>.Success(new TicketQrLookupResponse
+        {
+            QrCampaignId = campaign.Id,
+            NegocioId = negocio.Id,
+            SlugPortal = negocio.SlugPortal,
+            TicketId = ticket.Id,
+            QrToken = campaign.Token,
+            PublicUrl = publicUrl,
+            LandingPath = landingPath,
+            Ticket = ticket.ToResponse()
+        });
+    }
+
     public async Task<ServiceResult<TicketQrScanResponse>> ScanTicketQrAsync(
         Guid userId,
         string qrToken,
@@ -128,7 +175,7 @@ public class TicketQrService : ITicketQrService
         }
 
         QrCampaign? campaign = await _qrCampaignRepository.GetByTokenAsync(qrToken.Trim(), cancellationToken);
-        if (campaign is null || !campaign.WelcomeTicketTemplateId.HasValue)
+        if (!IsCampaignValid(campaign) || !campaign!.WelcomeTicketTemplateId.HasValue)
         {
             return ServiceResult<TicketQrScanResponse>.Failure("not_found", "El QR no existe o no tiene un ticket asociado.");
         }
@@ -159,6 +206,28 @@ public class TicketQrService : ITicketQrService
                 : "El ticket se ha vinculado correctamente al usuario.",
             Ticket = assignedTicket.ToResponse()
         });
+    }
+
+    private static bool IsCampaignValid(QrCampaign? campaign)
+    {
+        if (campaign is null || !campaign.Activa)
+        {
+            return false;
+        }
+
+        DateTime now = DateTime.UtcNow;
+
+        if (campaign.AvailableFromUtc.HasValue && campaign.AvailableFromUtc.Value > now)
+        {
+            return false;
+        }
+
+        if (campaign.Expira && campaign.ExpiresAtUtc.HasValue && campaign.ExpiresAtUtc.Value < now)
+        {
+            return false;
+        }
+
+        return true;
     }
 
     private string BuildPublicUrl(string slugPortal, string qrToken)

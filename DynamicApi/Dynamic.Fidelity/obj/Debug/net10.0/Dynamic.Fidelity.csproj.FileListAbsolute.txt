@@ -59,3 +59,6 @@ C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-negocio-slug\
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-ticket-qr-lovable\Dynamic.Fidelity.deps.json
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-ticket-qr-lovable\Dynamic.Fidelity.dll
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-ticket-qr-lovable\Dynamic.Fidelity.pdb
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-public-ticket-endpoints\Dynamic.Fidelity.deps.json
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-public-ticket-endpoints\Dynamic.Fidelity.dll
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-public-ticket-endpoints\Dynamic.Fidelity.pdb

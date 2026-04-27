@@ -6,6 +6,14 @@ namespace Dynamic.Fidelity.Application.Contracts.Services;
 
 public interface ITicketService
 {
+    Task<ServiceResult<IReadOnlyCollection<TicketResponse>>> GetPublicGeneralTicketsAsync(
+        Guid negocioId,
+        CancellationToken cancellationToken = default);
+
+    Task<ServiceResult<IReadOnlyCollection<TicketResponse>>> GetPublicGeneralTicketsBySlugAsync(
+        string slugPortal,
+        CancellationToken cancellationToken = default);
+
     Task<ServiceResult<IReadOnlyCollection<TicketResponse>>> GetAllAsync(
         Guid negocioId,
         Guid requesterUserId,

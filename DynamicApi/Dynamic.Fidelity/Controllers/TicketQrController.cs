@@ -20,6 +20,19 @@ public class TicketQrController : ControllerBase
         _ticketQrService = ticketQrService;
     }
 
+    [AllowAnonymous]
+    [HttpGet("/api/fidelity/negocios/slug/{slugPortal}/tickets/by-qr")]
+    public async Task<IActionResult> GetByQr(
+        string slugPortal,
+        [FromQuery(Name = "qr")] string qrToken,
+        CancellationToken cancellationToken)
+    {
+        ServiceResult<TicketQrLookupResponse> result =
+            await _ticketQrService.GetTicketByQrAsync(slugPortal, qrToken, cancellationToken);
+
+        return ToActionResult(result, Ok);
+    }
+
     [Authorize]
     [HttpPost("{ticketId:guid}/qr")]
     public async Task<IActionResult> GenerateQr(Guid negocioId, Guid ticketId, CancellationToken cancellationToken)

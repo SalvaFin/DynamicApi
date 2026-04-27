@@ -38,6 +38,48 @@ public class TicketService : ITicketService
         _pointsService = pointsService;
     }
 
+    public async Task<ServiceResult<IReadOnlyCollection<TicketResponse>>> GetPublicGeneralTicketsAsync(
+        Guid negocioId,
+        CancellationToken cancellationToken = default)
+    {
+        Negocio? negocio = await _negocioRepository.GetByIdAsync(negocioId, cancellationToken);
+        if (!IsBusinessPubliclyAvailable(negocio))
+        {
+            return ServiceResult<IReadOnlyCollection<TicketResponse>>.Failure("not_found", "Negocio no encontrado.");
+        }
+
+        IReadOnlyCollection<TicketResponse> tickets = (await _ticketRepository.GetTemplatesByNegocioAsync(negocioId, cancellationToken))
+            .Where(IsPublicGeneralTemplateAvailable)
+            .Select(ticket => ticket.ToResponse())
+            .ToArray();
+
+        return ServiceResult<IReadOnlyCollection<TicketResponse>>.Success(tickets);
+    }
+
+    public async Task<ServiceResult<IReadOnlyCollection<TicketResponse>>> GetPublicGeneralTicketsBySlugAsync(
+        string slugPortal,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(slugPortal))
+        {
+            return ServiceResult<IReadOnlyCollection<TicketResponse>>.Failure("validation_error", "El slug del negocio es obligatorio.");
+        }
+
+        Negocio? negocio = await _negocioRepository.GetBySlugAsync(slugPortal.Trim().ToLowerInvariant(), cancellationToken);
+        if (!IsBusinessPubliclyAvailable(negocio))
+        {
+            return ServiceResult<IReadOnlyCollection<TicketResponse>>.Failure("not_found", "Negocio no encontrado.");
+        }
+
+        Guid resolvedNegocioId = negocio!.Id;
+        IReadOnlyCollection<TicketResponse> tickets = (await _ticketRepository.GetTemplatesByNegocioAsync(resolvedNegocioId, cancellationToken))
+            .Where(IsPublicGeneralTemplateAvailable)
+            .Select(ticket => ticket.ToResponse())
+            .ToArray();
+
+        return ServiceResult<IReadOnlyCollection<TicketResponse>>.Success(tickets);
+    }
+
     public async Task<ServiceResult<IReadOnlyCollection<TicketResponse>>> GetAllAsync(
         Guid negocioId,
         Guid requesterUserId,
@@ -475,6 +517,35 @@ public class TicketService : ITicketService
 
     private static string? Normalize(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static bool IsBusinessPubliclyAvailable(Negocio? negocio)
+        => negocio is not null &&
+           !negocio.IsDeleted &&
+           negocio.Activo &&
+           negocio.PublicadoPortal;
+
+    private static bool IsPublicGeneralTemplateAvailable(Ticket ticket)
+    {
+        DateTime now = DateTime.UtcNow;
+
+        if (!ticket.EsPlantilla ||
+            ticket.UserId.HasValue ||
+            !ticket.Activo ||
+            !ticket.Publicado ||
+            ticket.CategoriaEnvioEspecial != CategoriaEnvioTicket.General ||
+            !ticket.PuntosCoste.HasValue ||
+            ticket.PuntosCoste.Value <= 0)
+        {
+            return false;
+        }
+
+        if (ticket.AvailableFromUtc.HasValue && ticket.AvailableFromUtc.Value > now)
+        {
+            return false;
+        }
+
+        return ticket.ExpiresAtUtc > now;
+    }
 
     private async Task<ServiceResult> EnsureUserLinkedToBusinessAsync(Guid negocioId, Guid userId, CancellationToken cancellationToken)
     {

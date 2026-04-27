@@ -21,6 +21,26 @@ public class TicketsController : ControllerBase
         _ticketService = ticketService;
     }
 
+    [AllowAnonymous]
+    [HttpGet("public/general")]
+    public async Task<IActionResult> GetPublicGeneral(Guid negocioId, CancellationToken cancellationToken)
+    {
+        ServiceResult<IReadOnlyCollection<TicketResponse>> result =
+            await _ticketService.GetPublicGeneralTicketsAsync(negocioId, cancellationToken);
+
+        return ToActionResult(result, Ok);
+    }
+
+    [AllowAnonymous]
+    [HttpGet("/api/fidelity/negocios/slug/{slugPortal}/tickets/public/general")]
+    public async Task<IActionResult> GetPublicGeneralBySlug(string slugPortal, CancellationToken cancellationToken)
+    {
+        ServiceResult<IReadOnlyCollection<TicketResponse>> result =
+            await _ticketService.GetPublicGeneralTicketsBySlugAsync(slugPortal, cancellationToken);
+
+        return ToActionResult(result, Ok);
+    }
+
     [HttpGet]
     public async Task<IActionResult> GetAll(Guid negocioId, CancellationToken cancellationToken)
     {
