@@ -66,38 +66,12 @@ public class NegocioMediaStorageService : INegocioMediaStorageService
         await using FileStream stream = new(absoluteFilePath, FileMode.Create, FileAccess.Write, FileShare.None);
         await file.CopyToAsync(stream, cancellationToken);
 
-        string relativePublicPath = $"{NormalizePublicPathPrefix()}/{negocioId:N}/{fileName}";
-        string publicUrl = BuildPublicUrl(relativePublicPath);
-
-        return ServiceResult<string>.Success(publicUrl);
+        string publicPath = $"{NegocioMediaOptions.PublicRequestPath}/{negocioId:N}/{fileName}";
+        return ServiceResult<string>.Success(publicPath);
     }
 
     private string ResolveStorageRootPath()
         => Path.IsPathRooted(_options.StorageRootPath)
             ? _options.StorageRootPath
             : Path.GetFullPath(Path.Combine(_hostEnvironment.ContentRootPath, _options.StorageRootPath));
-
-    private string NormalizePublicPathPrefix()
-    {
-        string normalized = string.IsNullOrWhiteSpace(_options.PublicPathPrefix)
-            ? "/negocios-media"
-            : _options.PublicPathPrefix.Trim();
-
-        if (!normalized.StartsWith('/'))
-        {
-            normalized = $"/{normalized}";
-        }
-
-        return normalized.TrimEnd('/');
-    }
-
-    private string BuildPublicUrl(string relativePublicPath)
-    {
-        if (string.IsNullOrWhiteSpace(_options.PublicBaseUrl))
-        {
-            return relativePublicPath;
-        }
-
-        return $"{_options.PublicBaseUrl.TrimEnd('/')}{relativePublicPath}";
-    }
 }

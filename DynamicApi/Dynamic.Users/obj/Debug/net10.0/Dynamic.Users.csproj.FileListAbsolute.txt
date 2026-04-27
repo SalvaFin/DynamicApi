@@ -51,3 +51,6 @@ C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Users\obj\Debug\net10.
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-negocio-media\Dynamic.Users.deps.json
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-negocio-media\Dynamic.Users.dll
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-negocio-media\Dynamic.Users.pdb
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-single-media-path\Dynamic.Users.deps.json
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-single-media-path\Dynamic.Users.dll
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-single-media-path\Dynamic.Users.pdb

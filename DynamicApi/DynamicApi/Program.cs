@@ -1,5 +1,6 @@
 using System.Text;
 using Dynamic.Fidelity.Infrastructure.Persistence;
+using Dynamic.Negocios.Application.Options;
 using Dynamic.Negocios.Infrastructure.Persistence;
 using Dynamic.Users.Application.Options;
 using Dynamic.Users.Infrastructure.Persistence;
@@ -8,8 +9,13 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
+
+NegocioMediaOptions negocioMediaOptions = builder.Configuration
+    .GetSection(NegocioMediaOptions.SectionName)
+    .Get<NegocioMediaOptions>() ?? new();
 
 JwtOptions jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
     ?? throw new InvalidOperationException("La configuración Jwt es obligatoria.");
@@ -70,6 +76,12 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 
 var app = builder.Build();
 
+string negocioMediaRootPath = Path.IsPathRooted(negocioMediaOptions.StorageRootPath)
+    ? negocioMediaOptions.StorageRootPath
+    : Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, negocioMediaOptions.StorageRootPath));
+
+Directory.CreateDirectory(negocioMediaRootPath);
+
 if (app.Environment.IsDevelopment())
 {
     await using AsyncServiceScope scope = app.Services.CreateAsyncScope();
@@ -82,6 +94,11 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseForwardedHeaders();
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(negocioMediaRootPath),
+    RequestPath = NegocioMediaOptions.PublicRequestPath
+});
 app.UseHttpsRedirection();
 app.UseCors("OpenCors");
 app.UseAuthentication();

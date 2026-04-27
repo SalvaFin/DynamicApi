@@ -232,3 +232,11 @@ C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-negocio-media
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-negocio-media\DynamicApi.runtimeconfig.json
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-negocio-media\DynamicApi.dll
 C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-negocio-media\DynamicApi.pdb
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-single-media-path\appsettings.Development.json
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-single-media-path\appsettings.json
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-single-media-path\DynamicApi.staticwebassets.endpoints.json
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-single-media-path\DynamicApi.exe
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-single-media-path\DynamicApi.deps.json
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-single-media-path\DynamicApi.runtimeconfig.json
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-single-media-path\DynamicApi.dll
+C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\artifacts\verify-single-media-path\DynamicApi.pdb
