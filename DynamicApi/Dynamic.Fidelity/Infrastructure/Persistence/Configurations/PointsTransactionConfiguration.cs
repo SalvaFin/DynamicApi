@@ -18,11 +18,13 @@ public class PointsTransactionConfiguration : IEntityTypeConfiguration<PointsTra
 
         builder.Property(transaction => transaction.AmountEuros).HasPrecision(10, 2);
         builder.Property(transaction => transaction.UserCodeSnapshot).HasMaxLength(32);
+        builder.Property(transaction => transaction.CounterpartyUserCodeSnapshot).HasMaxLength(32);
         builder.Property(transaction => transaction.Reason).HasMaxLength(512);
         builder.Property(transaction => transaction.Reference).HasMaxLength(256);
 
         builder.HasIndex(transaction => new { transaction.UserId, transaction.NegocioId, transaction.CreatedAtUtc });
         builder.HasIndex(transaction => transaction.NegocioId);
         builder.HasIndex(transaction => transaction.OperationId);
+        builder.HasIndex(transaction => transaction.CounterpartyUserId);
     }
 }

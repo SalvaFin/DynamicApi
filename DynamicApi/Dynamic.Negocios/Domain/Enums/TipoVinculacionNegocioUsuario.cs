@@ -7,5 +7,6 @@ public enum TipoVinculacionNegocioUsuario
     Trabajador = 3,
     Colaborador = 4,
     Soporte = 5,
-    Otro = 6
+    Otro = 6,
+    Cliente = 7
 }

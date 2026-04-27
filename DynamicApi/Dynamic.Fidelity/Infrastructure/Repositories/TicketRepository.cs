@@ -24,6 +24,11 @@ public class TicketRepository : ITicketRepository
             .ThenByDescending(ticket => ticket.CreatedAtUtc)
             .ToListAsync(cancellationToken);
 
+    public Task<int> CountAssignedToUserByTemplateAsync(Guid userId, Guid templateTicketId, CancellationToken cancellationToken = default)
+        => _dbContext.Tickets.CountAsync(
+            ticket => ticket.UserId == userId && ticket.ParentTicketId == templateTicketId,
+            cancellationToken);
+
     public Task AddAsync(Ticket ticket, CancellationToken cancellationToken = default)
         => _dbContext.Tickets.AddAsync(ticket, cancellationToken).AsTask();
 

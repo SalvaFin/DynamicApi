@@ -4,6 +4,7 @@ using Dynamic.Fidelity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DynamicApi.Migrations.Fidelity
 {
     [DbContext(typeof(DynamicFidelityDbContext))]
-    partial class DynamicFidelityDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260427104228_AddTicketDeliveryAndPointsGifting")]
+    partial class AddTicketDeliveryAndPointsGifting
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

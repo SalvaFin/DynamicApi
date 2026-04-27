@@ -4,6 +4,7 @@ using Dynamic.Negocios.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DynamicApi.Migrations.Negocios
 {
     [DbContext(typeof(DynamicNegociosDbContext))]
-    partial class DynamicNegociosDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260427104239_AddReferralTicketConfiguration")]
+    partial class AddReferralTicketConfiguration
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

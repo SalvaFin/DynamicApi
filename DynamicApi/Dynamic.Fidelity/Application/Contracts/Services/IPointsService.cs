@@ -13,6 +13,11 @@ public interface IPointsService
     Task<ServiceResult<PointsEarnValidationResponse>> ValidateEarnOperationAsync(Guid operationId, Guid validatorUserId, bool isAdmin, ValidatePointsEarnOperationRequest request, CancellationToken cancellationToken = default);
     Task<ServiceResult<PointsEarnValidationResponse>> BackofficeAccrualByUserCodeAsync(Guid negocioId, Guid validatorUserId, bool isAdmin, BackofficeAccrualByUserCodeRequest request, CancellationToken cancellationToken = default);
     Task<ServiceResult<IReadOnlyCollection<PointsFailedAttemptResponse>>> GetFailedAttemptsAsync(Guid negocioId, Guid requesterUserId, bool isAdmin, CancellationToken cancellationToken = default);
+    Task<ServiceResult<GiftPointsResponse>> GiftPointsAsync(
+        Guid senderUserId,
+        Guid negocioId,
+        GiftPointsRequest request,
+        CancellationToken cancellationToken = default);
     Task<ServiceResult<PointsSummary>> AddPointsAsync(
         Guid userId,
         Guid negocioId,

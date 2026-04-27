@@ -13,8 +13,10 @@ public class CreateTicketRequest
     public string? Descripcion { get; set; }
 
     public TipoTicket Tipo { get; set; } = TipoTicket.Especial;
+    public CategoriaEnvioTicket CategoriaEnvioEspecial { get; set; } = CategoriaEnvioTicket.General;
 
     public decimal Valor { get; set; }
+    public int? PuntosCoste { get; set; }
 
     public int? MaxUsosPorCliente { get; set; }
     public int? ValidezDiasDesdeAsignacion { get; set; }

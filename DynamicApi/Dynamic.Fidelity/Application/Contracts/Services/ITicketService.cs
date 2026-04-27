@@ -34,6 +34,12 @@ public interface ITicketService
         UpdateTicketRequest request,
         CancellationToken cancellationToken = default);
 
+    Task<ServiceResult<TicketResponse>> UnlockAsync(
+        Guid negocioId,
+        Guid ticketId,
+        Guid requesterUserId,
+        CancellationToken cancellationToken = default);
+
     Task<ServiceResult> DeleteAsync(
         Guid negocioId,
         Guid ticketId,

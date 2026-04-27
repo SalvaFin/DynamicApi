@@ -50,6 +50,24 @@ public class PointsController : ControllerBase
         return ToActionResult(result, Ok);
     }
 
+    [HttpPost("gifts")]
+    public async Task<IActionResult> GiftPoints(
+        Guid negocioId,
+        [FromBody] GiftPointsRequest request,
+        CancellationToken cancellationToken)
+    {
+        Guid? senderUserId = GetClaimGuid(ClaimTypes.NameIdentifier, "sub");
+        if (!senderUserId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        ServiceResult<GiftPointsResponse> result =
+            await _pointsService.GiftPointsAsync(senderUserId.Value, negocioId, request, cancellationToken);
+
+        return ToActionResult(result, data => StatusCode(StatusCodes.Status201Created, data));
+    }
+
     [HttpPost("earn-operations")]
     public async Task<IActionResult> InitiateEarnOperation(
         Guid negocioId,

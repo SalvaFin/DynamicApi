@@ -4,6 +4,7 @@ using Dynamic.Fidelity.Application.Contracts.Services;
 using Dynamic.Fidelity.Application.DTOs.Requests;
 using Dynamic.Fidelity.Application.DTOs.Responses;
 using Dynamic.Fidelity.Application.Mappings;
+using Dynamic.Fidelity.Application.Models;
 using Dynamic.Fidelity.Domain.Entities;
 using Dynamic.Fidelity.Domain.Enums;
 using Dynamic.Fidelity.Infrastructure.Persistence;
@@ -21,17 +22,20 @@ public class TicketService : ITicketService
     private readonly ITicketRepository _ticketRepository;
     private readonly INegocioRepository _negocioRepository;
     private readonly INegocioUsuarioVinculacionRepository _negocioUsuarioVinculacionRepository;
+    private readonly IPointsService _pointsService;
 
     public TicketService(
         DynamicFidelityDbContext dbContext,
         ITicketRepository ticketRepository,
         INegocioRepository negocioRepository,
-        INegocioUsuarioVinculacionRepository negocioUsuarioVinculacionRepository)
+        INegocioUsuarioVinculacionRepository negocioUsuarioVinculacionRepository,
+        IPointsService pointsService)
     {
         _dbContext = dbContext;
         _ticketRepository = ticketRepository;
         _negocioRepository = negocioRepository;
         _negocioUsuarioVinculacionRepository = negocioUsuarioVinculacionRepository;
+        _pointsService = pointsService;
     }
 
     public async Task<ServiceResult<IReadOnlyCollection<TicketResponse>>> GetAllAsync(
@@ -97,7 +101,9 @@ public class TicketService : ITicketService
         ServiceResult validation = ValidateRequest(
             request.Nombre,
             request.Tipo,
+            request.CategoriaEnvioEspecial,
             request.Valor,
+            request.PuntosCoste,
             request.MaxUsosPorCliente,
             request.ValidezDiasDesdeAsignacion,
             request.AvailableFromUtc,
@@ -118,7 +124,9 @@ public class TicketService : ITicketService
             Nombre = request.Nombre.Trim(),
             Descripcion = Normalize(request.Descripcion),
             Tipo = request.Tipo,
+            CategoriaEnvioEspecial = request.CategoriaEnvioEspecial,
             Valor = NormalizeValue(request.Valor),
+            PuntosCoste = NormalizePointsCoste(request.PuntosCoste),
             TituloCanje = request.Nombre.Trim(),
             InstruccionesCanje = Normalize(request.Descripcion),
             MaxUsosPorCliente = ResolveMaxUsosPorCliente(request.MaxUsosPorCliente, request.EsDeUnSoloUso),
@@ -162,7 +170,9 @@ public class TicketService : ITicketService
         ServiceResult validation = ValidateRequest(
             request.Nombre,
             request.Tipo,
+            request.CategoriaEnvioEspecial,
             request.Valor,
+            request.PuntosCoste,
             request.MaxUsosPorCliente,
             request.ValidezDiasDesdeAsignacion,
             request.AvailableFromUtc,
@@ -183,7 +193,9 @@ public class TicketService : ITicketService
         ticket.Nombre = request.Nombre.Trim();
         ticket.Descripcion = Normalize(request.Descripcion);
         ticket.Tipo = request.Tipo;
+        ticket.CategoriaEnvioEspecial = request.CategoriaEnvioEspecial;
         ticket.Valor = NormalizeValue(request.Valor);
+        ticket.PuntosCoste = NormalizePointsCoste(request.PuntosCoste);
         ticket.TituloCanje = request.Nombre.Trim();
         ticket.InstruccionesCanje = Normalize(request.Descripcion);
         ticket.MaxUsosPorCliente = ResolveMaxUsosPorCliente(request.MaxUsosPorCliente, request.EsDeUnSoloUso);
@@ -202,6 +214,83 @@ public class TicketService : ITicketService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return ServiceResult<TicketResponse>.Success(ticket.ToResponse());
+    }
+
+    public async Task<ServiceResult<TicketResponse>> UnlockAsync(
+        Guid negocioId,
+        Guid ticketId,
+        Guid requesterUserId,
+        CancellationToken cancellationToken = default)
+    {
+        Ticket? template = await GetTemplateTicketAsync(negocioId, ticketId, cancellationToken);
+        if (template is null)
+        {
+            return ServiceResult<TicketResponse>.Failure("not_found", "El ticket no existe o no pertenece al negocio.");
+        }
+
+        if (!template.Activo || !template.Publicado)
+        {
+            return ServiceResult<TicketResponse>.Failure("conflict", "El ticket no est\u00e1 disponible para desbloqueo.");
+        }
+
+        if (template.CategoriaEnvioEspecial != CategoriaEnvioTicket.General)
+        {
+            return ServiceResult<TicketResponse>.Failure("validation_error", "Solo los tickets generales pueden desbloquearse con puntos.");
+        }
+
+        if (!template.PuntosCoste.HasValue || template.PuntosCoste.Value <= 0)
+        {
+            return ServiceResult<TicketResponse>.Failure("validation_error", "El ticket no tiene un precio en puntos v\u00e1lido.");
+        }
+
+        ServiceResult authorization = await EnsureUserLinkedToBusinessAsync(negocioId, requesterUserId, cancellationToken);
+        if (!authorization.Succeeded)
+        {
+            return ServiceResult<TicketResponse>.Failure(
+                authorization.ErrorCode ?? "forbidden",
+                authorization.ErrorMessage ?? "El usuario no est\u00e1 vinculado al negocio.");
+        }
+
+        DateTime now = DateTime.UtcNow;
+        if (template.AvailableFromUtc.HasValue && template.AvailableFromUtc.Value > now)
+        {
+            return ServiceResult<TicketResponse>.Failure("conflict", "El ticket todav\u00eda no est\u00e1 disponible.");
+        }
+
+        if (template.ExpiresAtUtc <= now)
+        {
+            return ServiceResult<TicketResponse>.Failure("conflict", "El ticket ya ha expirado.");
+        }
+
+        int currentAssignments =
+            await _ticketRepository.CountAssignedToUserByTemplateAsync(requesterUserId, template.Id, cancellationToken);
+
+        if (template.MaxUsosPorCliente.HasValue && currentAssignments >= template.MaxUsosPorCliente.Value)
+        {
+            return ServiceResult<TicketResponse>.Failure("conflict", "El usuario ya ha alcanzado el m\u00e1ximo de desbloqueos permitidos para este ticket.");
+        }
+
+        ServiceResult<PointsSummary> spendResult = await _pointsService.SpendPointsAsync(
+            requesterUserId,
+            negocioId,
+            template.PuntosCoste.Value,
+            reason: $"Desbloqueo del ticket {template.Nombre}",
+            reference: template.Id.ToString("N"),
+            cancellationToken: cancellationToken);
+
+        if (!spendResult.Succeeded)
+        {
+            return ServiceResult<TicketResponse>.Failure(
+                spendResult.ErrorCode ?? "validation_error",
+                spendResult.ErrorMessage ?? "No se ha podido descontar el saldo de puntos.");
+        }
+
+        Ticket assignedTicket = BuildAssignedTicket(template, requesterUserId, now);
+
+        await _ticketRepository.AddAsync(assignedTicket, cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return ServiceResult<TicketResponse>.Success(assignedTicket.ToResponse());
     }
 
     public async Task<ServiceResult> DeleteAsync(
@@ -290,7 +379,9 @@ public class TicketService : ITicketService
     private static ServiceResult ValidateRequest(
         string? nombre,
         TipoTicket tipo,
+        CategoriaEnvioTicket categoriaEnvioEspecial,
         decimal valor,
+        int? puntosCoste,
         int? maxUsosPorCliente,
         int? validezDiasDesdeAsignacion,
         DateTime? availableFromUtc,
@@ -309,6 +400,23 @@ public class TicketService : ITicketService
         if (valor < 0)
         {
             return ServiceResult.Failure("validation_error", "El valor del ticket no puede ser negativo.");
+        }
+
+        if (puntosCoste.HasValue && puntosCoste.Value < 0)
+        {
+            return ServiceResult.Failure("validation_error", "El precio en puntos del ticket no puede ser negativo.");
+        }
+
+        if (categoriaEnvioEspecial == CategoriaEnvioTicket.General)
+        {
+            if (!puntosCoste.HasValue || puntosCoste.Value <= 0)
+            {
+                return ServiceResult.Failure("validation_error", "Los tickets generales deben tener un precio en puntos mayor que cero.");
+            }
+        }
+        else if (puntosCoste.HasValue && puntosCoste.Value > 0)
+        {
+            return ServiceResult.Failure("validation_error", "Los tickets especiales de registro o invitaci\u00f3n no deben configurarse con precio en puntos.");
         }
 
         if (maxUsosPorCliente.HasValue && maxUsosPorCliente.Value <= 0)
@@ -356,6 +464,9 @@ public class TicketService : ITicketService
     private static decimal NormalizeValue(decimal value)
         => decimal.Round(value, 2, MidpointRounding.AwayFromZero);
 
+    private static int? NormalizePointsCoste(int? puntosCoste)
+        => puntosCoste.HasValue && puntosCoste.Value > 0 ? puntosCoste.Value : null;
+
     private static int? ResolveMaxUsosPorCliente(int? maxUsosPorCliente, bool esDeUnSoloUso)
         => maxUsosPorCliente ?? (esDeUnSoloUso ? 1 : null);
 
@@ -364,4 +475,68 @@ public class TicketService : ITicketService
 
     private static string? Normalize(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private async Task<ServiceResult> EnsureUserLinkedToBusinessAsync(Guid negocioId, Guid userId, CancellationToken cancellationToken)
+    {
+        NegocioUsuarioVinculacion? link =
+            await _negocioUsuarioVinculacionRepository.GetByNegocioAndUserAsync(negocioId, userId, cancellationToken);
+
+        if (link is null || !link.Activa || link.RevokedAtUtc.HasValue)
+        {
+            return ServiceResult.Failure("forbidden", "El usuario no est\u00e1 vinculado al negocio.");
+        }
+
+        DateTime now = DateTime.UtcNow;
+        bool outsideDateWindow =
+            (link.FechaInicioUtc.HasValue && link.FechaInicioUtc.Value > now) ||
+            (link.FechaFinUtc.HasValue && link.FechaFinUtc.Value < now);
+
+        return outsideDateWindow
+            ? ServiceResult.Failure("forbidden", "La vinculaci\u00f3n del usuario con el negocio no est\u00e1 activa actualmente.")
+            : ServiceResult.Success();
+    }
+
+    private static Ticket BuildAssignedTicket(Ticket template, Guid userId, DateTime now)
+        => new()
+        {
+            Id = Guid.NewGuid(),
+            NegocioId = template.NegocioId,
+            UserId = userId,
+            ParentTicketId = template.Id,
+            Nombre = template.Nombre,
+            Descripcion = template.Descripcion,
+            Tipo = template.Tipo,
+            CategoriaEnvioEspecial = template.CategoriaEnvioEspecial,
+            Valor = template.Valor,
+            CodigoInterno = template.CodigoInterno,
+            CodigoVisible = $"{template.CodigoVisible ?? "UNLOCK"}-{Guid.NewGuid():N}"[..20],
+            TituloCanje = template.TituloCanje,
+            InstruccionesCanje = template.InstruccionesCanje,
+            CondicionesUso = template.CondicionesUso,
+            MensajeMarketing = template.MensajeMarketing,
+            DescuentoPorcentaje = template.DescuentoPorcentaje,
+            DescuentoImporteFijo = template.DescuentoImporteFijo,
+            BeneficioEspecialResumen = template.BeneficioEspecialResumen,
+            BeneficioEspecialDetalle = template.BeneficioEspecialDetalle,
+            GastoMinimoRequerido = template.GastoMinimoRequerido,
+            PuntosCoste = template.PuntosCoste,
+            MaxUsosPorCliente = template.MaxUsosPorCliente,
+            UsosConsumidos = 0,
+            ValidezDiasDesdeAsignacion = template.ValidezDiasDesdeAsignacion,
+            RequiereValidacionManual = template.RequiereValidacionManual,
+            EsDeUnSoloUso = template.EsDeUnSoloUso,
+            EsPlantilla = false,
+            Activo = template.Activo,
+            Publicado = template.Publicado,
+            Usado = false,
+            CreatedAtUtc = now,
+            AvailableFromUtc = template.AvailableFromUtc ?? now,
+            ExpiresAtUtc = ResolveAssignedExpiration(template, now),
+            UpdatedAtUtc = now
+        };
+
+    private static DateTime ResolveAssignedExpiration(Ticket template, DateTime assignedAtUtc)
+        => template.ValidezDiasDesdeAsignacion.HasValue
+            ? assignedAtUtc.AddDays(template.ValidezDiasDesdeAsignacion.Value)
+            : template.ExpiresAtUtc;
 }

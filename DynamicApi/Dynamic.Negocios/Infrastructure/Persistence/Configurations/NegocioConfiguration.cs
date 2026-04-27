@@ -98,6 +98,7 @@ public class NegocioConfiguration : IEntityTypeConfiguration<Negocio>
         builder.HasIndex(negocio => negocio.SlugPortal).IsUnique();
         builder.HasIndex(negocio => negocio.OwnerUserId);
         builder.HasIndex(negocio => negocio.BonoBienvenidaTicketId);
+        builder.HasIndex(negocio => negocio.BonoInvitacionNuevoClienteTicketId);
         builder.HasIndex(negocio => negocio.Estado);
         builder.HasIndex(negocio => negocio.IsDeleted);
 

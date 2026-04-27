@@ -14,6 +14,7 @@ public static class NegocioMappingExtensions
             Id = negocio.Id,
             OwnerUserId = negocio.OwnerUserId,
             BonoBienvenidaTicketId = negocio.BonoBienvenidaTicketId,
+            BonoInvitacionNuevoClienteTicketId = negocio.BonoInvitacionNuevoClienteTicketId,
             NombreComercial = negocio.NombreComercial,
             SlugPortal = negocio.SlugPortal,
             CodigoInterno = negocio.CodigoInterno,
@@ -186,6 +187,7 @@ public static class NegocioMappingExtensions
     {
         negocio.OwnerUserId = request.OwnerUserId;
         negocio.BonoBienvenidaTicketId = request.BonoBienvenidaTicketId;
+        negocio.BonoInvitacionNuevoClienteTicketId = request.BonoInvitacionNuevoClienteTicketId;
         negocio.NombreComercial = request.NombreComercial.Trim();
         negocio.SlugPortal = request.SlugPortal.Trim().ToLowerInvariant();
         negocio.CodigoInterno = Normalize(request.CodigoInterno);

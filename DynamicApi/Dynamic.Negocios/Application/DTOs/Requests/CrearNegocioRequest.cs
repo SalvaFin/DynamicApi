@@ -8,6 +8,7 @@ public class CrearNegocioRequest
 {
     public Guid? OwnerUserId { get; set; }
     public Guid? BonoBienvenidaTicketId { get; set; }
+    public Guid? BonoInvitacionNuevoClienteTicketId { get; set; }
 
     [Required]
     [MaxLength(160)]

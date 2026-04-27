@@ -88,6 +88,21 @@ public class TicketsController : ControllerBase
         return ToActionResult(result, Ok);
     }
 
+    [HttpPost("{ticketId:guid}/unlock")]
+    public async Task<IActionResult> Unlock(Guid negocioId, Guid ticketId, CancellationToken cancellationToken)
+    {
+        Guid? requesterUserId = GetClaimGuid(ClaimTypes.NameIdentifier, "sub");
+        if (!requesterUserId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        ServiceResult<TicketResponse> result =
+            await _ticketService.UnlockAsync(negocioId, ticketId, requesterUserId.Value, cancellationToken);
+
+        return ToActionResult(result, data => StatusCode(StatusCodes.Status201Created, data));
+    }
+
     [HttpDelete("{ticketId:guid}")]
     public async Task<IActionResult> Delete(Guid negocioId, Guid ticketId, CancellationToken cancellationToken)
     {
@@ -129,6 +144,7 @@ public class TicketsController : ControllerBase
             "validation_error" => BadRequest(new { message = errorMessage }),
             "not_found" => NotFound(new { message = errorMessage }),
             "conflict" => Conflict(new { message = errorMessage }),
+            "insufficient_balance" => BadRequest(new { message = errorMessage }),
             "forbidden" => StatusCode(StatusCodes.Status403Forbidden, new { message = errorMessage }),
             _ => StatusCode(StatusCodes.Status500InternalServerError, new { message = errorMessage ?? "Error interno del servidor." })
         };

@@ -7,6 +7,7 @@ public class NegocioResponse
     public Guid Id { get; set; }
     public Guid? OwnerUserId { get; set; }
     public Guid? BonoBienvenidaTicketId { get; set; }
+    public Guid? BonoInvitacionNuevoClienteTicketId { get; set; }
     public string NombreComercial { get; set; } = string.Empty;
     public string SlugPortal { get; set; } = string.Empty;
     public string? CodigoInterno { get; set; }

@@ -3,6 +3,8 @@ using Dynamic.Fidelity.Application.Contracts.Services;
 using Dynamic.Fidelity.Domain.Entities;
 using Dynamic.Fidelity.Domain.Enums;
 using Dynamic.Fidelity.Infrastructure.Persistence;
+using Dynamic.Negocios.Application.Contracts.Repositories;
+using Dynamic.Negocios.Domain.Entities;
 
 namespace Dynamic.Fidelity.Application.Services;
 
@@ -12,17 +14,20 @@ public class RegistrationRewardService : IRegistrationRewardService
     private readonly IQrCampaignRepository _qrCampaignRepository;
     private readonly IPendingTicketAssignmentRepository _pendingTicketAssignmentRepository;
     private readonly ITicketRepository _ticketRepository;
+    private readonly INegocioRepository _negocioRepository;
 
     public RegistrationRewardService(
         DynamicFidelityDbContext dbContext,
         IQrCampaignRepository qrCampaignRepository,
         IPendingTicketAssignmentRepository pendingTicketAssignmentRepository,
-        ITicketRepository ticketRepository)
+        ITicketRepository ticketRepository,
+        INegocioRepository negocioRepository)
     {
         _dbContext = dbContext;
         _qrCampaignRepository = qrCampaignRepository;
         _pendingTicketAssignmentRepository = pendingTicketAssignmentRepository;
         _ticketRepository = ticketRepository;
+        _negocioRepository = negocioRepository;
     }
 
     public async Task<bool> ValidateQrTokenAsync(string qrToken, CancellationToken cancellationToken = default)
@@ -91,43 +96,7 @@ public class RegistrationRewardService : IRegistrationRewardService
                 continue;
             }
 
-            Ticket assignedTicket = new()
-            {
-                Id = Guid.NewGuid(),
-                NegocioId = template.NegocioId,
-                UserId = userId,
-                ParentTicketId = template.Id,
-                SourceQrCampaignId = assignment.QrCampaignId,
-                Nombre = template.Nombre,
-                Descripcion = template.Descripcion,
-                Tipo = template.Tipo,
-                Valor = template.Valor,
-                CodigoInterno = template.CodigoInterno,
-                CodigoVisible = $"{template.CodigoVisible ?? "WELCOME"}-{Guid.NewGuid():N}"[..20],
-                TituloCanje = template.TituloCanje,
-                InstruccionesCanje = template.InstruccionesCanje,
-                CondicionesUso = template.CondicionesUso,
-                MensajeMarketing = template.MensajeMarketing,
-                DescuentoPorcentaje = template.DescuentoPorcentaje,
-                DescuentoImporteFijo = template.DescuentoImporteFijo,
-                BeneficioEspecialResumen = template.BeneficioEspecialResumen,
-                BeneficioEspecialDetalle = template.BeneficioEspecialDetalle,
-                GastoMinimoRequerido = template.GastoMinimoRequerido,
-                PuntosCoste = template.PuntosCoste,
-                MaxUsosPorCliente = template.MaxUsosPorCliente,
-                UsosConsumidos = 0,
-                ValidezDiasDesdeAsignacion = template.ValidezDiasDesdeAsignacion,
-                RequiereValidacionManual = template.RequiereValidacionManual,
-                EsDeUnSoloUso = template.EsDeUnSoloUso,
-                EsPlantilla = false,
-                Activo = template.Activo,
-                Publicado = template.Publicado,
-                Usado = false,
-                CreatedAtUtc = now,
-                AvailableFromUtc = template.AvailableFromUtc ?? now,
-                ExpiresAtUtc = ResolveAssignedExpiration(template, now),
-                UpdatedAtUtc = now
-            };
+            Ticket assignedTicket = BuildAssignedTicket(template, userId, assignment.QrCampaignId, "WELCOME", now);
 
             await _ticketRepository.AddAsync(assignedTicket, cancellationToken);
 
@@ -186,19 +155,128 @@ public class RegistrationRewardService : IRegistrationRewardService
         }
 
         DateTime now = DateTime.UtcNow;
-        Ticket assignedTicket = new()
+        Ticket assignedTicket = BuildAssignedTicket(template, userId, campaign.Id, "TICKET", now);
+
+        await _ticketRepository.AddAsync(assignedTicket, cancellationToken);
+
+        existingAssignment.AssignedTicketId = assignedTicket.Id;
+        existingAssignment.Activated = true;
+        existingAssignment.ActivatedAtUtc = now;
+        _pendingTicketAssignmentRepository.Update(existingAssignment);
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return assignedTicket;
+    }
+
+    public async Task<bool> AssignBusinessWelcomeTicketAsync(Guid negocioId, Guid userId, CancellationToken cancellationToken = default)
+        => await AssignBusinessConfiguredTicketAsync(
+            negocioId,
+            userId,
+            negocio => negocio.BonoBienvenidaTicketId,
+            CategoriaEnvioTicket.PrimerRegistro,
+            "WELCOME",
+            preventDuplicateByTemplate: true,
+            cancellationToken);
+
+    public async Task<bool> AssignBusinessReferralTicketAsync(Guid negocioId, Guid userId, CancellationToken cancellationToken = default)
+        => await AssignBusinessConfiguredTicketAsync(
+            negocioId,
+            userId,
+            negocio => negocio.BonoInvitacionNuevoClienteTicketId,
+            CategoriaEnvioTicket.InvitacionClienteNuevo,
+            "REFERRAL",
+            preventDuplicateByTemplate: false,
+            cancellationToken);
+
+    private static bool IsCampaignValid(QrCampaign? campaign)
+    {
+        if (campaign is null || !campaign.Activa)
+        {
+            return false;
+        }
+
+        DateTime now = DateTime.UtcNow;
+
+        if (campaign.AvailableFromUtc.HasValue && campaign.AvailableFromUtc.Value > now)
+        {
+            return false;
+        }
+
+        if (campaign.Expira && campaign.ExpiresAtUtc.HasValue && campaign.ExpiresAtUtc.Value < now)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private async Task<bool> AssignBusinessConfiguredTicketAsync(
+        Guid negocioId,
+        Guid userId,
+        Func<Negocio, Guid?> templateSelector,
+        CategoriaEnvioTicket expectedCategory,
+        string visibleCodePrefix,
+        bool preventDuplicateByTemplate,
+        CancellationToken cancellationToken)
+    {
+        Negocio? negocio = await _negocioRepository.GetByIdAsync(negocioId, cancellationToken);
+        if (negocio is null || negocio.IsDeleted)
+        {
+            return false;
+        }
+
+        Guid? templateId = templateSelector(negocio);
+        if (!templateId.HasValue)
+        {
+            return false;
+        }
+
+        Ticket? template = await _ticketRepository.GetByIdAsync(templateId.Value, cancellationToken);
+        if (template is null ||
+            template.NegocioId != negocioId ||
+            !template.EsPlantilla ||
+            template.UserId.HasValue ||
+            template.CategoriaEnvioEspecial != expectedCategory)
+        {
+            return false;
+        }
+
+        if (preventDuplicateByTemplate)
+        {
+            int currentAssignments = await _ticketRepository.CountAssignedToUserByTemplateAsync(userId, template.Id, cancellationToken);
+            if (currentAssignments > 0)
+            {
+                return false;
+            }
+        }
+
+        DateTime now = DateTime.UtcNow;
+        Ticket assignedTicket = BuildAssignedTicket(template, userId, null, visibleCodePrefix, now);
+        await _ticketRepository.AddAsync(assignedTicket, cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    private static Ticket BuildAssignedTicket(
+        Ticket template,
+        Guid userId,
+        Guid? sourceQrCampaignId,
+        string visibleCodePrefix,
+        DateTime now)
+        => new()
         {
             Id = Guid.NewGuid(),
             NegocioId = template.NegocioId,
             UserId = userId,
             ParentTicketId = template.Id,
-            SourceQrCampaignId = campaign.Id,
+            SourceQrCampaignId = sourceQrCampaignId,
             Nombre = template.Nombre,
             Descripcion = template.Descripcion,
             Tipo = template.Tipo,
+            CategoriaEnvioEspecial = template.CategoriaEnvioEspecial,
             Valor = template.Valor,
             CodigoInterno = template.CodigoInterno,
-            CodigoVisible = $"{template.CodigoVisible ?? "TICKET"}-{Guid.NewGuid():N}"[..20],
+            CodigoVisible = $"{template.CodigoVisible ?? visibleCodePrefix}-{Guid.NewGuid():N}"[..20],
             TituloCanje = template.TituloCanje,
             InstruccionesCanje = template.InstruccionesCanje,
             CondicionesUso = template.CondicionesUso,
@@ -223,39 +301,6 @@ public class RegistrationRewardService : IRegistrationRewardService
             ExpiresAtUtc = ResolveAssignedExpiration(template, now),
             UpdatedAtUtc = now
         };
-
-        await _ticketRepository.AddAsync(assignedTicket, cancellationToken);
-
-        existingAssignment.AssignedTicketId = assignedTicket.Id;
-        existingAssignment.Activated = true;
-        existingAssignment.ActivatedAtUtc = now;
-        _pendingTicketAssignmentRepository.Update(existingAssignment);
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
-        return assignedTicket;
-    }
-
-    private static bool IsCampaignValid(QrCampaign? campaign)
-    {
-        if (campaign is null || !campaign.Activa)
-        {
-            return false;
-        }
-
-        DateTime now = DateTime.UtcNow;
-
-        if (campaign.AvailableFromUtc.HasValue && campaign.AvailableFromUtc.Value > now)
-        {
-            return false;
-        }
-
-        if (campaign.Expira && campaign.ExpiresAtUtc.HasValue && campaign.ExpiresAtUtc.Value < now)
-        {
-            return false;
-        }
-
-        return true;
-    }
 
     private static DateTime ResolveAssignedExpiration(Ticket template, DateTime assignedAtUtc)
         => template.ValidezDiasDesdeAsignacion.HasValue
