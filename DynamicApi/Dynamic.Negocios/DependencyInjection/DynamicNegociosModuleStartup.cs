@@ -6,6 +6,7 @@ using Dynamic.Negocios.Application.Services;
 using Dynamic.Negocios.Controllers;
 using Dynamic.Negocios.Infrastructure.Persistence;
 using Dynamic.Negocios.Infrastructure.Repositories;
+using Dynamic.Negocios.Infrastructure.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -19,6 +20,11 @@ public class DynamicNegociosModuleStartup
     {
         services.AddOptions<DynamicNegociosDatabaseOptions>()
             .Bind(configuration.GetSection(DynamicNegociosDatabaseOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        services.AddOptions<NegocioMediaOptions>()
+            .Bind(configuration.GetSection(NegocioMediaOptions.SectionName))
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
@@ -42,6 +48,7 @@ public class DynamicNegociosModuleStartup
 
         services.AddScoped<INegocioRepository, NegocioRepository>();
         services.AddScoped<INegocioUsuarioVinculacionRepository, NegocioUsuarioVinculacionRepository>();
+        services.AddScoped<INegocioMediaStorageService, NegocioMediaStorageService>();
         services.AddScoped<INegocioService, NegocioService>();
         services.AddScoped<INegocioUsuarioVinculacionService, NegocioUsuarioVinculacionService>();
 

@@ -42,7 +42,8 @@ public class NegociosController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    public async Task<IActionResult> Update(Guid id, [FromBody] ActualizarNegocioRequest request, CancellationToken cancellationToken)
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> Update(Guid id, [FromForm] ActualizarNegocioMultipartRequest request, CancellationToken cancellationToken)
     {
         ServiceResult<NegocioResponse> result = await _negocioService.UpdateAsync(id, request, cancellationToken);
         return ToActionResult(result, Ok);

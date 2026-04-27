@@ -7,6 +7,7 @@ using Dynamic.Negocios.Application.Mappings;
 using Dynamic.Negocios.Domain.Entities;
 using Dynamic.Negocios.Infrastructure.Persistence;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 
 namespace Dynamic.Negocios.Application.Services;
 
@@ -15,17 +16,20 @@ public class NegocioService : INegocioService
     private readonly DynamicNegociosDbContext _dbContext;
     private readonly INegocioRepository _negocioRepository;
     private readonly INegocioUsuarioVinculacionRepository _negocioUsuarioVinculacionRepository;
+    private readonly INegocioMediaStorageService _negocioMediaStorageService;
     private readonly ILogger<NegocioService> _logger;
 
     public NegocioService(
         DynamicNegociosDbContext dbContext,
         INegocioRepository negocioRepository,
         INegocioUsuarioVinculacionRepository negocioUsuarioVinculacionRepository,
+        INegocioMediaStorageService negocioMediaStorageService,
         ILogger<NegocioService> logger)
     {
         _dbContext = dbContext;
         _negocioRepository = negocioRepository;
         _negocioUsuarioVinculacionRepository = negocioUsuarioVinculacionRepository;
+        _negocioMediaStorageService = negocioMediaStorageService;
         _logger = logger;
     }
 
@@ -93,6 +97,17 @@ public class NegocioService : INegocioService
         if (existingBySlug is not null && existingBySlug.Id != id)
         {
             return ServiceResult<NegocioResponse>.Failure("conflict", "Ya existe otro negocio con ese slug.");
+        }
+
+        if (request is ActualizarNegocioMultipartRequest multipartRequest)
+        {
+            ServiceResult imageUploadResult = await ApplyUploadedImagesAsync(id, multipartRequest, cancellationToken);
+            if (!imageUploadResult.Succeeded)
+            {
+                return ServiceResult<NegocioResponse>.Failure(
+                    imageUploadResult.ErrorCode ?? "validation_error",
+                    imageUploadResult.ErrorMessage ?? "No se pudieron procesar las im\u00e1genes del negocio.");
+            }
         }
 
         request.Apply(negocio);
@@ -213,5 +228,117 @@ public class NegocioService : INegocioService
         existing.UnlinkedByUserId = null;
         existing.UpdatedAtUtc = now;
         _negocioUsuarioVinculacionRepository.Update(existing);
+    }
+
+    private async Task<ServiceResult> ApplyUploadedImagesAsync(
+        Guid negocioId,
+        ActualizarNegocioMultipartRequest request,
+        CancellationToken cancellationToken)
+    {
+        ServiceResult<string>? uploadResult;
+
+        uploadResult = await UploadIfPresentAsync(negocioId, "logo-principal", request.LogoPrincipalFile, cancellationToken);
+        if (uploadResult is not null)
+        {
+            if (!uploadResult.Succeeded)
+            {
+                return ServiceResult.Failure(uploadResult.ErrorCode ?? "validation_error", uploadResult.ErrorMessage ?? "No se pudo subir el logo principal.");
+            }
+
+            request.LogoPrincipalUrl = uploadResult.Data;
+        }
+
+        uploadResult = await UploadIfPresentAsync(negocioId, "logo-secundario", request.LogoSecundarioFile, cancellationToken);
+        if (uploadResult is not null)
+        {
+            if (!uploadResult.Succeeded)
+            {
+                return ServiceResult.Failure(uploadResult.ErrorCode ?? "validation_error", uploadResult.ErrorMessage ?? "No se pudo subir el logo secundario.");
+            }
+
+            request.LogoSecundarioUrl = uploadResult.Data;
+        }
+
+        uploadResult = await UploadIfPresentAsync(negocioId, "icono", request.IconoFile, cancellationToken);
+        if (uploadResult is not null)
+        {
+            if (!uploadResult.Succeeded)
+            {
+                return ServiceResult.Failure(uploadResult.ErrorCode ?? "validation_error", uploadResult.ErrorMessage ?? "No se pudo subir el icono.");
+            }
+
+            request.IconoUrl = uploadResult.Data;
+        }
+
+        uploadResult = await UploadIfPresentAsync(negocioId, "hero", request.ImagenHeroFile, cancellationToken);
+        if (uploadResult is not null)
+        {
+            if (!uploadResult.Succeeded)
+            {
+                return ServiceResult.Failure(uploadResult.ErrorCode ?? "validation_error", uploadResult.ErrorMessage ?? "No se pudo subir la imagen hero.");
+            }
+
+            request.ImagenHeroUrl = uploadResult.Data;
+        }
+
+        uploadResult = await UploadIfPresentAsync(negocioId, "cover", request.ImagenCoverFile, cancellationToken);
+        if (uploadResult is not null)
+        {
+            if (!uploadResult.Succeeded)
+            {
+                return ServiceResult.Failure(uploadResult.ErrorCode ?? "validation_error", uploadResult.ErrorMessage ?? "No se pudo subir la imagen cover.");
+            }
+
+            request.ImagenCoverUrl = uploadResult.Data;
+        }
+
+        uploadResult = await UploadIfPresentAsync(negocioId, "mobile", request.ImagenMobileFile, cancellationToken);
+        if (uploadResult is not null)
+        {
+            if (!uploadResult.Succeeded)
+            {
+                return ServiceResult.Failure(uploadResult.ErrorCode ?? "validation_error", uploadResult.ErrorMessage ?? "No se pudo subir la imagen mobile.");
+            }
+
+            request.ImagenMobileUrl = uploadResult.Data;
+        }
+
+        if (request.GaleriaImagenesFiles is { Count: > 0 })
+        {
+            List<string> galleryUrls = [];
+
+            foreach (var galleryFile in request.GaleriaImagenesFiles.Where(file => file is not null))
+            {
+                ServiceResult<string> galleryUpload =
+                    await _negocioMediaStorageService.SaveImageAsync(negocioId, "gallery", galleryFile, cancellationToken);
+
+                if (!galleryUpload.Succeeded || string.IsNullOrWhiteSpace(galleryUpload.Data))
+                {
+                    return ServiceResult.Failure(
+                        galleryUpload.ErrorCode ?? "validation_error",
+                        galleryUpload.ErrorMessage ?? "No se pudo subir una imagen de la galer\u00eda.");
+                }
+
+                galleryUrls.Add(galleryUpload.Data);
+            }
+
+            request.GaleriaImagenesJson = JsonSerializer.Serialize(galleryUrls);
+        }
+
+        return ServiceResult.Success();
+    }
+
+    private async Task<ServiceResult<string>?> UploadIfPresentAsync(
+        Guid negocioId,
+        string imageSlot,
+        Microsoft.AspNetCore.Http.IFormFile? file,
+        CancellationToken cancellationToken)
+    {
+        if (file is null)
+        {
+            return null;
+        }
+
+        return await _negocioMediaStorageService.SaveImageAsync(negocioId, imageSlot, file, cancellationToken);
     }
 }
