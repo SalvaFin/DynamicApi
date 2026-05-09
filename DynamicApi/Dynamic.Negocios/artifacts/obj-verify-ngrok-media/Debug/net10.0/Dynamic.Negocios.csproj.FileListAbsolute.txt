@@ -1,6 +1,0 @@
-C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Negocios\artifacts\obj-verify-ngrok-media\Debug\net10.0\Dynamic.Negocios.csproj.AssemblyReference.cache
-C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Negocios\artifacts\obj-verify-ngrok-media\Debug\net10.0\Dynamic.Negocios.GeneratedMSBuildEditorConfig.editorconfig
-C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Negocios\artifacts\obj-verify-ngrok-media\Debug\net10.0\Dynamic.Negocios.AssemblyInfoInputs.cache
-C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Negocios\artifacts\obj-verify-ngrok-media\Debug\net10.0\Dynamic.Negocios.AssemblyInfo.cs
-C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Negocios\artifacts\obj-verify-ngrok-media\Debug\net10.0\Dynamic.Negocios.csproj.CoreCompileInputs.cache
-C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Negocios\artifacts\obj-verify-ngrok-media\Debug\net10.0\Dynamic.Negocios.sourcelink.json

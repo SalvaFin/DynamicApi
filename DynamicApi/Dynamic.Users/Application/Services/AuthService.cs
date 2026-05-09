@@ -244,6 +244,8 @@ public class AuthService : IAuthService
 
     public async Task<ServiceResult<CompleteRegistrationResponse>> CompleteRegistrationAsync(
         CompleteRegistrationRequest request,
+        string? ipAddress,
+        string? userAgent,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(request.Contact) ||
@@ -298,6 +300,9 @@ public class AuthService : IAuthService
         userByContact.RegistrationValidationToken = null;
         userByContact.RegistrationValidationTokenExpiresAtUtc = null;
         userByContact.Status = UserStatus.Active;
+        userByContact.LastLoginAtUtc = now;
+        userByContact.LastSeenAtUtc = now;
+        userByContact.LastLoginIp = ipAddress;
         userByContact.UpdatedAtUtc = now;
 
         if (contactInfo.Type == ContactType.Email)
@@ -309,28 +314,62 @@ public class AuthService : IAuthService
             userByContact.PhoneNumberConfirmed = true;
         }
 
-        await _userAuthEventRepository.AddAsync(
-            BuildAuthEvent(AuthEventType.RegisterCompleted, userByContact, contactInfo.OriginalValue, true, null, null, null, null, now),
-            cancellationToken);
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        string userCode = await _userCodeDirectoryService.EnsureUserCodeAsync(userByContact.Id, cancellationToken);
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+        bool committed = false;
 
         try
         {
-            await _registrationRewardService.FinalizePendingAssignmentsAsync(userByContact.Id, cancellationToken);
+            UserDevice? device = await CreateOrUpdateDeviceAsync(userByContact, request.Client, now, cancellationToken);
+            UserSession session = CreateSession(userByContact, device, request.Client, ipAddress, userAgent, now);
+            GeneratedTokenEnvelope tokens = _jwtTokenService.GenerateTokens(userByContact, session);
+
+            session.JwtId = tokens.JwtId;
+            session.RefreshTokenHash = tokens.RefreshTokenHash;
+            session.RefreshTokenExpiresAtUtc = tokens.RefreshTokenExpiresAtUtc;
+
+            await _userSessionRepository.AddAsync(session, cancellationToken);
+            await _userAuthEventRepository.AddAsync(
+                BuildAuthEvent(AuthEventType.RegisterCompleted, userByContact, contactInfo.OriginalValue, true, null, ipAddress, userAgent, request.Client, now),
+                cancellationToken);
+            await _userAuthEventRepository.AddAsync(
+                BuildAuthEvent(AuthEventType.LoginSucceeded, userByContact, contactInfo.OriginalValue, true, null, ipAddress, userAgent, request.Client, now),
+                cancellationToken);
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            committed = true;
+
+            try
+            {
+                await _registrationRewardService.FinalizePendingAssignmentsAsync(userByContact.Id, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "No se pudieron finalizar las recompensas pendientes de registro para {UserId}", userByContact.Id);
+            }
+
+            return ServiceResult<CompleteRegistrationResponse>.Success(new CompleteRegistrationResponse
+            {
+                Completed = true,
+                Contact = contactInfo.OriginalValue,
+                UserName = userByContact.UserName,
+                LoggedIn = true,
+                Auth = BuildAuthResponse(userByContact, userCode, session, tokens),
+                Message = "Registro completado correctamente. Sesion iniciada."
+            });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "No se pudieron finalizar las recompensas pendientes de registro para {UserId}", userByContact.Id);
+            if (!committed)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+            }
+
+            _logger.LogError(ex, "Error completando registro para {Contact}", request.Contact);
+            return ServiceResult<CompleteRegistrationResponse>.Failure("server_error", "No se pudo completar el registro.");
         }
 
-        return ServiceResult<CompleteRegistrationResponse>.Success(new CompleteRegistrationResponse
-        {
-            Completed = true,
-            Contact = contactInfo.OriginalValue,
-            UserName = userByContact.UserName,
-            Message = "Registro completado correctamente. Ya puedes iniciar sesión."
-        });
     }
 
     public async Task<ServiceResult<UserSummaryResponse>> ClassicRegisterAsync(

@@ -38,7 +38,12 @@ public class UsersAuthController : ControllerBase
     [HttpPost("register/validate")]
     public async Task<IActionResult> CompleteRegister([FromBody] CompleteRegistrationRequest request, CancellationToken cancellationToken)
     {
-        ServiceResult<CompleteRegistrationResponse> result = await _authService.CompleteRegistrationAsync(request, cancellationToken);
+        ServiceResult<CompleteRegistrationResponse> result = await _authService.CompleteRegistrationAsync(
+            request,
+            GetIpAddress(),
+            GetUserAgent(),
+            cancellationToken);
+
         return ToActionResult(result, Ok);
     }
 

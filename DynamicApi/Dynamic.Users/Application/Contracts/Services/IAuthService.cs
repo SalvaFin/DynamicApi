@@ -14,6 +14,8 @@ public interface IAuthService
 
     Task<ServiceResult<CompleteRegistrationResponse>> CompleteRegistrationAsync(
         CompleteRegistrationRequest request,
+        string? ipAddress,
+        string? userAgent,
         CancellationToken cancellationToken = default);
 
     Task<ServiceResult<UserSummaryResponse>> ClassicRegisterAsync(

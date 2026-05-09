@@ -1,0 +1,17 @@
+# Local IDE/workspace files
+.vs/
+.media/
+
+# Build and publish outputs
+**/bin/
+**/obj/
+artifacts/
+**/artifacts/
+
+# Local secrets and environment files
+.env
+.env.*
+!.env.example
+**/appsettings.Local.json
+**/appsettings.*.local.json
+**/appsettings.Secrets.json

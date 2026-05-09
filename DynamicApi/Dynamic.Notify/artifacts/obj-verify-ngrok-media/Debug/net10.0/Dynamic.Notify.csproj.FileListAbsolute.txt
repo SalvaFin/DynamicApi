@@ -1,5 +1,0 @@
-C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Notify\artifacts\obj-verify-ngrok-media\Debug\net10.0\Dynamic.Notify.GeneratedMSBuildEditorConfig.editorconfig
-C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Notify\artifacts\obj-verify-ngrok-media\Debug\net10.0\Dynamic.Notify.AssemblyInfoInputs.cache
-C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Notify\artifacts\obj-verify-ngrok-media\Debug\net10.0\Dynamic.Notify.AssemblyInfo.cs
-C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Notify\artifacts\obj-verify-ngrok-media\Debug\net10.0\Dynamic.Notify.csproj.CoreCompileInputs.cache
-C:\Users\salva\Source\Repos\DynamicApi\DynamicApi\Dynamic.Notify\artifacts\obj-verify-ngrok-media\Debug\net10.0\Dynamic.Notify.sourcelink.json

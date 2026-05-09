@@ -2,6 +2,8 @@
 # Build results
 bin/
 obj/
+artifacts/
+**/artifacts/
 
 # User-specific files
 *.user
@@ -84,6 +86,13 @@ node_modules/
 
 # dotenv environment variables
 .env
+.env.*
+!.env.example
+
+# Local app configuration with secrets
+**/appsettings.Local.json
+**/appsettings.*.local.json
+**/appsettings.Secrets.json
 
 # Python virtual environments
 .venv/

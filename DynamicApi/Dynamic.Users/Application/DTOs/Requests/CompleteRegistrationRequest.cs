@@ -22,4 +22,6 @@ public class CompleteRegistrationRequest
 
     [Range(0, 130)]
     public int Edad { get; set; }
+
+    public ClientDeviceContextRequest? Client { get; set; }
 }
