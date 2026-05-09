@@ -1,10 +1,11 @@
-using System.Net;
-using System.Net.Mail;
 using Dynamic.Notify.Application.Contracts;
 using Dynamic.Notify.Application.Models;
 using Dynamic.Notify.Application.Options;
+using MailKit.Net.Smtp;
+using MailKit.Security;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using MimeKit;
 
 namespace Dynamic.Notify.Infrastructure.Services;
 
@@ -29,28 +30,40 @@ public class SmtpEmailNotificationService : IEmailNotificationService
             return;
         }
 
-        using MailMessage mailMessage = new()
+        MimeMessage mailMessage = new();
+        mailMessage.From.Add(new MailboxAddress(_smtpOptions.FromName, _smtpOptions.FromEmail));
+        mailMessage.To.Add(new MailboxAddress(message.ToName ?? message.ToEmail, message.ToEmail));
+        mailMessage.Subject = message.Subject;
+
+        BodyBuilder bodyBuilder = new()
         {
-            From = new MailAddress(_smtpOptions.FromEmail, _smtpOptions.FromName),
-            Subject = message.Subject,
-            Body = message.HtmlBody,
-            IsBodyHtml = true
+            HtmlBody = message.HtmlBody
         };
-
-        mailMessage.To.Add(new MailAddress(message.ToEmail, message.ToName ?? message.ToEmail));
-
         if (!string.IsNullOrWhiteSpace(message.TextBody))
         {
-            mailMessage.AlternateViews.Add(AlternateView.CreateAlternateViewFromString(message.TextBody, null, "text/plain"));
+            bodyBuilder.TextBody = message.TextBody;
         }
 
-        using SmtpClient smtpClient = new(_smtpOptions.Host, _smtpOptions.Port)
-        {
-            EnableSsl = _smtpOptions.UseSsl,
-            Credentials = new NetworkCredential(_smtpOptions.UserName, _smtpOptions.Password)
-        };
+        mailMessage.Body = bodyBuilder.ToMessageBody();
 
-        cancellationToken.ThrowIfCancellationRequested();
-        await smtpClient.SendMailAsync(mailMessage, cancellationToken);
+        SecureSocketOptions secureSocketOptions = GetSecureSocketOptions();
+
+        using SmtpClient smtpClient = new();
+        await smtpClient.ConnectAsync(_smtpOptions.Host, _smtpOptions.Port, secureSocketOptions, cancellationToken);
+        await smtpClient.AuthenticateAsync(_smtpOptions.UserName, _smtpOptions.Password, cancellationToken);
+        await smtpClient.SendAsync(mailMessage, cancellationToken);
+        await smtpClient.DisconnectAsync(true, cancellationToken);
+    }
+
+    private SecureSocketOptions GetSecureSocketOptions()
+    {
+        if (!_smtpOptions.UseSsl)
+        {
+            return SecureSocketOptions.None;
+        }
+
+        return _smtpOptions.Port == 465
+            ? SecureSocketOptions.SslOnConnect
+            : SecureSocketOptions.StartTls;
     }
 }

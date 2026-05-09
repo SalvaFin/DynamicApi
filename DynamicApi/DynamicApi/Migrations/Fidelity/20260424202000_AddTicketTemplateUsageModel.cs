@@ -1,3 +1,5 @@
+using Dynamic.Fidelity.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -5,6 +7,8 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace DynamicApi.Migrations.Fidelity
 {
     /// <inheritdoc />
+    [DbContext(typeof(DynamicFidelityDbContext))]
+    [Migration("20260424202000_AddTicketTemplateUsageModel")]
     public partial class AddTicketTemplateUsageModel : Migration
     {
         /// <inheritdoc />
