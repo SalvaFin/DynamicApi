@@ -16,6 +16,7 @@ using Dynamic.Users.Domain.Entities;
 using Dynamic.Users.Domain.Enums;
 using Dynamic.Users.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace Dynamic.Users.Application.Services;
@@ -52,6 +53,64 @@ public class BusinessUserProvisioningService : IBusinessUserProvisioningService
         _negocioRepository = negocioRepository;
         _negocioUsuarioVinculacionRepository = negocioUsuarioVinculacionRepository;
         _logger = logger;
+    }
+
+    public async Task<ServiceResult<IReadOnlyCollection<BusinessUserAccountResponse>>> GetBusinessAccountsByAdminAsync(
+        Guid negocioId,
+        CancellationToken cancellationToken = default)
+    {
+        Negocio? negocio = await _negocioRepository.GetByIdAsync(negocioId, cancellationToken);
+        if (negocio is null || negocio.IsDeleted)
+        {
+            return ServiceResult<IReadOnlyCollection<BusinessUserAccountResponse>>.Failure("not_found", "El negocio no existe.");
+        }
+
+        List<NegocioUsuarioVinculacion> vinculaciones = await _negociosDbContext.NegociosUsuariosVinculaciones
+            .Where(vinculacion => vinculacion.NegocioId == negocioId)
+            .OrderByDescending(vinculacion => vinculacion.TipoVinculacion == TipoVinculacionNegocioUsuario.Propietario)
+            .ThenByDescending(vinculacion => vinculacion.EsPrincipal)
+            .ThenBy(vinculacion => vinculacion.TituloRelacion)
+            .ToListAsync(cancellationToken);
+
+        List<Guid> userIds = vinculaciones
+            .Select(vinculacion => vinculacion.UserId)
+            .Distinct()
+            .ToList();
+
+        if (userIds.Count == 0)
+        {
+            return ServiceResult<IReadOnlyCollection<BusinessUserAccountResponse>>.Success([]);
+        }
+
+        Dictionary<Guid, UserAccount> users = await _usersDbContext.Users
+            .Where(user =>
+                userIds.Contains(user.Id) &&
+                (user.Role == UserRole.PropietarioNegocio ||
+                 user.Role == UserRole.TrabajadorNegocio))
+            .ToDictionaryAsync(user => user.Id, cancellationToken);
+
+        List<BusinessUserAccountResponse> response = [];
+
+        foreach (NegocioUsuarioVinculacion vinculacion in vinculaciones)
+        {
+            if (!users.TryGetValue(vinculacion.UserId, out UserAccount? user))
+            {
+                continue;
+            }
+
+            string? userCode = await _userCodeDirectoryService.GetUserCodeAsync(user.Id, cancellationToken);
+
+            response.Add(new BusinessUserAccountResponse
+            {
+                NegocioId = negocioId,
+                IsOwner = user.Role == UserRole.PropietarioNegocio ||
+                    vinculacion.TipoVinculacion == TipoVinculacionNegocioUsuario.Propietario,
+                User = user.ToResponse(userCode),
+                Vinculacion = vinculacion.ToResponse()
+            });
+        }
+
+        return ServiceResult<IReadOnlyCollection<BusinessUserAccountResponse>>.Success(response);
     }
 
     public async Task<ServiceResult<ProvisionedBusinessUserResponse>> CreateOwnerAccountByAdminAsync(

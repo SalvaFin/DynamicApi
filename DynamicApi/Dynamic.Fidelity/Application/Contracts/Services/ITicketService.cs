@@ -34,6 +34,20 @@ public interface ITicketService
         CreateTicketRequest request,
         CancellationToken cancellationToken = default);
 
+    Task<ServiceResult<TicketResponse>> CreateWelcomeTicketAsync(
+        Guid negocioId,
+        Guid requesterUserId,
+        bool isAdmin,
+        CreateTicketRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<ServiceResult<TicketResponse>> CreateReferralTicketAsync(
+        Guid negocioId,
+        Guid requesterUserId,
+        bool isAdmin,
+        CreateTicketRequest request,
+        CancellationToken cancellationToken = default);
+
     Task<ServiceResult<TicketResponse>> UpdateAsync(
         Guid negocioId,
         Guid ticketId,

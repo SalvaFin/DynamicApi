@@ -392,6 +392,126 @@ public class PointsService : IPointsService
         });
     }
 
+    public async Task<ServiceResult<PointsEarnValidationResponse>> BackofficeAccrualByWorkerAsync(
+        Guid authenticatedUserId,
+        bool isAdmin,
+        WorkerPointsAccrualRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request.TrabajadorId == Guid.Empty || request.UserId == Guid.Empty)
+        {
+            return ServiceResult<PointsEarnValidationResponse>.Failure("validation_error", "Trabajador y usuario son obligatorios.");
+        }
+
+        if (!isAdmin && authenticatedUserId != request.TrabajadorId)
+        {
+            return ServiceResult<PointsEarnValidationResponse>.Failure("forbidden", "El trabajador indicado no coincide con el usuario autenticado.");
+        }
+
+        if (request.DineroGastado <= 0)
+        {
+            return ServiceResult<PointsEarnValidationResponse>.Failure("validation_error", "El importe gastado debe ser mayor que 0.");
+        }
+
+        IReadOnlyCollection<NegocioUsuarioVinculacion> workerLinks =
+            await _negocioUsuarioVinculacionRepository.GetActiveByUserIdAsync(request.TrabajadorId, cancellationToken);
+
+        DateTime now = DateTime.UtcNow;
+        List<NegocioUsuarioVinculacion> eligibleLinks = workerLinks
+            .Where(link =>
+                !link.RevokedAtUtc.HasValue &&
+                (!link.FechaInicioUtc.HasValue || link.FechaInicioUtc.Value <= now) &&
+                (!link.FechaFinUtc.HasValue || link.FechaFinUtc.Value >= now) &&
+                link.Negocio is not null &&
+                link.Negocio.Activo &&
+                !link.Negocio.IsDeleted &&
+                (link.PuedeGestionarNegocio || link.PuedeGestionarPuntos || link.PuedeValidarTickets ||
+                 link.TipoVinculacion is TipoVinculacionNegocioUsuario.Propietario or TipoVinculacionNegocioUsuario.Gerente))
+            .ToList();
+
+        if (eligibleLinks.Count == 0)
+        {
+            return ServiceResult<PointsEarnValidationResponse>.Failure("forbidden", "El trabajador no está vinculado a ningún negocio activo con permisos para sumar puntos.");
+        }
+
+        List<NegocioUsuarioVinculacion> principalLinks = eligibleLinks
+            .Where(link => link.EsPrincipal)
+            .ToList();
+
+        NegocioUsuarioVinculacion? selectedLink = eligibleLinks.Count == 1
+            ? eligibleLinks[0]
+            : principalLinks.Count == 1
+                ? principalLinks[0]
+                : null;
+
+        if (selectedLink is null)
+        {
+            return ServiceResult<PointsEarnValidationResponse>.Failure("conflict", "El trabajador tiene varios negocios activos. Usa un flujo que indique el negocio explícitamente.");
+        }
+
+        Negocio negocio = selectedLink.Negocio!;
+        if (negocio.RatioConversionEurosAPuntos is null || negocio.RatioConversionEurosAPuntos <= 0)
+        {
+            return ServiceResult<PointsEarnValidationResponse>.Failure("validation_error", "El negocio no tiene configurado un ratio de conversión de puntos válido.");
+        }
+
+        int pointsEarned = CalculatePoints(request.DineroGastado, negocio.RatioConversionEurosAPuntos.Value);
+        if (pointsEarned <= 0)
+        {
+            return ServiceResult<PointsEarnValidationResponse>.Failure("validation_error", "El importe indicado no genera puntos con el ratio actual del negocio.");
+        }
+
+        Points points = await GetOrCreateAsync(request.UserId, negocio.Id, cancellationToken);
+        int balanceBefore = points.CurrentBalance;
+        int balanceAfter = balanceBefore + pointsEarned;
+        string userCode = await _userCodeDirectoryService.EnsureUserCodeAsync(request.UserId, cancellationToken);
+        string reference = Normalize(request.Reference) ?? $"worker-accrual:{Guid.NewGuid():N}";
+        string reason = Normalize(request.Reason) ?? "Compra escaneada por trabajador";
+
+        points.CurrentBalance = balanceAfter;
+        points.TotalEarned += pointsEarned;
+        points.LastEarnedAtUtc = now;
+        points.LastMovementAtUtc = now;
+        points.LastReason = reason;
+        points.LastReference = reference;
+        points.UpdatedAtUtc = now;
+
+        await _pointsTransactionRepository.AddAsync(
+            new PointsTransaction
+            {
+                Id = Guid.NewGuid(),
+                UserId = request.UserId,
+                NegocioId = negocio.Id,
+                PointsId = points.Id,
+                ValidatorUserId = request.TrabajadorId,
+                TransactionType = PointsTransactionType.BackofficeEarn,
+                AmountEuros = decimal.Round(request.DineroGastado, 2, MidpointRounding.AwayFromZero),
+                PointsAmount = pointsEarned,
+                BalanceBefore = balanceBefore,
+                BalanceAfter = balanceAfter,
+                UserCodeSnapshot = userCode,
+                Reason = reason,
+                Reference = reference,
+                CreatedAtUtc = now
+            },
+            cancellationToken);
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return ServiceResult<PointsEarnValidationResponse>.Success(new PointsEarnValidationResponse
+        {
+            OperationId = Guid.Empty,
+            UserId = request.UserId,
+            NegocioId = negocio.Id,
+            PointsEarned = pointsEarned,
+            TotalBalance = balanceAfter,
+            RemainingAttempts = 0,
+            ValidatorUserId = request.TrabajadorId,
+            Cancelled = false,
+            Message = $"Se han acreditado {pointsEarned} puntos al usuario {userCode}."
+        });
+    }
+
     public async Task<ServiceResult<IReadOnlyCollection<PointsFailedAttemptResponse>>> GetFailedAttemptsAsync(
         Guid negocioId,
         Guid requesterUserId,
@@ -808,7 +928,7 @@ public class PointsService : IPointsService
     }
 
     private static int CalculatePoints(decimal amountEuros, decimal ratio)
-        => (int)Math.Round(amountEuros * ratio, MidpointRounding.AwayFromZero);
+        => (int)decimal.Ceiling(amountEuros * ratio);
 
     private static bool VerifyMasterPin(string masterPin, string storedHash)
     {

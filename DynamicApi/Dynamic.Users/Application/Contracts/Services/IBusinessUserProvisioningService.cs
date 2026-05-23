@@ -6,6 +6,10 @@ namespace Dynamic.Users.Application.Contracts.Services;
 
 public interface IBusinessUserProvisioningService
 {
+    Task<ServiceResult<IReadOnlyCollection<BusinessUserAccountResponse>>> GetBusinessAccountsByAdminAsync(
+        Guid negocioId,
+        CancellationToken cancellationToken = default);
+
     Task<ServiceResult<ProvisionedBusinessUserResponse>> CreateOwnerAccountByAdminAsync(
         Guid negocioId,
         CreateBusinessManagedUserRequest request,

@@ -131,6 +131,28 @@ public class PointsController : ControllerBase
     }
 
     [Authorize(Policy = "BusinessStaffAuth")]
+    [HttpPost("/api/fidelity/points/backoffice/worker-accrual")]
+    public async Task<IActionResult> BackofficeWorkerAccrual(
+        [FromBody] WorkerPointsAccrualRequest request,
+        CancellationToken cancellationToken)
+    {
+        Guid? authenticatedUserId = GetClaimGuid(ClaimTypes.NameIdentifier, "sub");
+        if (!authenticatedUserId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        ServiceResult<PointsEarnValidationResponse> result =
+            await _pointsService.BackofficeAccrualByWorkerAsync(
+                authenticatedUserId.Value,
+                User.IsInRole("Admin"),
+                request,
+                cancellationToken);
+
+        return ToActionResult(result, Ok);
+    }
+
+    [Authorize(Policy = "BusinessStaffAuth")]
     [HttpGet("users/{userId:guid}/transactions")]
     public async Task<IActionResult> GetUserTransactions(Guid negocioId, Guid userId, CancellationToken cancellationToken)
     {

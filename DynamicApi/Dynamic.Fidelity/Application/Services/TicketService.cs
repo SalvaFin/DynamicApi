@@ -11,6 +11,7 @@ using Dynamic.Fidelity.Infrastructure.Persistence;
 using Dynamic.Negocios.Application.Contracts.Repositories;
 using Dynamic.Negocios.Domain.Entities;
 using Dynamic.Negocios.Domain.Enums;
+using Dynamic.Negocios.Infrastructure.Persistence;
 
 namespace Dynamic.Fidelity.Application.Services;
 
@@ -19,6 +20,7 @@ public class TicketService : ITicketService
     private static readonly TimeSpan DefaultExpiration = TimeSpan.FromDays(365);
 
     private readonly DynamicFidelityDbContext _dbContext;
+    private readonly DynamicNegociosDbContext _negociosDbContext;
     private readonly ITicketRepository _ticketRepository;
     private readonly INegocioRepository _negocioRepository;
     private readonly INegocioUsuarioVinculacionRepository _negocioUsuarioVinculacionRepository;
@@ -26,12 +28,14 @@ public class TicketService : ITicketService
 
     public TicketService(
         DynamicFidelityDbContext dbContext,
+        DynamicNegociosDbContext negociosDbContext,
         ITicketRepository ticketRepository,
         INegocioRepository negocioRepository,
         INegocioUsuarioVinculacionRepository negocioUsuarioVinculacionRepository,
         IPointsService pointsService)
     {
         _dbContext = dbContext;
+        _negociosDbContext = negociosDbContext;
         _ticketRepository = ticketRepository;
         _negocioRepository = negocioRepository;
         _negocioUsuarioVinculacionRepository = negocioUsuarioVinculacionRepository;
@@ -193,6 +197,34 @@ public class TicketService : ITicketService
         return ServiceResult<TicketResponse>.Success(ticket.ToResponse());
     }
 
+    public async Task<ServiceResult<TicketResponse>> CreateWelcomeTicketAsync(
+        Guid negocioId,
+        Guid requesterUserId,
+        bool isAdmin,
+        CreateTicketRequest request,
+        CancellationToken cancellationToken = default)
+        => await CreateConfiguredBusinessTicketAsync(
+            negocioId,
+            requesterUserId,
+            isAdmin,
+            CopyWithCategory(request, CategoriaEnvioTicket.PrimerRegistro),
+            (negocio, ticketId) => negocio.BonoBienvenidaTicketId = ticketId,
+            cancellationToken);
+
+    public async Task<ServiceResult<TicketResponse>> CreateReferralTicketAsync(
+        Guid negocioId,
+        Guid requesterUserId,
+        bool isAdmin,
+        CreateTicketRequest request,
+        CancellationToken cancellationToken = default)
+        => await CreateConfiguredBusinessTicketAsync(
+            negocioId,
+            requesterUserId,
+            isAdmin,
+            CopyWithCategory(request, CategoriaEnvioTicket.InvitacionClienteNuevo),
+            (negocio, ticketId) => negocio.BonoInvitacionNuevoClienteTicketId = ticketId,
+            cancellationToken);
+
     public async Task<ServiceResult<TicketResponse>> UpdateAsync(
         Guid negocioId,
         Guid ticketId,
@@ -256,6 +288,40 @@ public class TicketService : ITicketService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return ServiceResult<TicketResponse>.Success(ticket.ToResponse());
+    }
+
+    private async Task<ServiceResult<TicketResponse>> CreateConfiguredBusinessTicketAsync(
+        Guid negocioId,
+        Guid requesterUserId,
+        bool isAdmin,
+        CreateTicketRequest request,
+        Action<Negocio, Guid> configureBusiness,
+        CancellationToken cancellationToken)
+    {
+        ServiceResult<TicketResponse> result = await CreateAsync(
+            negocioId,
+            requesterUserId,
+            isAdmin,
+            request,
+            cancellationToken);
+
+        if (!result.Succeeded || result.Data is null)
+        {
+            return result;
+        }
+
+        Negocio? negocio = await _negocioRepository.GetByIdAsync(negocioId, cancellationToken);
+        if (negocio is null || negocio.IsDeleted)
+        {
+            return ServiceResult<TicketResponse>.Failure("not_found", "El negocio no existe.");
+        }
+
+        configureBusiness(negocio, result.Data.Id);
+        negocio.UpdatedAtUtc = DateTime.UtcNow;
+        _negocioRepository.Update(negocio);
+        await _negociosDbContext.SaveChangesAsync(cancellationToken);
+
+        return result;
     }
 
     public async Task<ServiceResult<TicketResponse>> UnlockAsync(
@@ -514,6 +580,25 @@ public class TicketService : ITicketService
 
     private static bool ResolveIsSingleUse(int? maxUsosPorCliente, bool esDeUnSoloUso)
         => maxUsosPorCliente.HasValue ? maxUsosPorCliente.Value <= 1 : esDeUnSoloUso;
+
+    private static CreateTicketRequest CopyWithCategory(CreateTicketRequest request, CategoriaEnvioTicket category)
+        => new()
+        {
+            Nombre = request.Nombre,
+            Descripcion = request.Descripcion,
+            Tipo = request.Tipo,
+            CategoriaEnvioEspecial = category,
+            Valor = request.Valor,
+            PuntosCoste = request.PuntosCoste,
+            MaxUsosPorCliente = request.MaxUsosPorCliente,
+            ValidezDiasDesdeAsignacion = request.ValidezDiasDesdeAsignacion,
+            Activo = request.Activo,
+            Publicado = request.Publicado,
+            EsDeUnSoloUso = request.EsDeUnSoloUso,
+            RequiereValidacionManual = request.RequiereValidacionManual,
+            AvailableFromUtc = request.AvailableFromUtc,
+            ExpiresAtUtc = request.ExpiresAtUtc
+        };
 
     private static string? Normalize(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

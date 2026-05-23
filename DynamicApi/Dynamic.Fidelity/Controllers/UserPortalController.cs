@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using QRCoder;
 
 namespace Dynamic.Fidelity.Controllers;
 
@@ -26,15 +27,43 @@ public class UserPortalController : ControllerBase
     private readonly DynamicFidelityDbContext _fidelityDbContext;
     private readonly DynamicNegociosDbContext _negociosDbContext;
     private readonly ITicketQrService _ticketQrService;
+    private readonly IUserCodeDirectoryService _userCodeDirectoryService;
 
     public UserPortalController(
         DynamicFidelityDbContext fidelityDbContext,
         DynamicNegociosDbContext negociosDbContext,
-        ITicketQrService ticketQrService)
+        ITicketQrService ticketQrService,
+        IUserCodeDirectoryService userCodeDirectoryService)
     {
         _fidelityDbContext = fidelityDbContext;
         _negociosDbContext = negociosDbContext;
         _ticketQrService = ticketQrService;
+        _userCodeDirectoryService = userCodeDirectoryService;
+    }
+
+    [HttpGet("qr")]
+    public async Task<IActionResult> GetMyQr(CancellationToken cancellationToken)
+    {
+        Guid? userId = GetCurrentUserId();
+        if (!userId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        string userCode = await _userCodeDirectoryService.EnsureUserCodeAsync(userId.Value, cancellationToken);
+        string payload = userId.Value.ToString("D");
+
+        using QRCodeGenerator generator = new();
+        using QRCodeData qrCodeData = generator.CreateQrCode(payload, QRCodeGenerator.ECCLevel.Q);
+        SvgQRCode svgQrCode = new(qrCodeData);
+
+        return Ok(new UserQrResponse
+        {
+            UserId = userId.Value,
+            UserCode = userCode,
+            Payload = payload,
+            QrSvg = svgQrCode.GetGraphic(20)
+        });
     }
 
     [HttpGet("businesses")]

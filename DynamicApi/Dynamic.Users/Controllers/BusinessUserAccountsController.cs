@@ -21,6 +21,18 @@ public class BusinessUserAccountsController : ControllerBase
     }
 
     [Authorize(Policy = "AdminAuth")]
+    [HttpGet("admin/negocios/{negocioId:guid}")]
+    public async Task<IActionResult> GetBusinessAccountsByAdmin(
+        Guid negocioId,
+        CancellationToken cancellationToken)
+    {
+        ServiceResult<IReadOnlyCollection<BusinessUserAccountResponse>> result =
+            await _businessUserProvisioningService.GetBusinessAccountsByAdminAsync(negocioId, cancellationToken);
+
+        return ToActionResult(result, Ok);
+    }
+
+    [Authorize(Policy = "AdminAuth")]
     [HttpPost("admin/negocios/{negocioId:guid}/owner")]
     public async Task<IActionResult> CreateOwnerByAdmin(
         Guid negocioId,
