@@ -28,6 +28,14 @@ public class NegociosController : ControllerBase
         return ToActionResult(result, data => Ok(data.WithResolvedMediaUrls(Request)));
     }
 
+    [AllowAnonymous]
+    [HttpGet("explorar")]
+    public async Task<IActionResult> Explore([FromQuery] ExplorarNegociosRequest request, CancellationToken cancellationToken)
+    {
+        ServiceResult<ExplorarNegociosResponse> result = await _negocioService.ExploreAsync(request, cancellationToken);
+        return ToActionResult(result, data => Ok(data.WithResolvedMediaUrls(Request)));
+    }
+
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
     {

@@ -22,6 +22,7 @@ public class TicketService : ITicketService
     private readonly DynamicFidelityDbContext _dbContext;
     private readonly DynamicNegociosDbContext _negociosDbContext;
     private readonly ITicketRepository _ticketRepository;
+    private readonly IPointsRepository _pointsRepository;
     private readonly INegocioRepository _negocioRepository;
     private readonly INegocioUsuarioVinculacionRepository _negocioUsuarioVinculacionRepository;
     private readonly IPointsService _pointsService;
@@ -30,6 +31,7 @@ public class TicketService : ITicketService
         DynamicFidelityDbContext dbContext,
         DynamicNegociosDbContext negociosDbContext,
         ITicketRepository ticketRepository,
+        IPointsRepository pointsRepository,
         INegocioRepository negocioRepository,
         INegocioUsuarioVinculacionRepository negocioUsuarioVinculacionRepository,
         IPointsService pointsService)
@@ -37,6 +39,7 @@ public class TicketService : ITicketService
         _dbContext = dbContext;
         _negociosDbContext = negociosDbContext;
         _ticketRepository = ticketRepository;
+        _pointsRepository = pointsRepository;
         _negocioRepository = negocioRepository;
         _negocioUsuarioVinculacionRepository = negocioUsuarioVinculacionRepository;
         _pointsService = pointsService;
@@ -351,12 +354,12 @@ public class TicketService : ITicketService
             return ServiceResult<TicketResponse>.Failure("validation_error", "El ticket no tiene un precio en puntos v\u00e1lido.");
         }
 
-        ServiceResult authorization = await EnsureUserLinkedToBusinessAsync(negocioId, requesterUserId, cancellationToken);
+        ServiceResult authorization = await EnsureUserHasPointsAccountAsync(negocioId, requesterUserId, cancellationToken);
         if (!authorization.Succeeded)
         {
             return ServiceResult<TicketResponse>.Failure(
                 authorization.ErrorCode ?? "forbidden",
-                authorization.ErrorMessage ?? "El usuario no est\u00e1 vinculado al negocio.");
+                authorization.ErrorMessage ?? "El usuario no tiene cuenta de puntos en este negocio.");
         }
 
         DateTime now = DateTime.UtcNow;
@@ -632,24 +635,15 @@ public class TicketService : ITicketService
         return ticket.ExpiresAtUtc > now;
     }
 
-    private async Task<ServiceResult> EnsureUserLinkedToBusinessAsync(Guid negocioId, Guid userId, CancellationToken cancellationToken)
+    private async Task<ServiceResult> EnsureUserHasPointsAccountAsync(Guid negocioId, Guid userId, CancellationToken cancellationToken)
     {
-        NegocioUsuarioVinculacion? link =
-            await _negocioUsuarioVinculacionRepository.GetByNegocioAndUserAsync(negocioId, userId, cancellationToken);
-
-        if (link is null || !link.Activa || link.RevokedAtUtc.HasValue)
+        Points? points = await _pointsRepository.GetByUserAndNegocioAsync(userId, negocioId, cancellationToken);
+        if (points is null)
         {
-            return ServiceResult.Failure("forbidden", "El usuario no est\u00e1 vinculado al negocio.");
+            return ServiceResult.Failure("forbidden", "El usuario no tiene cuenta de puntos en este negocio.");
         }
 
-        DateTime now = DateTime.UtcNow;
-        bool outsideDateWindow =
-            (link.FechaInicioUtc.HasValue && link.FechaInicioUtc.Value > now) ||
-            (link.FechaFinUtc.HasValue && link.FechaFinUtc.Value < now);
-
-        return outsideDateWindow
-            ? ServiceResult.Failure("forbidden", "La vinculaci\u00f3n del usuario con el negocio no est\u00e1 activa actualmente.")
-            : ServiceResult.Success();
+        return ServiceResult.Success();
     }
 
     private static Ticket BuildAssignedTicket(Ticket template, Guid userId, DateTime now)

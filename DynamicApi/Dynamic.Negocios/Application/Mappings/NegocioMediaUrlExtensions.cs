@@ -26,6 +26,21 @@ public static class NegocioMediaUrlExtensions
         HttpRequest request)
         => responses.Select(response => response.WithResolvedMediaUrls(request)).ToArray();
 
+    public static ExplorarNegociosResponse WithResolvedMediaUrls(this ExplorarNegociosResponse response, HttpRequest request)
+    {
+        response.Items = response.Items.Select(item => item.WithResolvedMediaUrls(request)).ToArray();
+        return response;
+    }
+
+    public static ExplorarNegocioResponse WithResolvedMediaUrls(this ExplorarNegocioResponse response, HttpRequest request)
+    {
+        response.LogoPrincipalUrl = ToAbsoluteUrl(response.LogoPrincipalUrl, request);
+        response.IconoUrl = ToAbsoluteUrl(response.IconoUrl, request);
+        response.ImagenCoverUrl = ToAbsoluteUrl(response.ImagenCoverUrl, request);
+        response.ImagenMobileUrl = ToAbsoluteUrl(response.ImagenMobileUrl, request);
+        return response;
+    }
+
     public static NegocioVinculadoResponse WithResolvedMediaUrls(this NegocioVinculadoResponse response, HttpRequest request)
     {
         response.LogoPrincipalUrl = ToAbsoluteUrl(response.LogoPrincipalUrl, request);

@@ -38,6 +38,19 @@ public class NegocioUsuarioVinculacionService : INegocioUsuarioVinculacionServic
         return ServiceResult<IReadOnlyCollection<NegocioVinculadoResponse>>.Success(negocios);
     }
 
+    public async Task<ServiceResult<NegocioVinculadoResponse>> GetPrincipalNegocioByUserAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        NegocioUsuarioVinculacion? vinculacion = (await _negocioUsuarioVinculacionRepository.GetActiveByUserIdAsync(userId, cancellationToken))
+            .FirstOrDefault();
+
+        if (vinculacion is null)
+        {
+            return ServiceResult<NegocioVinculadoResponse>.Failure("not_found", "El usuario no tiene un negocio activo vinculado.");
+        }
+
+        return ServiceResult<NegocioVinculadoResponse>.Success(vinculacion.ToNegocioVinculadoResponse());
+    }
+
     public async Task<ServiceResult<NegocioUsuarioVinculacionResponse>> LinkUserAsync(
         Guid negocioId,
         Guid userId,

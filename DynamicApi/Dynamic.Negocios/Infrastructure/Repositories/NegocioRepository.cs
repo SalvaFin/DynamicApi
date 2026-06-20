@@ -20,6 +20,27 @@ public class NegocioRepository : INegocioRepository
             .OrderBy(negocio => negocio.NombreComercial)
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyCollection<Negocio>> ExploreAsync(
+        IReadOnlyCollection<string> searchTerms,
+        CancellationToken cancellationToken = default)
+    {
+        IQueryable<Negocio> query = _dbContext.Negocios
+            .AsNoTracking()
+            .Where(negocio => !negocio.IsDeleted && negocio.Activo && negocio.PublicadoPortal);
+
+        foreach (string searchTerm in searchTerms)
+        {
+            string likePattern = $"%{EscapeLikePattern(searchTerm)}%";
+            query = query.Where(negocio =>
+                EF.Functions.Like(negocio.NombreComercial, likePattern, "\\") ||
+                (negocio.Etiquetas != null && EF.Functions.Like(negocio.Etiquetas, likePattern, "\\")));
+        }
+
+        return await query
+            .OrderBy(negocio => negocio.NombreComercial)
+            .ToListAsync(cancellationToken);
+    }
+
     public Task<Negocio?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         => _dbContext.Negocios.FirstOrDefaultAsync(negocio => negocio.Id == id && !negocio.IsDeleted, cancellationToken);
 
@@ -31,4 +52,10 @@ public class NegocioRepository : INegocioRepository
 
     public void Update(Negocio negocio)
         => _dbContext.Negocios.Update(negocio);
+
+    private static string EscapeLikePattern(string value)
+        => value
+            .Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("%", "\\%", StringComparison.Ordinal)
+            .Replace("_", "\\_", StringComparison.Ordinal);
 }

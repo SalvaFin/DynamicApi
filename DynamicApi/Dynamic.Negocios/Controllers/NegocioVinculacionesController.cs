@@ -37,6 +37,22 @@ public class NegocioVinculacionesController : ControllerBase
         return ToActionResult(result, data => Ok(data.WithResolvedMediaUrls(Request)));
     }
 
+    [Authorize(Policy = "BusinessStaffAuth")]
+    [HttpGet("mi-negocio")]
+    public async Task<IActionResult> GetMiNegocio(CancellationToken cancellationToken)
+    {
+        Guid? userId = GetClaimGuid(ClaimTypes.NameIdentifier, "sub");
+        if (!userId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        ServiceResult<NegocioVinculadoResponse> result =
+            await _negocioUsuarioVinculacionService.GetPrincipalNegocioByUserAsync(userId.Value, cancellationToken);
+
+        return ToActionResult(result, data => Ok(data.WithResolvedMediaUrls(Request)));
+    }
+
     [Authorize(Policy = "AdminAuth")]
     [HttpPost("{negocioId:guid}/usuarios/{userId:guid}/vinculaciones")]
     public async Task<IActionResult> LinkUser(

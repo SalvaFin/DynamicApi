@@ -126,6 +126,36 @@ public static class NegocioMappingExtensions
             UpdatedAtUtc = negocio.UpdatedAtUtc
         };
 
+    public static ExplorarNegocioResponse ToExploreResponse(this Negocio negocio, double? distanciaKm)
+        => new()
+        {
+            Id = negocio.Id,
+            NombreComercial = negocio.NombreComercial,
+            SlugPortal = negocio.SlugPortal,
+            CategoriaPrincipal = negocio.CategoriaPrincipal,
+            Subcategoria = negocio.Subcategoria,
+            Etiquetas = negocio.Etiquetas,
+            DescripcionCorta = negocio.DescripcionCorta,
+            DireccionLinea1 = negocio.DireccionLinea1,
+            CodigoPostal = negocio.CodigoPostal,
+            Ciudad = negocio.Ciudad,
+            Provincia = negocio.Provincia,
+            PaisCodigoIso2 = negocio.PaisCodigoIso2,
+            Latitud = negocio.Latitud,
+            Longitud = negocio.Longitud,
+            DistanciaKm = distanciaKm,
+            LogoPrincipalUrl = negocio.LogoPrincipalUrl,
+            IconoUrl = negocio.IconoUrl,
+            ImagenCoverUrl = negocio.ImagenCoverUrl,
+            ImagenMobileUrl = negocio.ImagenMobileUrl,
+            NombreProgramaFidelizacion = negocio.NombreProgramaFidelizacion,
+            DescripcionProgramaFidelizacion = negocio.DescripcionProgramaFidelizacion,
+            RatioConversionEurosAPuntos = negocio.RatioConversionEurosAPuntos,
+            PuntosBienvenida = negocio.PuntosBienvenida,
+            ValorMonetarioPunto = negocio.ValorMonetarioPunto,
+            PermiteRegistroPublico = negocio.PermiteRegistroPublico
+        };
+
     public static Negocio ToEntity(this CrearNegocioRequest request)
         => new();
 

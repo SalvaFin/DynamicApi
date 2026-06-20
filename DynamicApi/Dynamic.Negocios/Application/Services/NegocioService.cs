@@ -13,6 +13,11 @@ namespace Dynamic.Negocios.Application.Services;
 
 public class NegocioService : INegocioService
 {
+    private const int DefaultPage = 1;
+    private const int DefaultPageSize = 20;
+    private const int DefaultNearbyPageSize = 10;
+    private const int MaxPageSize = 100;
+
     private readonly DynamicNegociosDbContext _dbContext;
     private readonly INegocioRepository _negocioRepository;
     private readonly INegocioUsuarioVinculacionRepository _negocioUsuarioVinculacionRepository;
@@ -40,6 +45,54 @@ public class NegocioService : INegocioService
             .ToArray();
 
         return ServiceResult<IReadOnlyCollection<NegocioResponse>>.Success(negocios);
+    }
+
+    public async Task<ServiceResult<ExplorarNegociosResponse>> ExploreAsync(
+        ExplorarNegociosRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        string? validationError = ValidateExploreRequest(request);
+        if (validationError is not null)
+        {
+            return ServiceResult<ExplorarNegociosResponse>.Failure("validation_error", validationError);
+        }
+
+        int page = Math.Max(request.Page, DefaultPage);
+        string[] searchTerms = NormalizeSearchTerms(request.Search ?? request.Q);
+        bool hasLocation = request.Latitud.HasValue && request.Longitud.HasValue;
+        bool isNearbyDiscovery = hasLocation && searchTerms.Length == 0;
+        int defaultPageSize = isNearbyDiscovery ? DefaultNearbyPageSize : DefaultPageSize;
+        int pageSize = Math.Clamp(request.PageSize.GetValueOrDefault(defaultPageSize), 1, MaxPageSize);
+
+        IReadOnlyCollection<Negocio> negocios = await _negocioRepository.ExploreAsync(searchTerms, cancellationToken);
+        List<ExplorarNegocioResponse> mapped = negocios
+            .Select(negocio => negocio.ToExploreResponse(hasLocation
+                ? CalculateDistanceKm(request.Latitud!.Value, request.Longitud!.Value, negocio.Latitud, negocio.Longitud)
+                : null))
+            .ToList();
+
+        IEnumerable<ExplorarNegocioResponse> ordered = hasLocation
+            ? mapped
+                .OrderBy(negocio => negocio.DistanciaKm.HasValue ? 0 : 1)
+                .ThenBy(negocio => negocio.DistanciaKm)
+                .ThenBy(negocio => negocio.NombreComercial)
+            : mapped.OrderBy(negocio => negocio.NombreComercial);
+
+        int totalItems = mapped.Count;
+        ExplorarNegociosResponse response = new()
+        {
+            Page = page,
+            PageSize = pageSize,
+            TotalItems = totalItems,
+            TotalPages = totalItems == 0 ? 0 : (int)Math.Ceiling(totalItems / (double)pageSize),
+            OrdenadoPorProximidad = hasLocation,
+            Items = ordered
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToArray()
+        };
+
+        return ServiceResult<ExplorarNegociosResponse>.Success(response);
     }
 
     public async Task<ServiceResult<NegocioResponse>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -180,6 +233,60 @@ public class NegocioService : INegocioService
             ? "El slug del portal no puede contener espacios."
             : null;
     }
+
+    private static string? ValidateExploreRequest(ExplorarNegociosRequest request)
+    {
+        if (request.Latitud.HasValue != request.Longitud.HasValue)
+        {
+            return "Para ordenar por proximidad debes enviar latitud y longitud.";
+        }
+
+        if (request.Latitud is < -90 or > 90)
+        {
+            return "La latitud debe estar entre -90 y 90.";
+        }
+
+        if (request.Longitud is < -180 or > 180)
+        {
+            return "La longitud debe estar entre -180 y 180.";
+        }
+
+        return null;
+    }
+
+    private static string[] NormalizeSearchTerms(string? search)
+        => string.IsNullOrWhiteSpace(search)
+            ? []
+            : search
+                .Trim()
+                .Split([' ', ',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+    private static double? CalculateDistanceKm(decimal originLatitude, decimal originLongitude, decimal? destinationLatitude, decimal? destinationLongitude)
+    {
+        if (!destinationLatitude.HasValue || !destinationLongitude.HasValue)
+        {
+            return null;
+        }
+
+        const double earthRadiusKm = 6371.0088;
+        double originLatRadians = ToRadians((double)originLatitude);
+        double destinationLatRadians = ToRadians((double)destinationLatitude.Value);
+        double deltaLatRadians = ToRadians((double)(destinationLatitude.Value - originLatitude));
+        double deltaLonRadians = ToRadians((double)(destinationLongitude.Value - originLongitude));
+
+        double a = Math.Pow(Math.Sin(deltaLatRadians / 2), 2) +
+            Math.Cos(originLatRadians) *
+            Math.Cos(destinationLatRadians) *
+            Math.Pow(Math.Sin(deltaLonRadians / 2), 2);
+
+        double distance = earthRadiusKm * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+        return Math.Round(distance, 2);
+    }
+
+    private static double ToRadians(double degrees)
+        => degrees * Math.PI / 180;
 
     private async Task EnsureOwnerLinkAsync(Negocio negocio, CancellationToken cancellationToken)
     {

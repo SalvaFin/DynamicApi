@@ -58,17 +58,17 @@ public class UserActivityController : ControllerBase
 
         List<UserActivityItemResponse> activities = [];
 
-        if (normalizedCategory is null or "auth")
+        if (normalizedCategory == "auth")
         {
             activities.AddRange(await GetAuthActivitiesAsync(userId.Value, cancellationToken));
         }
 
-        if (normalizedCategory is null or "points")
+        if (normalizedCategory is "core" or "points")
         {
             activities.AddRange(await GetPointActivitiesAsync(userId.Value, negocioId, cancellationToken));
         }
 
-        if (normalizedCategory is null or "tickets")
+        if (normalizedCategory is "core" or "tickets")
         {
             activities.AddRange(await GetTicketActivitiesAsync(userId.Value, negocioId, cancellationToken));
         }
@@ -320,11 +320,11 @@ public class UserActivityController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(category))
         {
-            return null;
+            return "core";
         }
 
         string normalized = category.Trim().ToLowerInvariant();
-        return normalized is "auth" or "points" or "tickets" ? normalized : null;
+        return normalized is "core" or "auth" or "points" or "tickets" ? normalized : "core";
     }
 
     private static string ResolveAuthTitle(AuthEventType eventType, bool succeeded)
