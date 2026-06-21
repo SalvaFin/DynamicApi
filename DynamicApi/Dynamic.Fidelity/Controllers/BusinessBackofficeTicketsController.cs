@@ -16,10 +16,14 @@ namespace Dynamic.Fidelity.Controllers;
 public class BusinessBackofficeTicketsController : ControllerBase
 {
     private readonly ITicketService _ticketService;
+    private readonly ITicketQrService _ticketQrService;
 
-    public BusinessBackofficeTicketsController(ITicketService ticketService)
+    public BusinessBackofficeTicketsController(
+        ITicketService ticketService,
+        ITicketQrService ticketQrService)
     {
         _ticketService = ticketService;
+        _ticketQrService = ticketQrService;
     }
 
     [HttpPost]
@@ -153,6 +157,30 @@ public class BusinessBackofficeTicketsController : ControllerBase
             request,
             TipoTicket.Especial,
             cancellationToken);
+
+    [HttpPost("scan")]
+    [HttpPost("validate")]
+    public async Task<IActionResult> ValidateTicketQr(
+        Guid negocioId,
+        [FromBody] ValidateTicketQrRequest request,
+        CancellationToken cancellationToken)
+    {
+        Guid? requesterUserId = GetClaimGuid(ClaimTypes.NameIdentifier, "sub");
+        if (!requesterUserId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        ServiceResult<ValidateTicketQrResponse> result =
+            await _ticketQrService.ValidateAssignedTicketQrAsync(
+                negocioId,
+                requesterUserId.Value,
+                User.IsInRole("Admin"),
+                request,
+                cancellationToken);
+
+        return ToActionResult(result, Ok);
+    }
 
     private async Task<IActionResult> CreateByCategory(
         Guid negocioId,

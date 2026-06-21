@@ -34,6 +34,23 @@ public interface IAuthService
         string? userAgent,
         CancellationToken cancellationToken = default);
 
+    Task<ServiceResult<PasswordResetStartResponse>> RequestPasswordResetAsync(
+        ForgotPasswordRequest request,
+        string? ipAddress,
+        string? userAgent,
+        CancellationToken cancellationToken = default);
+
+    Task<ServiceResult<PasswordResetResponse>> ResetPasswordAsync(
+        ResetPasswordRequest request,
+        string? ipAddress,
+        string? userAgent,
+        CancellationToken cancellationToken = default);
+
+    Task<ServiceResult<SetInitialPasswordResponse>> SetInitialPasswordAsync(
+        Guid userId,
+        SetInitialPasswordRequest request,
+        CancellationToken cancellationToken = default);
+
     Task<ServiceResult> ChangePasswordAsync(
         Guid userId,
         ChangePasswordRequest request,

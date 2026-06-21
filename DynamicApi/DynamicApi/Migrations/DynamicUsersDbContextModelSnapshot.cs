@@ -112,6 +112,19 @@ namespace DynamicApi.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("varchar(512)");
 
+                    b.Property<bool>("PasswordIsTemporary")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("PasswordResetTokenHash")
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<DateTime?>("PasswordResetTokenExpiresAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("PasswordResetRequestedAtUtc")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<string>("PhoneNumber")
                         .HasMaxLength(32)
                         .HasColumnType("varchar(32)");
@@ -186,6 +199,8 @@ namespace DynamicApi.Migrations
 
                     b.HasIndex("NormalizedUserName")
                         .IsUnique();
+
+                    b.HasIndex("PasswordResetTokenHash");
 
                     b.HasIndex("RegistrationValidationToken");
 

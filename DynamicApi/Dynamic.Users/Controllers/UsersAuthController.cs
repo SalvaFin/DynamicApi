@@ -81,6 +81,46 @@ public class UsersAuthController : ControllerBase
         return ToActionResult(result, Ok);
     }
 
+    [HttpPost("password/forgot")]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request, CancellationToken cancellationToken)
+    {
+        ServiceResult<PasswordResetStartResponse> result = await _authService.RequestPasswordResetAsync(
+            request,
+            GetIpAddress(),
+            GetUserAgent(),
+            cancellationToken);
+
+        return ToActionResult(result, Ok);
+    }
+
+    [HttpPost("password/reset")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request, CancellationToken cancellationToken)
+    {
+        ServiceResult<PasswordResetResponse> result = await _authService.ResetPasswordAsync(
+            request,
+            GetIpAddress(),
+            GetUserAgent(),
+            cancellationToken);
+
+        return ToActionResult(result, Ok);
+    }
+
+    [Authorize]
+    [HttpPost("password/initial")]
+    public async Task<IActionResult> SetInitialPassword([FromBody] SetInitialPasswordRequest request, CancellationToken cancellationToken)
+    {
+        Guid? userId = GetClaimGuid(ClaimTypes.NameIdentifier, "sub");
+        if (!userId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        ServiceResult<SetInitialPasswordResponse> result =
+            await _authService.SetInitialPasswordAsync(userId.Value, request, cancellationToken);
+
+        return ToActionResult(result, Ok);
+    }
+
     [Authorize]
     [HttpPost("change-password")]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request, CancellationToken cancellationToken)

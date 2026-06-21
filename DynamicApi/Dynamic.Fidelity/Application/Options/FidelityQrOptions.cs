@@ -14,4 +14,11 @@ public class FidelityQrOptions
 
     [Required]
     public string QrQueryParameterName { get; set; } = "qr";
+
+    [Required]
+    [MinLength(32)]
+    public string TicketSigningSecret { get; set; } = "CHANGE_THIS_TICKET_QR_SIGNING_SECRET_32_CHARS";
+
+    [Required]
+    public string TicketQrQueryParameterName { get; set; } = "ticketQr";
 }

@@ -13,6 +13,7 @@ public static class UserMappingExtensions
             UserCode = userCode,
             Email = user.Email,
             UserName = user.UserName,
+            RequiresPasswordChange = user.PasswordIsTemporary,
             FirstName = user.FirstName,
             LastName = user.LastName,
             DisplayName = user.DisplayName,

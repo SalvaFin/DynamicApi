@@ -229,6 +229,19 @@ public class PointsService : IPointsService
                     : $"Clave maestra incorrecta. Intentos restantes: {Math.Max(0, operation.MaxValidationAttempts - operation.ValidationAttempts)}.");
         }
 
+        ServiceResult<CustomerPointsLinkResult> linkResult = await EnsureCustomerLinkForPointsAsync(
+            operation.NegocioId,
+            operation.UserId,
+            validatorUserId,
+            "points_earn_validation",
+            cancellationToken);
+        if (!linkResult.Succeeded)
+        {
+            return ServiceResult<PointsEarnValidationResponse>.Failure(
+                linkResult.ErrorCode ?? "validation_error",
+                linkResult.ErrorMessage ?? "No se ha podido vincular al usuario con el negocio.");
+        }
+
         Points points = await GetOrCreateAsync(operation.UserId, operation.NegocioId, cancellationToken);
         string userCode = await _userCodeDirectoryService.EnsureUserCodeAsync(operation.UserId, cancellationToken);
         int balanceBefore = points.CurrentBalance;
@@ -340,6 +353,19 @@ public class PointsService : IPointsService
         if (pointsEarned <= 0)
         {
             return ServiceResult<PointsEarnValidationResponse>.Failure("validation_error", "El importe indicado no genera puntos con el ratio actual del negocio.");
+        }
+
+        ServiceResult<CustomerPointsLinkResult> linkResult = await EnsureCustomerLinkForPointsAsync(
+            negocioId,
+            userId.Value,
+            validatorUserId,
+            "points_backoffice_accrual",
+            cancellationToken);
+        if (!linkResult.Succeeded)
+        {
+            return ServiceResult<PointsEarnValidationResponse>.Failure(
+                linkResult.ErrorCode ?? "validation_error",
+                linkResult.ErrorMessage ?? "No se ha podido vincular al usuario con el negocio.");
         }
 
         Points points = await GetOrCreateAsync(userId.Value, negocioId, cancellationToken);
@@ -459,6 +485,19 @@ public class PointsService : IPointsService
         if (pointsEarned <= 0)
         {
             return ServiceResult<PointsEarnValidationResponse>.Failure("validation_error", "El importe indicado no genera puntos con el ratio actual del negocio.");
+        }
+
+        ServiceResult<CustomerPointsLinkResult> linkResult = await EnsureCustomerLinkForPointsAsync(
+            negocio.Id,
+            request.UserId,
+            request.TrabajadorId,
+            "points_worker_accrual",
+            cancellationToken);
+        if (!linkResult.Succeeded)
+        {
+            return ServiceResult<PointsEarnValidationResponse>.Failure(
+                linkResult.ErrorCode ?? "validation_error",
+                linkResult.ErrorMessage ?? "No se ha podido vincular al usuario con el negocio.");
         }
 
         Points points = await GetOrCreateAsync(request.UserId, negocio.Id, cancellationToken);
@@ -693,6 +732,19 @@ public class PointsService : IPointsService
             return ServiceResult<PointsSummary>.Failure("validation_error", "La cantidad de puntos a añadir debe ser mayor que cero.");
         }
 
+        ServiceResult<CustomerPointsLinkResult> linkResult = await EnsureCustomerLinkForPointsAsync(
+            negocioId,
+            userId,
+            null,
+            "points_direct_add",
+            cancellationToken);
+        if (!linkResult.Succeeded)
+        {
+            return ServiceResult<PointsSummary>.Failure(
+                linkResult.ErrorCode ?? "validation_error",
+                linkResult.ErrorMessage ?? "No se ha podido vincular al usuario con el negocio.");
+        }
+
         Points points = await GetOrCreateAsync(userId, negocioId, cancellationToken);
         DateTime now = DateTime.UtcNow;
 
@@ -777,6 +829,61 @@ public class PointsService : IPointsService
 
         await _pointsRepository.AddAsync(created, cancellationToken);
         return created;
+    }
+
+    private async Task<ServiceResult<CustomerPointsLinkResult>> EnsureCustomerLinkForPointsAsync(
+        Guid negocioId,
+        Guid userId,
+        Guid? linkedByUserId,
+        string origin,
+        CancellationToken cancellationToken)
+    {
+        NegocioUsuarioVinculacion? existingLink =
+            await _negocioUsuarioVinculacionRepository.GetByNegocioAndUserAsync(negocioId, userId, cancellationToken);
+
+        bool wasFirstLink = existingLink is null;
+        if (IsLinkActive(existingLink))
+        {
+            return ServiceResult<CustomerPointsLinkResult>.Success(new CustomerPointsLinkResult(
+                WasFirstLink: false,
+                WasLinkedNow: false,
+                ReceivedWelcomeTicket: false));
+        }
+
+        var linkResult = await _negocioUsuarioVinculacionService.LinkUserAsync(
+            negocioId,
+            userId,
+            new VincularUsuarioNegocioRequest
+            {
+                TipoVinculacion = TipoVinculacionNegocioUsuario.Cliente,
+                TituloRelacion = "Cliente",
+                EsPrincipal = false,
+                PuedeAccederBackoffice = false,
+                PuedeGestionarNegocio = false,
+                PuedeGestionarClientes = false,
+                PuedeGestionarCampanas = false,
+                PuedeGestionarPuntos = false,
+                PuedeValidarTickets = false,
+                PuedeVerReportes = false,
+                OrigenVinculacion = origin
+            },
+            linkedByUserId,
+            cancellationToken);
+
+        if (!linkResult.Succeeded)
+        {
+            return ServiceResult<CustomerPointsLinkResult>.Failure(
+                linkResult.ErrorCode ?? "validation_error",
+                linkResult.ErrorMessage ?? "No se ha podido vincular al usuario con el negocio.");
+        }
+
+        bool receivedWelcomeTicket = wasFirstLink &&
+            await _registrationRewardService.AssignBusinessWelcomeTicketAsync(negocioId, userId, cancellationToken);
+
+        return ServiceResult<CustomerPointsLinkResult>.Success(new CustomerPointsLinkResult(
+            WasFirstLink: wasFirstLink,
+            WasLinkedNow: true,
+            ReceivedWelcomeTicket: receivedWelcomeTicket));
     }
 
     private async Task<Guid?> ResolveRecipientUserIdAsync(GiftPointsRequest request, CancellationToken cancellationToken)
@@ -938,4 +1045,9 @@ public class PointsService : IPointsService
 
     private static string? Normalize(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private sealed record CustomerPointsLinkResult(
+        bool WasFirstLink,
+        bool WasLinkedNow,
+        bool ReceivedWelcomeTicket);
 }

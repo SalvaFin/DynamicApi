@@ -10,6 +10,7 @@ public class UserAccount
     public string UserName { get; set; } = string.Empty;
     public string NormalizedUserName { get; set; } = string.Empty;
     public string PasswordHash { get; set; } = string.Empty;
+    public bool PasswordIsTemporary { get; set; }
     public string? FirstName { get; set; }
     public string? LastName { get; set; }
     public string? DisplayName { get; set; }
@@ -24,6 +25,9 @@ public class UserAccount
     public DateTime? RegistrationInitiatedAtUtc { get; set; }
     public DateTime? RegistrationCompletedAtUtc { get; set; }
     public DateTime? TemporaryPasswordSentAtUtc { get; set; }
+    public string? PasswordResetTokenHash { get; set; }
+    public DateTime? PasswordResetTokenExpiresAtUtc { get; set; }
+    public DateTime? PasswordResetRequestedAtUtc { get; set; }
     public UserRole Role { get; set; } = UserRole.User;
     public UserStatus Status { get; set; } = UserStatus.Active;
     public string? Language { get; set; }

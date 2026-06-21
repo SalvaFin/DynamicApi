@@ -10,5 +10,7 @@ public enum AuthEventType
     RefreshFailed = 6,
     Logout = 7,
     PasswordChanged = 8,
-    ClassicRegisterCreated = 9
+    ClassicRegisterCreated = 9,
+    PasswordResetRequested = 10,
+    PasswordResetCompleted = 11
 }

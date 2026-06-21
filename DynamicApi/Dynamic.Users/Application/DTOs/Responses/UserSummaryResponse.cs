@@ -8,6 +8,7 @@ public class UserSummaryResponse
     public string? UserCode { get; set; }
     public string? Email { get; set; }
     public string UserName { get; set; } = string.Empty;
+    public bool RequiresPasswordChange { get; set; }
     public string? FirstName { get; set; }
     public string? LastName { get; set; }
     public string? DisplayName { get; set; }

@@ -265,6 +265,21 @@ public class UserPortalController : ControllerBase
         return Ok(response);
     }
 
+    [HttpGet("tickets/{ticketId:guid}/qr")]
+    public async Task<IActionResult> GetMyTicketQr(Guid ticketId, CancellationToken cancellationToken)
+    {
+        Guid? userId = GetCurrentUserId();
+        if (!userId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        ServiceResult<AssignedTicketQrResponse> result =
+            await _ticketQrService.GenerateAssignedTicketQrAsync(ticketId, userId.Value, cancellationToken);
+
+        return ToActionResult(result, Ok);
+    }
+
     private async Task<IReadOnlyCollection<UserPortalTicketResponse>> MapTicketsAsync(
         IReadOnlyCollection<Ticket> tickets,
         DateTime now,
@@ -367,6 +382,7 @@ public class UserPortalController : ControllerBase
         {
             "validation_error" => BadRequest(new { message = result.ErrorMessage }),
             "not_found" => NotFound(new { message = result.ErrorMessage }),
+            "conflict" => Conflict(new { message = result.ErrorMessage }),
             "forbidden" => StatusCode(StatusCodes.Status403Forbidden, new { message = result.ErrorMessage }),
             _ => StatusCode(StatusCodes.Status500InternalServerError, new { message = result.ErrorMessage ?? "Error interno del servidor." })
         };

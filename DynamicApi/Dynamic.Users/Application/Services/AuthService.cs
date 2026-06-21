@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Mail;
 using System.Security.Cryptography;
 using System.Text;
@@ -143,6 +144,7 @@ public class AuthService : IAuthService
         }
 
         user.PasswordHash = _passwordHasher.HashPassword(user, temporaryPassword);
+        user.PasswordIsTemporary = true;
         user.EmailConfirmed = false;
         user.PhoneNumberConfirmed = false;
         user.RegistrationCompleted = false;
@@ -192,13 +194,13 @@ public class AuthService : IAuthService
                         ToEmail = contactInfo.OriginalValue,
                         ToName = user.DisplayName ?? user.UserName,
                         Subject = "Completa tu registro en Dynamic",
-                        HtmlBody = BuildRegistrationEmailHtml(user.UserName, temporaryPassword, completionLink),
-                        TextBody = BuildRegistrationEmailText(user.UserName, temporaryPassword, completionLink)
+                        HtmlBody = BuildDynamicRegistrationEmailHtml(user.UserName, completionLink),
+                        TextBody = BuildDynamicRegistrationEmailText(user.UserName, completionLink)
                     },
                     cancellationToken);
 
                 notificationSent = true;
-                message = "Te hemos enviado un correo con el enlace para completar el registro y tu contraseña temporal.";
+                message = "Te hemos enviado un correo con el enlace seguro para completar el registro.";
             }
             else
             {
@@ -456,6 +458,7 @@ public class AuthService : IAuthService
         };
 
         user.PasswordHash = _passwordHasher.HashPassword(user, request.Password);
+        user.PasswordIsTemporary = false;
 
         await _userRepository.AddAsync(user, cancellationToken);
         await _userAuthEventRepository.AddAsync(
@@ -636,6 +639,227 @@ public class AuthService : IAuthService
         }
     }
 
+    public async Task<ServiceResult<PasswordResetStartResponse>> RequestPasswordResetAsync(
+        ForgotPasswordRequest request,
+        string? ipAddress,
+        string? userAgent,
+        CancellationToken cancellationToken = default)
+    {
+        const string acceptedMessage = "Si existe una cuenta asociada a ese correo, enviaremos instrucciones para recuperar la contraseña.";
+
+        if (string.IsNullOrWhiteSpace(request.Email) || !IsEmail(request.Email))
+        {
+            return ServiceResult<PasswordResetStartResponse>.Failure("validation_error", "Debes indicar un email válido.");
+        }
+
+        string email = request.Email.Trim();
+        string normalizedEmail = email.ToUpperInvariant();
+        UserAccount? user = await _userRepository.GetByEmailAsync(normalizedEmail, cancellationToken);
+        DateTime now = DateTime.UtcNow;
+
+        if (user is null || !user.RegistrationCompleted || string.IsNullOrWhiteSpace(user.Email))
+        {
+            await PersistAnonymousEventAsync(
+                AuthEventType.PasswordResetRequested,
+                email,
+                user is null ? "Cuenta no encontrada." : "Cuenta sin registro completado.",
+                ipAddress,
+                userAgent,
+                request.Client,
+                now,
+                cancellationToken);
+
+            return ServiceResult<PasswordResetStartResponse>.Success(new PasswordResetStartResponse
+            {
+                RequestAccepted = true,
+                Message = acceptedMessage
+            });
+        }
+
+        string resetToken = GenerateUrlSafeToken();
+        user.PasswordResetTokenHash = HashToken(resetToken);
+        user.PasswordResetTokenExpiresAtUtc = now.AddHours(_userRegistrationOptions.PasswordResetTokenExpirationHours);
+        user.PasswordResetRequestedAtUtc = now;
+        user.UpdatedAtUtc = now;
+        _userRepository.Update(user);
+
+        await _userAuthEventRepository.AddAsync(
+            BuildAuthEvent(AuthEventType.PasswordResetRequested, user, email, true, null, ipAddress, userAgent, request.Client, now),
+            cancellationToken);
+
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            string resetLink = BuildPasswordResetLink(user.Email, resetToken);
+            await _emailNotificationService.SendAsync(
+                new EmailMessage
+                {
+                    ToEmail = user.Email,
+                    ToName = user.DisplayName ?? user.UserName,
+                    Subject = "Recupera tu contraseña en Dynamic",
+                    HtmlBody = BuildDynamicPasswordResetEmailHtml(user.DisplayName ?? user.UserName, resetLink),
+                    TextBody = BuildPasswordResetEmailText(user.DisplayName ?? user.UserName, resetLink)
+                },
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error solicitando recuperación de contraseña para {Email}", email);
+            return ServiceResult<PasswordResetStartResponse>.Failure("server_error", "No se pudo enviar el correo de recuperación.");
+        }
+
+        return ServiceResult<PasswordResetStartResponse>.Success(new PasswordResetStartResponse
+        {
+            RequestAccepted = true,
+            Message = acceptedMessage
+        });
+    }
+
+    public async Task<ServiceResult<PasswordResetResponse>> ResetPasswordAsync(
+        ResetPasswordRequest request,
+        string? ipAddress,
+        string? userAgent,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.Email) ||
+            string.IsNullOrWhiteSpace(request.Token) ||
+            string.IsNullOrWhiteSpace(request.NewPassword))
+        {
+            return ServiceResult<PasswordResetResponse>.Failure("validation_error", "Email, token y nueva contraseña son obligatorios.");
+        }
+
+        if (!IsEmail(request.Email))
+        {
+            return ServiceResult<PasswordResetResponse>.Failure("validation_error", "El email indicado no es válido.");
+        }
+
+        if (request.NewPassword != request.ConfirmNewPassword)
+        {
+            return ServiceResult<PasswordResetResponse>.Failure("validation_error", "La confirmación de contraseña no coincide.");
+        }
+
+        if (request.NewPassword.Length < 8)
+        {
+            return ServiceResult<PasswordResetResponse>.Failure("validation_error", "La nueva contraseña debe tener al menos 8 caracteres.");
+        }
+
+        string email = request.Email.Trim();
+        UserAccount? user = await _userRepository.GetByEmailAsync(email.ToUpperInvariant(), cancellationToken);
+        string tokenHash = HashToken(request.Token.Trim());
+        DateTime now = DateTime.UtcNow;
+
+        if (user is null ||
+            string.IsNullOrWhiteSpace(user.PasswordResetTokenHash) ||
+            !string.Equals(user.PasswordResetTokenHash, tokenHash, StringComparison.Ordinal) ||
+            !user.PasswordResetTokenExpiresAtUtc.HasValue ||
+            user.PasswordResetTokenExpiresAtUtc.Value < now)
+        {
+            if (user is not null)
+            {
+                await _userAuthEventRepository.AddAsync(
+                    BuildAuthEvent(AuthEventType.PasswordResetCompleted, user, email, false, "Token de recuperación inválido o expirado.", ipAddress, userAgent, request.Client, now),
+                    cancellationToken);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+
+            return ServiceResult<PasswordResetResponse>.Failure("unauthorized", "El enlace de recuperación no es válido o ha expirado.");
+        }
+
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            user.PasswordHash = _passwordHasher.HashPassword(user, request.NewPassword);
+            user.PasswordIsTemporary = false;
+            user.PasswordResetTokenHash = null;
+            user.PasswordResetTokenExpiresAtUtc = null;
+            user.PasswordResetRequestedAtUtc = null;
+            user.FailedLoginCount = 0;
+            user.LockedUntilUtc = null;
+            user.UpdatedAtUtc = now;
+            _userRepository.Update(user);
+
+            IReadOnlyCollection<UserSession> activeSessions = await _userSessionRepository.GetActiveByUserIdAsync(user.Id, cancellationToken);
+            foreach (UserSession session in activeSessions)
+            {
+                session.RevokedAtUtc = now;
+                session.RevocationReason = "PasswordReset";
+                session.LastSeenAtUtc = now;
+                _userSessionRepository.Update(session);
+            }
+
+            await _userAuthEventRepository.AddAsync(
+                BuildAuthEvent(AuthEventType.PasswordResetCompleted, user, email, true, null, ipAddress, userAgent, request.Client, now),
+                cancellationToken);
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+
+            return ServiceResult<PasswordResetResponse>.Success(new PasswordResetResponse
+            {
+                PasswordChanged = true,
+                Message = "Contraseña actualizada correctamente. Inicia sesión con tu nueva contraseña."
+            });
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            _logger.LogError(ex, "Error restableciendo contraseña para {Email}", email);
+            return ServiceResult<PasswordResetResponse>.Failure("server_error", "No se pudo restablecer la contraseña.");
+        }
+    }
+
+    public async Task<ServiceResult<SetInitialPasswordResponse>> SetInitialPasswordAsync(
+        Guid userId,
+        SetInitialPasswordRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.NewPassword))
+        {
+            return ServiceResult<SetInitialPasswordResponse>.Failure("validation_error", "Debes indicar la nueva contraseña.");
+        }
+
+        if (request.NewPassword != request.ConfirmNewPassword)
+        {
+            return ServiceResult<SetInitialPasswordResponse>.Failure("validation_error", "La confirmación de contraseña no coincide.");
+        }
+
+        if (request.NewPassword.Length < 8)
+        {
+            return ServiceResult<SetInitialPasswordResponse>.Failure("validation_error", "La nueva contraseña debe tener al menos 8 caracteres.");
+        }
+
+        UserAccount? user = await _userRepository.GetByIdAsync(userId, cancellationToken);
+        if (user is null)
+        {
+            return ServiceResult<SetInitialPasswordResponse>.Failure("not_found", "Usuario no encontrado.");
+        }
+
+        if (!user.PasswordIsTemporary)
+        {
+            return ServiceResult<SetInitialPasswordResponse>.Failure("validation_error", "La cuenta no tiene una contraseña temporal pendiente de cambio.");
+        }
+
+        user.PasswordHash = _passwordHasher.HashPassword(user, request.NewPassword);
+        user.PasswordIsTemporary = false;
+        user.UpdatedAtUtc = DateTime.UtcNow;
+        _userRepository.Update(user);
+
+        await _userAuthEventRepository.AddAsync(
+            BuildAuthEvent(AuthEventType.PasswordChanged, user, user.Email ?? user.PhoneNumber, true, "InitialPasswordSet", null, null, null, user.UpdatedAtUtc),
+            cancellationToken);
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return ServiceResult<SetInitialPasswordResponse>.Success(new SetInitialPasswordResponse
+        {
+            PasswordChanged = true,
+            RequiresPasswordChange = false,
+            Message = "Contraseña creada correctamente."
+        });
+    }
+
     public async Task<ServiceResult> ChangePasswordAsync(Guid userId, ChangePasswordRequest request, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(request.CurrentPassword) || string.IsNullOrWhiteSpace(request.NewPassword))
@@ -662,6 +886,7 @@ public class AuthService : IAuthService
 
         DateTime now = DateTime.UtcNow;
         user.PasswordHash = _passwordHasher.HashPassword(user, request.NewPassword);
+        user.PasswordIsTemporary = false;
         user.UpdatedAtUtc = now;
         _userRepository.Update(user);
 
@@ -862,6 +1087,153 @@ public class AuthService : IAuthService
         return $"{_userRegistrationOptions.CompletionUrlBase}?contact={encodedContact}&token={encodedToken}";
     }
 
+    private string BuildPasswordResetLink(string email, string resetToken)
+    {
+        string encodedEmail = Uri.EscapeDataString(email);
+        string encodedToken = Uri.EscapeDataString(resetToken);
+        return $"{_userRegistrationOptions.PasswordResetUrlBase}?email={encodedEmail}&token={encodedToken}";
+    }
+
+    private static string BuildDynamicRegistrationEmailHtml(string userName, string completionLink)
+    {
+        string safeUserName = WebUtility.HtmlEncode(userName);
+
+        return BuildDynamicEmailHtml(
+            preheader: "Tu acceso a Dynamic ya esta preparado.",
+            eyebrow: "BIENVENIDO A DYNAMIC",
+            title: "Completa tu registro",
+            subtitle: "Ya hemos preparado tu cuenta. Termina el registro y entra directamente en Dynamic.",
+            bodyHtml: $"""
+                      <p style="margin:0 0 16px 0;color:#c9b8df;font-size:16px;line-height:24px;">Tu usuario inicial es:</p>
+                      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 20px 0;">
+                        <tr>
+                          <td style="padding:14px 16px;border:1px solid #6f2dbd;border-radius:12px;background:#14081f;">
+                            <div style="color:#9d5cff;font-size:12px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;margin-bottom:6px;">Usuario</div>
+                            <div style="color:#ffffff;font-size:18px;font-weight:700;">{safeUserName}</div>
+                          </td>
+                        </tr>
+                      </table>
+                      <p style="margin:0;color:#a999bd;font-size:14px;line-height:22px;">Por seguridad no enviamos contrasenas por email. Al completar el formulario iniciaremos tu sesion y la app te pedira crear tu contrasena.</p>
+                      """,
+            ctaText: "Completar registro",
+            ctaLink: completionLink,
+            footerNote: "Si no has solicitado esta cuenta, puedes ignorar este correo.");
+    }
+
+    private static string BuildDynamicRegistrationEmailText(string userName, string completionLink)
+        => $"""
+           Completa tu registro en Dynamic.
+
+           Usuario: {userName}
+
+           Por seguridad no enviamos contrasenas por email.
+           Completa el formulario desde este enlace y la app iniciara tu sesion:
+           {completionLink}
+
+           Despues podras crear tu contrasena desde la app.
+           """;
+
+    private static string BuildDynamicPasswordResetEmailHtml(string displayName, string resetLink)
+    {
+        string safeDisplayName = WebUtility.HtmlEncode(displayName);
+
+        return BuildDynamicEmailHtml(
+            preheader: "Recupera tu contrasena de Dynamic.",
+            eyebrow: "SEGURIDAD DYNAMIC",
+            title: "Recupera tu contrasena",
+            subtitle: $"Hola {safeDisplayName}, hemos recibido una solicitud para cambiar tu contrasena.",
+            bodyHtml: """
+                      <p style="margin:0;color:#c9b8df;font-size:16px;line-height:24px;">Pulsa el boton para crear una nueva contrasena. Por seguridad, el enlace caduca pronto y solo puede usarse una vez.</p>
+                      """,
+            ctaText: "Crear nueva contrasena",
+            ctaLink: resetLink,
+            footerNote: "Si no has solicitado este cambio, puedes ignorar este correo.");
+    }
+
+    private static string BuildDynamicEmailHtml(
+        string preheader,
+        string eyebrow,
+        string title,
+        string subtitle,
+        string bodyHtml,
+        string ctaText,
+        string ctaLink,
+        string footerNote)
+    {
+        string safePreheader = WebUtility.HtmlEncode(preheader);
+        string safeEyebrow = WebUtility.HtmlEncode(eyebrow);
+        string safeTitle = WebUtility.HtmlEncode(title);
+        string safeSubtitle = subtitle;
+        string safeCtaText = WebUtility.HtmlEncode(ctaText);
+        string safeCtaLink = WebUtility.HtmlEncode(ctaLink);
+        string safeFooterNote = WebUtility.HtmlEncode(footerNote);
+
+        return $"""
+           <!doctype html>
+           <html lang="es">
+           <head>
+             <meta charset="utf-8">
+             <meta name="viewport" content="width=device-width, initial-scale=1">
+             <meta name="color-scheme" content="dark">
+             <meta name="supported-color-schemes" content="dark">
+             <title>{safeTitle}</title>
+           </head>
+           <body style="margin:0;padding:0;background:#050307;color:#ffffff;font-family:Inter,Segoe UI,Roboto,Arial,sans-serif;">
+             <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">{safePreheader}</div>
+             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#050307;">
+               <tr>
+                 <td align="center" style="padding:38px 16px;">
+                   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;max-width:640px;">
+                     <tr>
+                       <td style="padding:0 0 22px 0;">
+                         <div style="font-size:24px;font-weight:800;letter-spacing:-0.4px;color:#9d5cff;text-shadow:0 0 18px #8d35ff;">Dynamic</div>
+                       </td>
+                     </tr>
+                     <tr>
+                       <td style="border:1px solid #5f268f;border-radius:22px;background:#0d0713;background-image:linear-gradient(135deg,#170820 0%,#09060d 54%,#13051f 100%);box-shadow:0 0 34px rgba(157,92,255,0.28);padding:0;overflow:hidden;">
+                         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                           <tr>
+                             <td style="padding:36px 34px 8px 34px;">
+                               <div style="color:#c27cff;font-size:12px;font-weight:800;letter-spacing:3px;text-transform:uppercase;margin:0 0 12px 0;">{safeEyebrow}</div>
+                               <h1 style="margin:0;color:#ffffff;font-size:34px;line-height:40px;font-weight:900;letter-spacing:-0.8px;text-shadow:0 0 20px rgba(177,107,255,0.85);">{safeTitle}</h1>
+                               <p style="margin:16px 0 0 0;color:#c9b8df;font-size:17px;line-height:26px;">{safeSubtitle}</p>
+                             </td>
+                           </tr>
+                           <tr>
+                             <td style="padding:24px 34px 0 34px;">
+                               <div style="border:1px solid #5b238c;border-radius:18px;background:#100718;padding:22px;box-shadow:inset 0 0 28px rgba(111,45,189,0.18);">
+                                 {bodyHtml}
+                               </div>
+                             </td>
+                           </tr>
+                           <tr>
+                             <td align="center" style="padding:30px 34px 10px 34px;">
+                               <a href="{safeCtaLink}" style="display:inline-block;background:#9d5cff;background-image:linear-gradient(90deg,#7c3aed,#c084fc);color:#ffffff;text-decoration:none;font-weight:900;font-size:16px;line-height:20px;padding:16px 28px;border-radius:999px;box-shadow:0 0 24px rgba(157,92,255,0.75);">{safeCtaText}</a>
+                             </td>
+                           </tr>
+                           <tr>
+                             <td style="padding:14px 34px 32px 34px;">
+                               <p style="margin:0 0 12px 0;color:#7f6c92;font-size:12px;line-height:18px;text-align:center;">Si el boton no funciona, copia y pega este enlace:</p>
+                               <p style="margin:0;color:#b98cff;font-size:12px;line-height:18px;word-break:break-all;text-align:center;"><a href="{safeCtaLink}" style="color:#b98cff;text-decoration:underline;">{safeCtaLink}</a></p>
+                             </td>
+                           </tr>
+                         </table>
+                       </td>
+                     </tr>
+                     <tr>
+                       <td style="padding:22px 10px 0 10px;">
+                         <p style="margin:0;color:#7f6c92;font-size:12px;line-height:18px;text-align:center;">{safeFooterNote}</p>
+                       </td>
+                     </tr>
+                   </table>
+                 </td>
+               </tr>
+             </table>
+           </body>
+           </html>
+           """;
+    }
+
     private static string BuildRegistrationEmailHtml(string userName, string temporaryPassword, string completionLink)
         => $"""
            <h2>Completa tu registro</h2>
@@ -882,6 +1254,27 @@ public class AuthService : IAuthService
 
            Enlace para completar el registro:
            {completionLink}
+           """;
+
+    private static string BuildPasswordResetEmailHtml(string displayName, string resetLink)
+        => $"""
+           <h2>Recupera tu contraseña</h2>
+           <p>Hola {displayName}, hemos recibido una solicitud para cambiar tu contraseña.</p>
+           <p>Usa este enlace para crear una nueva contraseña:</p>
+           <p><a href="{resetLink}">{resetLink}</a></p>
+           <p>Si no has solicitado este cambio, puedes ignorar este correo.</p>
+           """;
+
+    private static string BuildPasswordResetEmailText(string displayName, string resetLink)
+        => $"""
+           Recupera tu contraseña.
+
+           Hola {displayName}, hemos recibido una solicitud para cambiar tu contraseña.
+
+           Enlace para crear una nueva contraseña:
+           {resetLink}
+
+           Si no has solicitado este cambio, puedes ignorar este correo.
            """;
 
     private static string? BuildClientSummary(ClientDeviceContextRequest? client)
@@ -976,6 +1369,15 @@ public class AuthService : IAuthService
 
         return builder.ToString();
     }
+
+    private static string GenerateUrlSafeToken()
+    {
+        string token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+        return token.Replace('+', '-').Replace('/', '_').TrimEnd('=');
+    }
+
+    private static string HashToken(string token)
+        => Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
 
     private static string BuildDisplayName(string? firstName, string? lastName, string userName)
     {

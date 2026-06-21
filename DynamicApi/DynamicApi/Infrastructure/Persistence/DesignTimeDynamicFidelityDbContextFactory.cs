@@ -15,6 +15,7 @@ public class DesignTimeDynamicFidelityDbContextFactory : IDesignTimeDbContextFac
             .SetBasePath(basePath)
             .AddJsonFile("appsettings.json", optional: false)
             .AddJsonFile("appsettings.Development.json", optional: true)
+            .AddUserSecrets<Program>(optional: true)
             .AddEnvironmentVariables()
             .Build();
 

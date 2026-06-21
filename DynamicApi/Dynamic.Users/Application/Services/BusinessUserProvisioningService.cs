@@ -357,6 +357,7 @@ public class BusinessUserProvisioningService : IBusinessUserProvisioningService
         };
 
         user.PasswordHash = _passwordHasher.HashPassword(user, request.Password);
+        user.PasswordIsTemporary = false;
         return user;
     }
 

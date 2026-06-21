@@ -17,6 +17,22 @@ public class TicketRepository : ITicketRepository
     public Task<Ticket?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         => _dbContext.Tickets.FirstOrDefaultAsync(ticket => ticket.Id == id, cancellationToken);
 
+    public Task<Ticket?> GetAssignedByVisibleCodeAsync(
+        Guid negocioId,
+        string visibleCode,
+        CancellationToken cancellationToken = default)
+    {
+        string normalizedCode = visibleCode.Trim().ToUpperInvariant();
+        return _dbContext.Tickets.FirstOrDefaultAsync(
+            ticket =>
+                ticket.NegocioId == negocioId &&
+                !ticket.EsPlantilla &&
+                ticket.UserId.HasValue &&
+                ticket.CodigoVisible != null &&
+                ticket.CodigoVisible.ToUpper() == normalizedCode,
+            cancellationToken);
+    }
+
     public async Task<IReadOnlyCollection<Ticket>> GetTemplatesByNegocioAsync(Guid negocioId, CancellationToken cancellationToken = default)
         => await _dbContext.Tickets
             .Where(ticket => ticket.NegocioId == negocioId && ticket.EsPlantilla && ticket.UserId == null)
