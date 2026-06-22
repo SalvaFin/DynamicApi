@@ -14,6 +14,11 @@ public class DynamicNotifyModuleStartup
         services.AddOptions<SmtpOptions>()
             .Bind(configuration.GetSection(SmtpOptions.SectionName))
             .ValidateDataAnnotations()
+            .Validate(options =>
+                !options.Enabled ||
+                (!string.IsNullOrWhiteSpace(options.UserName) &&
+                 !string.IsNullOrWhiteSpace(options.Password)),
+                "Notify:Smtp:UserName y Notify:Smtp:Password son obligatorios cuando Notify:Smtp:Enabled es true.")
             .ValidateOnStart();
 
         services.AddScoped<IEmailNotificationService, SmtpEmailNotificationService>();

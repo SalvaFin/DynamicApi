@@ -1,0 +1,25 @@
+[Unit]
+Description=Dynamic API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=dynamic
+Group=dynamic
+WorkingDirectory=/home/dynamic/DynamicApi
+ExecStart=/home/dynamic/DynamicApi/DynamicApi
+Restart=always
+RestartSec=10
+KillSignal=SIGINT
+SyslogIdentifier=dynamic-api
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=DOTNET_PRINT_TELEMETRY_MESSAGE=false
+
+# Compatibility note:
+# Some VPS/container kernels fail systemd namespace sandboxing with status=226/NAMESPACE.
+# Keep this service portable; harden with the non-root user, local-only Kestrel binding,
+# firewall rules, and the public reverse proxy.
+
+[Install]
+WantedBy=multi-user.target

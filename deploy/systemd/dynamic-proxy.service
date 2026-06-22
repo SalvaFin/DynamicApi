@@ -1,0 +1,25 @@
+[Unit]
+Description=Dynamic YARP Reverse Proxy
+After=network-online.target dynamic-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=dynamic
+Group=dynamic
+WorkingDirectory=/home/dynamic/DynamicProxy
+ExecStart=/home/dynamic/DynamicProxy/Dynamic.Proxy
+Restart=always
+RestartSec=10
+KillSignal=SIGINT
+SyslogIdentifier=dynamic-proxy
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=DOTNET_PRINT_TELEMETRY_MESSAGE=false
+
+# Compatibility note:
+# Some VPS/container kernels fail systemd namespace sandboxing with status=226/NAMESPACE.
+# Keep this service portable; harden with the non-root user, local-only Kestrel binding,
+# firewall rules, and the public web server in front.
+
+[Install]
+WantedBy=multi-user.target

@@ -2,6 +2,7 @@
   <Project Path="Dynamic.Fidelity/Dynamic.Fidelity.csproj" />
   <Project Path="Dynamic.Negocios/Dynamic.Negocios.csproj" />
   <Project Path="Dynamic.Notify/Dynamic.Notify.csproj" />
+  <Project Path="Dynamic.Proxy/Dynamic.Proxy.csproj" />
   <Project Path="Dynamic.Users/Dynamic.Users.csproj" />
   <Project Path="DynamicApi/DynamicApi.csproj" />
 </Solution>
