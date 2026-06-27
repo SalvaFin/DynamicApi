@@ -45,5 +45,6 @@ public class TicketConfiguration : IEntityTypeConfiguration<Ticket>
         builder.HasIndex(ticket => ticket.EsPlantilla);
         builder.HasIndex(ticket => ticket.ParentTicketId);
         builder.HasIndex(ticket => new { ticket.NegocioId, ticket.CodigoVisible });
+        builder.HasIndex(ticket => new { ticket.NegocioId, ticket.UserId });
     }
 }

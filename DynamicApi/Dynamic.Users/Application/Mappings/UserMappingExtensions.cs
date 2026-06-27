@@ -22,6 +22,8 @@ public static class UserMappingExtensions
             PhoneNumberConfirmed = user.PhoneNumberConfirmed,
             RegistrationCompleted = user.RegistrationCompleted,
             AgeAtRegistration = user.AgeAtRegistration,
+            BirthDate = user.BirthDate,
+            Gender = user.Gender,
             Role = user.Role,
             Status = user.Status,
             Language = user.Language,

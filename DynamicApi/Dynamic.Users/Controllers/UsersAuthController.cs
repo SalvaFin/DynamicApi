@@ -191,6 +191,20 @@ public class UsersAuthController : ControllerBase
     }
 
     [Authorize]
+    [HttpPut("me")]
+    public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request, CancellationToken cancellationToken)
+    {
+        Guid? userId = GetClaimGuid(ClaimTypes.NameIdentifier, "sub");
+        if (!userId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        ServiceResult<UserSummaryResponse> result = await _userService.UpdateProfileAsync(userId.Value, request, cancellationToken);
+        return ToActionResult(result, Ok);
+    }
+
+    [Authorize]
     [HttpGet("sessions")]
     public async Task<IActionResult> Sessions(CancellationToken cancellationToken)
     {

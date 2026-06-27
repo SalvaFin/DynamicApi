@@ -43,6 +43,43 @@ public class UserService : IUserService
         return ServiceResult<UserSummaryResponse>.Success(user.ToResponse(userCode));
     }
 
+    public async Task<ServiceResult<UserSummaryResponse>> UpdateProfileAsync(
+        Guid userId,
+        UpdateProfileRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        Domain.Entities.UserAccount? user = await _userRepository.GetByIdAsync(userId, cancellationToken);
+        if (user is null)
+        {
+            return ServiceResult<UserSummaryResponse>.Failure("not_found", "Usuario no encontrado.");
+        }
+
+        if (request.BirthDate.HasValue && request.BirthDate.Value.Date > DateTime.UtcNow.Date)
+        {
+            return ServiceResult<UserSummaryResponse>.Failure("validation_error", "La fecha de nacimiento no puede ser futura.");
+        }
+
+        user.FirstName = NormalizeNullable(request.FirstName);
+        user.LastName = NormalizeNullable(request.LastName);
+        user.DisplayName = NormalizeNullable(request.DisplayName)
+            ?? BuildDisplayName(user.FirstName, user.LastName, user.UserName);
+        user.Gender = request.Gender;
+        user.BirthDate = request.BirthDate;
+        user.Language = NormalizeNullable(request.Language);
+        user.TimeZone = NormalizeNullable(request.TimeZone);
+        user.CountryCode = NormalizeNullable(request.CountryCode);
+        user.Region = NormalizeNullable(request.Region);
+        user.City = NormalizeNullable(request.City);
+        user.AvatarUrl = NormalizeNullable(request.AvatarUrl);
+        user.UpdatedAtUtc = DateTime.UtcNow;
+
+        _userRepository.Update(user);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        string userCode = await _userCodeDirectoryService.EnsureUserCodeAsync(user.Id, cancellationToken);
+        return ServiceResult<UserSummaryResponse>.Success(user.ToResponse(userCode));
+    }
+
     public async Task<ServiceResult<IReadOnlyCollection<UserSessionResponse>>> GetActiveSessionsAsync(
         Guid userId,
         Guid currentSessionId,
@@ -105,4 +142,10 @@ public class UserService : IUserService
 
     private static string? NormalizeNullable(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string BuildDisplayName(string? firstName, string? lastName, string userName)
+    {
+        string displayName = $"{firstName} {lastName}".Trim();
+        return string.IsNullOrWhiteSpace(displayName) ? userName.Trim() : displayName;
+    }
 }

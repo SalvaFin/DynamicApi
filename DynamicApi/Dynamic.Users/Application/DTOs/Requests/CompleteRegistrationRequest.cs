@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Dynamic.Users.Domain.Enums;
 
 namespace Dynamic.Users.Application.DTOs.Requests;
 
@@ -22,6 +23,8 @@ public class CompleteRegistrationRequest
 
     [Range(0, 130)]
     public int Edad { get; set; }
+
+    public UserGender Gender { get; set; } = UserGender.OtroPrefieroNoEspecificar;
 
     public bool TermsAccepted { get; set; }
 

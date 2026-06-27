@@ -313,6 +313,7 @@ public class AuthService : IAuthService
         userByContact.LastName = request.Apellidos.Trim();
         userByContact.DisplayName = $"{request.Nombre} {request.Apellidos}".Trim();
         userByContact.AgeAtRegistration = request.Edad;
+        userByContact.Gender = request.Gender;
         userByContact.RegistrationCompleted = true;
         userByContact.RegistrationCompletedAtUtc = now;
         userByContact.RegistrationValidationToken = null;
@@ -1084,6 +1085,7 @@ public class AuthService : IAuthService
             user.LastName = request.Apellidos.Trim();
             user.DisplayName = $"{user.FirstName} {user.LastName}".Trim();
             user.AgeAtRegistration = request.Edad;
+            user.Gender = request.Gender;
             user.RegistrationCompleted = true;
             user.RegistrationCompletedAtUtc = now;
             user.Status = UserStatus.Active;

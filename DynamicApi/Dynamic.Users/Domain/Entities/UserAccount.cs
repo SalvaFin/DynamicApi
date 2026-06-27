@@ -37,6 +37,7 @@ public class UserAccount
     public string? City { get; set; }
     public string? AvatarUrl { get; set; }
     public DateTime? BirthDate { get; set; }
+    public UserGender Gender { get; set; } = UserGender.OtroPrefieroNoEspecificar;
     public bool TermsAccepted { get; set; }
     public DateTime? TermsAcceptedAtUtc { get; set; }
     public bool PrivacyPolicyAccepted { get; set; }

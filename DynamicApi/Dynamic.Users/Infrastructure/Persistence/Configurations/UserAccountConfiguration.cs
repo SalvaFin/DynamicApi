@@ -1,4 +1,5 @@
 using Dynamic.Users.Domain.Entities;
+using Dynamic.Users.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -30,6 +31,11 @@ public class UserAccountConfiguration : IEntityTypeConfiguration<UserAccount>
         builder.Property(user => user.Region).HasMaxLength(128);
         builder.Property(user => user.City).HasMaxLength(128);
         builder.Property(user => user.AvatarUrl).HasMaxLength(512);
+        builder.Property(user => user.Gender)
+            .HasConversion<string>()
+            .HasMaxLength(32)
+            .HasDefaultValue(UserGender.OtroPrefieroNoEspecificar)
+            .IsRequired();
         builder.Property(user => user.LastLoginIp).HasMaxLength(64);
         builder.Property(user => user.Role).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(user => user.Status).HasConversion<string>().HasMaxLength(32).IsRequired();

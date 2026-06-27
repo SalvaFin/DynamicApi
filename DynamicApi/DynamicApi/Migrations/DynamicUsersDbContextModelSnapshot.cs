@@ -67,6 +67,13 @@ namespace DynamicApi.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("varchar(128)");
 
+                    b.Property<string>("Gender")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)")
+                        .HasDefaultValue("OtroPrefieroNoEspecificar");
+
                     b.Property<string>("Language")
                         .HasMaxLength(16)
                         .HasColumnType("varchar(16)");

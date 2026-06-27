@@ -546,6 +546,8 @@ namespace DynamicApi.Migrations.Fidelity
 
                     b.HasIndex("NegocioId", "CodigoVisible");
 
+                    b.HasIndex("NegocioId", "UserId");
+
                     b.ToTable("fidelity_tickets", (string)null);
                 });
 

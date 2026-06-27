@@ -2,6 +2,7 @@ using System.Text;
 using Dynamic.Fidelity.Infrastructure.Persistence;
 using Dynamic.Negocios.Application.Options;
 using Dynamic.Negocios.Infrastructure.Persistence;
+using Dynamic.Promotions.Infrastructure.Persistence;
 using Dynamic.Notify.Endpoints;
 using Dynamic.Users.Application.Options;
 using Dynamic.Users.Infrastructure.Persistence;
@@ -105,6 +106,7 @@ await using (AsyncServiceScope scope = app.Services.CreateAsyncScope())
     await scope.ServiceProvider.GetRequiredService<DynamicUsersDbContext>().Database.MigrateAsync();
     await scope.ServiceProvider.GetRequiredService<DynamicNegociosDbContext>().Database.MigrateAsync();
     await scope.ServiceProvider.GetRequiredService<DynamicFidelityDbContext>().Database.MigrateAsync();
+    await scope.ServiceProvider.GetRequiredService<DynamicPromotionsDbContext>().Database.MigrateAsync();
 }
 
 if (app.Environment.IsDevelopment())

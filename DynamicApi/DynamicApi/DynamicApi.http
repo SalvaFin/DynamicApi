@@ -5,6 +5,41 @@ Accept: application/json
 
 ###
 
+@ownerAccessToken = OWNER_JWT
+@userAccessToken = USER_JWT
+@negocioId = 00000000-0000-0000-0000-000000000000
+
+POST {{DynamicApi_HostAddress}}/api/promotions/negocios/{{negocioId}}/campaigns
+Authorization: Bearer {{ownerAccessToken}}
+Content-Type: application/json
+
+{
+  "title": "Te echamos de menos",
+  "message": "Vuelve este mes y descubre tu nueva recompensa.",
+  "imageUrl": null,
+  "actionLabel": "Ver promoción",
+  "deepLink": "/promotions",
+  "conditions": "Promoción válida hasta la fecha indicada.",
+  "expiresAtUtc": "2026-08-31T21:59:59Z",
+  "idempotencyKey": "summer-return-2026",
+  "filters": {
+    "genders": ["Mujer"],
+    "minimumAge": 18,
+    "minimumDaysSinceLastPointsEarned": 30,
+    "includeUsersWithoutPointEarnings": false,
+    "cities": ["Madrid"],
+    "minimumTicketCount": 1,
+    "lastAppSeenAfterUtc": "2026-01-01T00:00:00Z"
+  }
+}
+
+###
+
+GET {{DynamicApi_HostAddress}}/api/users/me/promotions?page=1&pageSize=20&includeRead=true
+Authorization: Bearer {{userAccessToken}}
+
+###
+
 # Un Google nuevo recibe primero un 409 external_registration_required en external-login.
 POST {{DynamicApi_HostAddress}}/api/users/auth/external-register/complete
 Content-Type: application/json
@@ -16,6 +51,7 @@ Content-Type: application/json
   "nombre": "Nombre",
   "apellidos": "Apellidos",
   "edad": 18,
+  "gender": "OtroPrefieroNoEspecificar",
   "termsAccepted": true,
   "privacyPolicyAccepted": true,
   "marketingAccepted": false,
@@ -25,6 +61,33 @@ Content-Type: application/json
     "platform": 6,
     "notificationsEnabled": false
   }
+}
+
+###
+
+# Perfil del usuario autenticado.
+GET {{DynamicApi_HostAddress}}/api/users/auth/me
+Authorization: Bearer {{userAccessToken}}
+
+###
+
+# Editar datos personales del usuario autenticado.
+PUT {{DynamicApi_HostAddress}}/api/users/auth/me
+Authorization: Bearer {{userAccessToken}}
+Content-Type: application/json
+
+{
+  "firstName": "Salva",
+  "lastName": "Fin",
+  "displayName": "Salva",
+  "gender": "Hombre",
+  "birthDate": "1995-04-18",
+  "language": "es",
+  "timeZone": "Europe/Madrid",
+  "countryCode": "ES",
+  "region": "Comunidad de Madrid",
+  "city": "Madrid",
+  "avatarUrl": "https://cdn.dynamic.app/avatars/salva.png"
 }
 
 ###

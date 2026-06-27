@@ -17,6 +17,8 @@ public class UserSummaryResponse
     public bool PhoneNumberConfirmed { get; set; }
     public bool RegistrationCompleted { get; set; }
     public int? AgeAtRegistration { get; set; }
+    public DateTime? BirthDate { get; set; }
+    public UserGender Gender { get; set; }
     public UserRole Role { get; set; }
     public UserStatus Status { get; set; }
     public string? Language { get; set; }
