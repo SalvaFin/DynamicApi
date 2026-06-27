@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\\Dynamic.Negocios\\Dynamic.Negocios.csproj" />
+    <ProjectReference Include="..\\Dynamic.Notify\\Dynamic.Notify.csproj" />
   </ItemGroup>
 
 </Project>

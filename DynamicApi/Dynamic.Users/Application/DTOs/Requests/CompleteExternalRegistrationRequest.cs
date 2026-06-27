@@ -2,15 +2,17 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Dynamic.Users.Application.DTOs.Requests;
 
-public class CompleteRegistrationRequest
+public class CompleteExternalRegistrationRequest
 {
     [Required]
-    [MaxLength(256)]
-    public string Contact { get; set; } = string.Empty;
+    [MaxLength(32)]
+    public string Provider { get; set; } = string.Empty;
 
     [Required]
-    [MaxLength(128)]
-    public string ValidationToken { get; set; } = string.Empty;
+    public string IdToken { get; set; } = string.Empty;
+
+    [MaxLength(256)]
+    public string? Nonce { get; set; }
 
     [Required]
     [MaxLength(128)]
@@ -28,6 +30,9 @@ public class CompleteRegistrationRequest
     public bool PrivacyPolicyAccepted { get; set; }
 
     public bool MarketingAccepted { get; set; }
+
+    [MaxLength(128)]
+    public string? QrToken { get; set; }
 
     public ClientDeviceContextRequest? Client { get; set; }
 }

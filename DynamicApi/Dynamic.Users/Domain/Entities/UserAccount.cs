@@ -54,4 +54,5 @@ public class UserAccount
     public ICollection<UserDevice> Devices { get; set; } = [];
     public ICollection<UserSession> Sessions { get; set; } = [];
     public ICollection<UserAuthEvent> AuthEvents { get; set; } = [];
+    public ICollection<UserExternalLogin> ExternalLogins { get; set; } = [];
 }

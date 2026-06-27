@@ -28,6 +28,18 @@ public interface IAuthService
         string? userAgent,
         CancellationToken cancellationToken = default);
 
+    Task<ServiceResult<AuthResponse>> ExternalLoginAsync(
+        ExternalLoginRequest request,
+        string? ipAddress,
+        string? userAgent,
+        CancellationToken cancellationToken = default);
+
+    Task<ServiceResult<AuthResponse>> CompleteExternalRegistrationAsync(
+        CompleteExternalRegistrationRequest request,
+        string? ipAddress,
+        string? userAgent,
+        CancellationToken cancellationToken = default);
+
     Task<ServiceResult<AuthResponse>> RefreshAsync(
         RefreshTokenRequest request,
         string? ipAddress,

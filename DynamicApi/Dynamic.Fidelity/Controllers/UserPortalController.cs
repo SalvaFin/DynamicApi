@@ -222,10 +222,8 @@ public class UserPortalController : ControllerBase
 
         int totalItems = await query.CountAsync(cancellationToken);
         List<Ticket> tickets = await query
-            .OrderBy(ticket => ticket.Usado)
-            .ThenBy(ticket => ticket.ExpiresAtUtc <= now)
-            .ThenBy(ticket => ticket.ExpiresAtUtc)
-            .ThenByDescending(ticket => ticket.CreatedAtUtc)
+            .OrderByDescending(ticket => ticket.CreatedAtUtc)
+            .ThenByDescending(ticket => ticket.UpdatedAtUtc)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);

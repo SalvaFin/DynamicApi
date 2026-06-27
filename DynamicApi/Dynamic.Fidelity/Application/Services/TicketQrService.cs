@@ -662,7 +662,7 @@ public class TicketQrService : ITicketQrService
 
     private static string NormalizePathTemplate(string pathTemplate)
     {
-        string normalized = string.IsNullOrWhiteSpace(pathTemplate) ? "/negocio/{slug}" : pathTemplate.Trim();
+        string normalized = string.IsNullOrWhiteSpace(pathTemplate) ? "/portal/tickets" : pathTemplate.Trim();
         return normalized.StartsWith('/') ? normalized : $"/{normalized}";
     }
 

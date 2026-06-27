@@ -2,6 +2,7 @@ using System.Text;
 using Dynamic.Fidelity.Infrastructure.Persistence;
 using Dynamic.Negocios.Application.Options;
 using Dynamic.Negocios.Infrastructure.Persistence;
+using Dynamic.Notify.Endpoints;
 using Dynamic.Users.Application.Options;
 using Dynamic.Users.Infrastructure.Persistence;
 using DynamicApi.Infrastructure.DependencyInjection;
@@ -51,6 +52,23 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            string? accessToken = context.Request.Query["access_token"];
+            PathString path = context.HttpContext.Request.Path;
+
+            if (!string.IsNullOrWhiteSpace(accessToken) &&
+                path.StartsWithSegments(DynamicNotifyEndpointRouteBuilderExtensions.UserEventsHubPath))
+            {
+                context.Token = accessToken;
+            }
+
+            return Task.CompletedTask;
+        }
+    };
+
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true,
@@ -82,13 +100,15 @@ string negocioMediaRootPath = Path.IsPathRooted(negocioMediaOptions.StorageRootP
 
 Directory.CreateDirectory(negocioMediaRootPath);
 
-if (app.Environment.IsDevelopment())
+await using (AsyncServiceScope scope = app.Services.CreateAsyncScope())
 {
-    await using AsyncServiceScope scope = app.Services.CreateAsyncScope();
     await scope.ServiceProvider.GetRequiredService<DynamicUsersDbContext>().Database.MigrateAsync();
     await scope.ServiceProvider.GetRequiredService<DynamicNegociosDbContext>().Database.MigrateAsync();
     await scope.ServiceProvider.GetRequiredService<DynamicFidelityDbContext>().Database.MigrateAsync();
+}
 
+if (app.Environment.IsDevelopment())
+{
     app.UseSwagger();
     app.UseSwaggerUI();
 }
@@ -109,5 +129,6 @@ app.UseCors("OpenCors");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapDynamicNotifyEndpoints();
 
 app.Run();

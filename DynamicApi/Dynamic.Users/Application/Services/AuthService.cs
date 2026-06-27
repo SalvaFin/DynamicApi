@@ -32,12 +32,15 @@ public class AuthService : IAuthService
     private readonly IUserDeviceRepository _userDeviceRepository;
     private readonly IUserSessionRepository _userSessionRepository;
     private readonly IUserAuthEventRepository _userAuthEventRepository;
+    private readonly IUserExternalLoginRepository _userExternalLoginRepository;
     private readonly IPasswordHasher<UserAccount> _passwordHasher;
     private readonly IJwtTokenService _jwtTokenService;
+    private readonly IExternalAuthTokenValidator _externalAuthTokenValidator;
     private readonly IEmailNotificationService _emailNotificationService;
     private readonly IRegistrationRewardService _registrationRewardService;
     private readonly IUserCodeDirectoryService _userCodeDirectoryService;
     private readonly UserRegistrationOptions _userRegistrationOptions;
+    private readonly ExternalAuthOptions _externalAuthOptions;
     private readonly ILogger<AuthService> _logger;
 
     public AuthService(
@@ -46,12 +49,15 @@ public class AuthService : IAuthService
         IUserDeviceRepository userDeviceRepository,
         IUserSessionRepository userSessionRepository,
         IUserAuthEventRepository userAuthEventRepository,
+        IUserExternalLoginRepository userExternalLoginRepository,
         IPasswordHasher<UserAccount> passwordHasher,
         IJwtTokenService jwtTokenService,
+        IExternalAuthTokenValidator externalAuthTokenValidator,
         IEmailNotificationService emailNotificationService,
         IRegistrationRewardService registrationRewardService,
         IUserCodeDirectoryService userCodeDirectoryService,
         IOptions<UserRegistrationOptions> userRegistrationOptions,
+        IOptions<ExternalAuthOptions> externalAuthOptions,
         ILogger<AuthService> logger)
     {
         _dbContext = dbContext;
@@ -59,12 +65,15 @@ public class AuthService : IAuthService
         _userDeviceRepository = userDeviceRepository;
         _userSessionRepository = userSessionRepository;
         _userAuthEventRepository = userAuthEventRepository;
+        _userExternalLoginRepository = userExternalLoginRepository;
         _passwordHasher = passwordHasher;
         _jwtTokenService = jwtTokenService;
+        _externalAuthTokenValidator = externalAuthTokenValidator;
         _emailNotificationService = emailNotificationService;
         _registrationRewardService = registrationRewardService;
         _userCodeDirectoryService = userCodeDirectoryService;
         _userRegistrationOptions = userRegistrationOptions.Value;
+        _externalAuthOptions = externalAuthOptions.Value;
         _logger = logger;
     }
 
@@ -250,6 +259,13 @@ public class AuthService : IAuthService
         string? userAgent,
         CancellationToken cancellationToken = default)
     {
+        if (!request.TermsAccepted || !request.PrivacyPolicyAccepted)
+        {
+            return ServiceResult<CompleteRegistrationResponse>.Failure(
+                "validation_error",
+                "Debes aceptar los terminos y confirmar que has leido la politica de privacidad.");
+        }
+
         if (string.IsNullOrWhiteSpace(request.Contact) ||
             string.IsNullOrWhiteSpace(request.ValidationToken) ||
             string.IsNullOrWhiteSpace(request.Nombre) ||
@@ -306,6 +322,12 @@ public class AuthService : IAuthService
         userByContact.LastSeenAtUtc = now;
         userByContact.LastLoginIp = ipAddress;
         userByContact.UpdatedAtUtc = now;
+        ApplyRegistrationAcceptances(
+            userByContact,
+            request.TermsAccepted,
+            request.PrivacyPolicyAccepted,
+            request.MarketingAccepted,
+            now);
 
         if (contactInfo.Type == ContactType.Email)
         {
@@ -810,6 +832,343 @@ public class AuthService : IAuthService
         }
     }
 
+    public async Task<ServiceResult<AuthResponse>> ExternalLoginAsync(
+        ExternalLoginRequest request,
+        string? ipAddress,
+        string? userAgent,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryParseExternalProvider(request.Provider, out ExternalAuthProvider provider) ||
+            string.IsNullOrWhiteSpace(request.IdToken))
+        {
+            return ServiceResult<AuthResponse>.Failure("validation_error", "Proveedor e id_token son obligatorios.");
+        }
+
+        DateTime now = DateTime.UtcNow;
+        ExternalAuthTokenPayload? externalPayload = await _externalAuthTokenValidator.ValidateAsync(
+            provider,
+            request.IdToken,
+            request.Nonce,
+            cancellationToken);
+
+        if (externalPayload is null || string.IsNullOrWhiteSpace(externalPayload.Subject))
+        {
+            await PersistAnonymousEventAsync(
+                AuthEventType.ExternalLoginFailed,
+                request.Provider,
+                "Token externo invalido.",
+                ipAddress,
+                userAgent,
+                request.Client,
+                now,
+                cancellationToken);
+
+            return ServiceResult<AuthResponse>.Failure("unauthorized", "No se pudo validar el login externo.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.QrToken))
+        {
+            bool isQrTokenValid = await _registrationRewardService.ValidateQrTokenAsync(request.QrToken, cancellationToken);
+            if (!isQrTokenValid)
+            {
+                return ServiceResult<AuthResponse>.Failure("validation_error", "El QR de registro no es valido o ya no esta disponible.");
+            }
+        }
+
+        ApplyExternalProfileHints(externalPayload, request);
+        string identity = BuildExternalIdentity(provider, externalPayload);
+        UserExternalLogin? externalLogin = await _userExternalLoginRepository.GetByProviderAsync(
+            provider,
+            externalPayload.Subject,
+            cancellationToken);
+
+        UserAccount? user = externalLogin?.User;
+        bool linkedExternalLogin = false;
+
+        if (user is null &&
+            _externalAuthOptions.LinkExistingUsersByVerifiedEmail &&
+            CanLinkExistingUserByEmail(externalPayload) &&
+            externalPayload.Email is not null)
+        {
+            user = await _userRepository.GetByEmailAsync(externalPayload.Email.ToUpperInvariant(), cancellationToken);
+        }
+
+        if (user is not null)
+        {
+            if (user.Status is UserStatus.Disabled or UserStatus.Deleted)
+            {
+                return ServiceResult<AuthResponse>.Failure("unauthorized", "La cuenta no esta disponible.");
+            }
+
+            if (user.LockedUntilUtc.HasValue && user.LockedUntilUtc.Value > now)
+            {
+                return ServiceResult<AuthResponse>.Failure("locked", "La cuenta esta temporalmente bloqueada por seguridad.");
+            }
+        }
+
+        if (user is null || !user.RegistrationCompleted)
+        {
+            return ServiceResult<AuthResponse>.Failure(
+                "external_registration_required",
+                "Debes completar tu perfil y las condiciones de Dynamic antes de continuar.");
+        }
+
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            CompleteOrUpdateExternalUser(user, externalPayload, ipAddress, now);
+            _userRepository.Update(user);
+
+            if (externalLogin is null)
+            {
+                externalLogin = new UserExternalLogin
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = user.Id,
+                    User = user,
+                    Provider = provider,
+                    ProviderSubject = externalPayload.Subject,
+                    Email = externalPayload.Email,
+                    DisplayName = externalPayload.DisplayName,
+                    CreatedAtUtc = now,
+                    LastLoginAtUtc = now
+                };
+
+                await _userExternalLoginRepository.AddAsync(externalLogin, cancellationToken);
+                linkedExternalLogin = true;
+            }
+            else
+            {
+                externalLogin.Email = externalPayload.Email ?? externalLogin.Email;
+                externalLogin.DisplayName = externalPayload.DisplayName ?? externalLogin.DisplayName;
+                externalLogin.LastLoginAtUtc = now;
+                _userExternalLoginRepository.Update(externalLogin);
+            }
+
+            UserDevice? device = await CreateOrUpdateDeviceAsync(user, request.Client, now, cancellationToken);
+            UserSession session = CreateSession(user, device, request.Client, ipAddress, userAgent, now);
+            GeneratedTokenEnvelope tokens = _jwtTokenService.GenerateTokens(user, session);
+
+            session.JwtId = tokens.JwtId;
+            session.RefreshTokenHash = tokens.RefreshTokenHash;
+            session.RefreshTokenExpiresAtUtc = tokens.RefreshTokenExpiresAtUtc;
+
+            await _userSessionRepository.AddAsync(session, cancellationToken);
+            await _userAuthEventRepository.AddAsync(
+                BuildAuthEvent(AuthEventType.ExternalLoginSucceeded, user, identity, true, linkedExternalLogin ? "ExternalLoginLinked" : null, ipAddress, userAgent, request.Client, now),
+                cancellationToken);
+            await _userAuthEventRepository.AddAsync(
+                BuildAuthEvent(AuthEventType.LoginSucceeded, user, identity, true, null, ipAddress, userAgent, request.Client, now),
+                cancellationToken);
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+
+            string userCode = await _userCodeDirectoryService.EnsureUserCodeAsync(user.Id, cancellationToken);
+            return ServiceResult<AuthResponse>.Success(BuildAuthResponse(user, userCode, session, tokens));
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            _logger.LogError(ex, "Error iniciando sesion externa con {Provider}", provider);
+            return ServiceResult<AuthResponse>.Failure("server_error", "No se pudo iniciar sesion con el proveedor externo.");
+        }
+    }
+
+    public async Task<ServiceResult<AuthResponse>> CompleteExternalRegistrationAsync(
+        CompleteExternalRegistrationRequest request,
+        string? ipAddress,
+        string? userAgent,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryParseExternalProvider(request.Provider, out ExternalAuthProvider provider) ||
+            string.IsNullOrWhiteSpace(request.IdToken) ||
+            string.IsNullOrWhiteSpace(request.Nombre) ||
+            string.IsNullOrWhiteSpace(request.Apellidos))
+        {
+            return ServiceResult<AuthResponse>.Failure(
+                "validation_error",
+                "Proveedor, id_token, nombre y apellidos son obligatorios.");
+        }
+
+        if (request.Edad < _userRegistrationOptions.MinimumAge)
+        {
+            return ServiceResult<AuthResponse>.Failure(
+                "validation_error",
+                $"La edad minima para registrarse es de {_userRegistrationOptions.MinimumAge} anos.");
+        }
+
+        if (!request.TermsAccepted || !request.PrivacyPolicyAccepted)
+        {
+            return ServiceResult<AuthResponse>.Failure(
+                "validation_error",
+                "Debes aceptar los terminos y confirmar que has leido la politica de privacidad.");
+        }
+
+        DateTime now = DateTime.UtcNow;
+        ExternalAuthTokenPayload? externalPayload = await _externalAuthTokenValidator.ValidateAsync(
+            provider,
+            request.IdToken,
+            request.Nonce,
+            cancellationToken);
+
+        if (externalPayload is null || string.IsNullOrWhiteSpace(externalPayload.Subject))
+        {
+            await PersistAnonymousEventAsync(
+                AuthEventType.ExternalLoginFailed,
+                request.Provider,
+                "Token externo invalido durante el registro.",
+                ipAddress,
+                userAgent,
+                request.Client,
+                now,
+                cancellationToken);
+
+            return ServiceResult<AuthResponse>.Failure("unauthorized", "No se pudo validar el registro externo.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.QrToken))
+        {
+            bool isQrTokenValid = await _registrationRewardService.ValidateQrTokenAsync(request.QrToken, cancellationToken);
+            if (!isQrTokenValid)
+            {
+                return ServiceResult<AuthResponse>.Failure(
+                    "validation_error",
+                    "El QR de registro no es valido o ya no esta disponible.");
+            }
+        }
+
+        string identity = BuildExternalIdentity(provider, externalPayload);
+        UserExternalLogin? externalLogin = await _userExternalLoginRepository.GetByProviderAsync(
+            provider,
+            externalPayload.Subject,
+            cancellationToken);
+
+        UserAccount? user = externalLogin?.User;
+        if (user is null &&
+            _externalAuthOptions.LinkExistingUsersByVerifiedEmail &&
+            CanLinkExistingUserByEmail(externalPayload) &&
+            externalPayload.Email is not null)
+        {
+            user = await _userRepository.GetByEmailAsync(externalPayload.Email.ToUpperInvariant(), cancellationToken);
+        }
+
+        if (user?.RegistrationCompleted == true)
+        {
+            return ServiceResult<AuthResponse>.Failure(
+                "conflict",
+                "La cuenta externa ya esta registrada. Inicia sesion con el proveedor.");
+        }
+
+        if (user is not null && user.Status is UserStatus.Disabled or UserStatus.Deleted)
+        {
+            return ServiceResult<AuthResponse>.Failure("unauthorized", "La cuenta no esta disponible.");
+        }
+
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            if (user is null)
+            {
+                user = await CreateExternalUserAsync(externalPayload, now, cancellationToken);
+            }
+            else
+            {
+                CompleteOrUpdateExternalUser(user, externalPayload, ipAddress, now);
+                _userRepository.Update(user);
+            }
+
+            user.FirstName = request.Nombre.Trim();
+            user.LastName = request.Apellidos.Trim();
+            user.DisplayName = $"{user.FirstName} {user.LastName}".Trim();
+            user.AgeAtRegistration = request.Edad;
+            user.RegistrationCompleted = true;
+            user.RegistrationCompletedAtUtc = now;
+            user.Status = UserStatus.Active;
+            user.LastLoginAtUtc = now;
+            user.LastSeenAtUtc = now;
+            user.LastLoginIp = ipAddress;
+            user.UpdatedAtUtc = now;
+            ApplyRegistrationAcceptances(
+                user,
+                request.TermsAccepted,
+                request.PrivacyPolicyAccepted,
+                request.MarketingAccepted,
+                now);
+
+            if (externalLogin is null)
+            {
+                externalLogin = new UserExternalLogin
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = user.Id,
+                    User = user,
+                    Provider = provider,
+                    ProviderSubject = externalPayload.Subject,
+                    Email = externalPayload.Email,
+                    DisplayName = user.DisplayName,
+                    CreatedAtUtc = now,
+                    LastLoginAtUtc = now
+                };
+
+                await _userExternalLoginRepository.AddAsync(externalLogin, cancellationToken);
+            }
+            else
+            {
+                externalLogin.Email = externalPayload.Email ?? externalLogin.Email;
+                externalLogin.DisplayName = user.DisplayName;
+                externalLogin.LastLoginAtUtc = now;
+                _userExternalLoginRepository.Update(externalLogin);
+            }
+
+            UserDevice? device = await CreateOrUpdateDeviceAsync(user, request.Client, now, cancellationToken);
+            UserSession session = CreateSession(user, device, request.Client, ipAddress, userAgent, now);
+            GeneratedTokenEnvelope tokens = _jwtTokenService.GenerateTokens(user, session);
+
+            session.JwtId = tokens.JwtId;
+            session.RefreshTokenHash = tokens.RefreshTokenHash;
+            session.RefreshTokenExpiresAtUtc = tokens.RefreshTokenExpiresAtUtc;
+
+            await _userSessionRepository.AddAsync(session, cancellationToken);
+            await _userAuthEventRepository.AddAsync(
+                BuildAuthEvent(AuthEventType.RegisterCompleted, user, identity, true, "ExternalRegistration", ipAddress, userAgent, request.Client, now),
+                cancellationToken);
+            await _userAuthEventRepository.AddAsync(
+                BuildAuthEvent(AuthEventType.ExternalLoginSucceeded, user, identity, true, "ExternalRegistration", ipAddress, userAgent, request.Client, now),
+                cancellationToken);
+            await _userAuthEventRepository.AddAsync(
+                BuildAuthEvent(AuthEventType.LoginSucceeded, user, identity, true, null, ipAddress, userAgent, request.Client, now),
+                cancellationToken);
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+
+            if (!string.IsNullOrWhiteSpace(request.QrToken))
+            {
+                try
+                {
+                    await _registrationRewardService.PreparePendingAssignmentAsync(user.Id, request.QrToken, cancellationToken);
+                    await _registrationRewardService.FinalizePendingAssignmentsAsync(user.Id, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "No se pudo aplicar la recompensa de registro social para {UserId}", user.Id);
+                }
+            }
+
+            string userCode = await _userCodeDirectoryService.EnsureUserCodeAsync(user.Id, cancellationToken);
+            return ServiceResult<AuthResponse>.Success(BuildAuthResponse(user, userCode, session, tokens));
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            _logger.LogError(ex, "Error completando registro externo con {Provider}", provider);
+            return ServiceResult<AuthResponse>.Failure("server_error", "No se pudo completar el registro externo.");
+        }
+    }
+
     public async Task<ServiceResult<SetInitialPasswordResponse>> SetInitialPasswordAsync(
         Guid userId,
         SetInitialPasswordRequest request,
@@ -1032,6 +1391,167 @@ public class AuthService : IAuthService
         }
 
         return device;
+    }
+
+    private async Task<UserAccount> CreateExternalUserAsync(
+        ExternalAuthTokenPayload externalPayload,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        string userName = await GenerateUniqueExternalUserNameAsync(externalPayload, cancellationToken);
+        UserAccount user = new()
+        {
+            Id = Guid.NewGuid(),
+            Email = externalPayload.Email,
+            NormalizedEmail = externalPayload.Email?.ToUpperInvariant(),
+            UserName = userName,
+            NormalizedUserName = userName.ToUpperInvariant(),
+            FirstName = externalPayload.FirstName,
+            LastName = externalPayload.LastName,
+            DisplayName = BuildDisplayName(externalPayload.FirstName, externalPayload.LastName, externalPayload.DisplayName ?? userName),
+            AvatarUrl = externalPayload.AvatarUrl,
+            EmailConfirmed = externalPayload.EmailVerified && !string.IsNullOrWhiteSpace(externalPayload.Email),
+            PhoneNumberConfirmed = false,
+            RegistrationCompleted = true,
+            RegistrationInitiatedAtUtc = now,
+            RegistrationCompletedAtUtc = now,
+            Role = UserRole.User,
+            Status = UserStatus.Active,
+            FailedLoginCount = 0,
+            LockedUntilUtc = null,
+            LastLoginAtUtc = now,
+            LastSeenAtUtc = now,
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now
+        };
+
+        user.PasswordHash = _passwordHasher.HashPassword(user, GenerateTemporaryPassword());
+        user.PasswordIsTemporary = false;
+
+        await _userRepository.AddAsync(user, cancellationToken);
+        return user;
+    }
+
+    private void CompleteOrUpdateExternalUser(
+        UserAccount user,
+        ExternalAuthTokenPayload externalPayload,
+        string? ipAddress,
+        DateTime now)
+    {
+        if (!string.IsNullOrWhiteSpace(externalPayload.Email) && string.IsNullOrWhiteSpace(user.Email))
+        {
+            user.Email = externalPayload.Email;
+            user.NormalizedEmail = externalPayload.Email.ToUpperInvariant();
+        }
+
+        if (externalPayload.EmailVerified &&
+            !string.IsNullOrWhiteSpace(externalPayload.Email) &&
+            string.Equals(user.NormalizedEmail, externalPayload.Email.ToUpperInvariant(), StringComparison.Ordinal))
+        {
+            user.EmailConfirmed = true;
+        }
+
+        user.FirstName ??= externalPayload.FirstName;
+        user.LastName ??= externalPayload.LastName;
+        user.DisplayName ??= externalPayload.DisplayName ?? BuildDisplayName(user.FirstName, user.LastName, user.UserName);
+        user.AvatarUrl ??= externalPayload.AvatarUrl;
+        user.RegistrationCompleted = true;
+        user.RegistrationCompletedAtUtc ??= now;
+        user.RegistrationValidationToken = null;
+        user.RegistrationValidationTokenExpiresAtUtc = null;
+        user.Status = UserStatus.Active;
+        user.FailedLoginCount = 0;
+        user.LockedUntilUtc = null;
+        user.LastLoginAtUtc = now;
+        user.LastSeenAtUtc = now;
+        user.LastLoginIp = ipAddress;
+        user.UpdatedAtUtc = now;
+    }
+
+    private async Task<string> GenerateUniqueExternalUserNameAsync(
+        ExternalAuthTokenPayload externalPayload,
+        CancellationToken cancellationToken)
+    {
+        string seed = !string.IsNullOrWhiteSpace(externalPayload.Email) && externalPayload.Email.Contains('@')
+            ? externalPayload.Email[..externalPayload.Email.IndexOf('@')]
+            : $"{externalPayload.Provider}{externalPayload.Subject}";
+
+        string baseUserName = NormalizeUserNameSeed(seed);
+        if (baseUserName.Length == 0)
+        {
+            baseUserName = $"user{Guid.NewGuid():N}"[..16];
+        }
+
+        string candidate = baseUserName.Length > 48 ? baseUserName[..48] : baseUserName;
+        for (int attempt = 0; attempt < 10; attempt++)
+        {
+            string currentCandidate = attempt == 0
+                ? candidate
+                : $"{candidate}{RandomNumberGenerator.GetInt32(1000, 9999)}";
+
+            if (await _userRepository.GetByUserNameAsync(currentCandidate.ToUpperInvariant(), cancellationToken) is null)
+            {
+                return currentCandidate;
+            }
+        }
+
+        return $"user{Guid.NewGuid():N}"[..16];
+    }
+
+    private static void ApplyRegistrationAcceptances(
+        UserAccount user,
+        bool termsAccepted,
+        bool privacyPolicyAccepted,
+        bool marketingAccepted,
+        DateTime now)
+    {
+        user.TermsAccepted = termsAccepted;
+        user.TermsAcceptedAtUtc = termsAccepted ? now : null;
+        user.PrivacyPolicyAccepted = privacyPolicyAccepted;
+        user.PrivacyPolicyAcceptedAtUtc = privacyPolicyAccepted ? now : null;
+        user.MarketingAccepted = marketingAccepted;
+        user.MarketingAcceptedAtUtc = marketingAccepted ? now : null;
+    }
+
+    private static void ApplyExternalProfileHints(ExternalAuthTokenPayload externalPayload, ExternalLoginRequest request)
+    {
+        externalPayload.FirstName = NormalizeNullable(request.FirstName) ?? externalPayload.FirstName;
+        externalPayload.LastName = NormalizeNullable(request.LastName) ?? externalPayload.LastName;
+        externalPayload.DisplayName = NormalizeNullable(request.DisplayName) ?? externalPayload.DisplayName;
+    }
+
+    private static bool TryParseExternalProvider(string value, out ExternalAuthProvider provider)
+        => Enum.TryParse(value.Trim(), ignoreCase: true, out provider) &&
+           Enum.IsDefined(typeof(ExternalAuthProvider), provider);
+
+    private static bool CanLinkExistingUserByEmail(ExternalAuthTokenPayload externalPayload)
+    {
+        if (!externalPayload.EmailVerified || string.IsNullOrWhiteSpace(externalPayload.Email))
+        {
+            return false;
+        }
+
+        return externalPayload.Provider == ExternalAuthProvider.Apple ||
+               externalPayload.Email.EndsWith("@gmail.com", StringComparison.OrdinalIgnoreCase) ||
+               !string.IsNullOrWhiteSpace(externalPayload.HostedDomain);
+    }
+
+    private static string BuildExternalIdentity(ExternalAuthProvider provider, ExternalAuthTokenPayload externalPayload)
+        => $"{provider}:{externalPayload.Email ?? externalPayload.Subject}";
+
+    private static string NormalizeUserNameSeed(string value)
+    {
+        StringBuilder builder = new();
+
+        foreach (char character in value.Trim())
+        {
+            if (char.IsLetterOrDigit(character) || character is '_' or '-' or '.')
+            {
+                builder.Append(character);
+            }
+        }
+
+        return builder.ToString();
     }
 
     private static UserSession CreateSession(

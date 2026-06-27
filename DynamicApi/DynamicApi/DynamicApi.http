@@ -4,3 +4,27 @@ GET {{DynamicApi_HostAddress}}/weatherforecast/
 Accept: application/json
 
 ###
+
+# Un Google nuevo recibe primero un 409 external_registration_required en external-login.
+POST {{DynamicApi_HostAddress}}/api/users/auth/external-register/complete
+Content-Type: application/json
+
+{
+  "provider": "Google",
+  "idToken": "GOOGLE_ID_TOKEN",
+  "nonce": null,
+  "nombre": "Nombre",
+  "apellidos": "Apellidos",
+  "edad": 18,
+  "termsAccepted": true,
+  "privacyPolicyAccepted": true,
+  "marketingAccepted": false,
+  "qrToken": null,
+  "client": {
+    "deviceType": 4,
+    "platform": 6,
+    "notificationsEnabled": false
+  }
+}
+
+###

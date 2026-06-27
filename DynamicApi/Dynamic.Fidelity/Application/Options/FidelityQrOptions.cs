@@ -10,7 +10,7 @@ public class FidelityQrOptions
     public string PublicBaseUrl { get; set; } = "https://app.tudominio.com";
 
     [Required]
-    public string BusinessLandingPathTemplate { get; set; } = "/negocio/{slug}";
+    public string BusinessLandingPathTemplate { get; set; } = "/portal/tickets";
 
     [Required]
     public string QrQueryParameterName { get; set; } = "qr";

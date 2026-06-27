@@ -69,6 +69,32 @@ public class UsersAuthController : ControllerBase
         return ToActionResult(result, Ok);
     }
 
+    [HttpPost("external-login")]
+    public async Task<IActionResult> ExternalLogin([FromBody] ExternalLoginRequest request, CancellationToken cancellationToken)
+    {
+        ServiceResult<AuthResponse> result = await _authService.ExternalLoginAsync(
+            request,
+            GetIpAddress(),
+            GetUserAgent(),
+            cancellationToken);
+
+        return ToActionResult(result, Ok);
+    }
+
+    [HttpPost("external-register/complete")]
+    public async Task<IActionResult> CompleteExternalRegister(
+        [FromBody] CompleteExternalRegistrationRequest request,
+        CancellationToken cancellationToken)
+    {
+        ServiceResult<AuthResponse> result = await _authService.CompleteExternalRegistrationAsync(
+            request,
+            GetIpAddress(),
+            GetUserAgent(),
+            cancellationToken);
+
+        return ToActionResult(result, Ok);
+    }
+
     [HttpPost("refresh")]
     public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequest request, CancellationToken cancellationToken)
     {
@@ -223,6 +249,12 @@ public class UsersAuthController : ControllerBase
         {
             "validation_error" => BadRequest(new { message = errorMessage }),
             "conflict" => Conflict(new { message = errorMessage }),
+            "external_registration_required" => Conflict(new
+            {
+                code = "external_registration_required",
+                message = errorMessage,
+                nextAction = "complete_external_registration"
+            }),
             "not_found" => NotFound(new { message = errorMessage }),
             "locked" => StatusCode(StatusCodes.Status423Locked, new { message = errorMessage }),
             "unauthorized" => Unauthorized(new { message = errorMessage }),

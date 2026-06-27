@@ -12,5 +12,7 @@ public enum AuthEventType
     PasswordChanged = 8,
     ClassicRegisterCreated = 9,
     PasswordResetRequested = 10,
-    PasswordResetCompleted = 11
+    PasswordResetCompleted = 11,
+    ExternalLoginSucceeded = 12,
+    ExternalLoginFailed = 13
 }

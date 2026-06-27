@@ -54,5 +54,10 @@ public class UserAccountConfiguration : IEntityTypeConfiguration<UserAccount>
             .WithOne(authEvent => authEvent.User)
             .HasForeignKey(authEvent => authEvent.UserId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasMany(user => user.ExternalLogins)
+            .WithOne(login => login.User)
+            .HasForeignKey(login => login.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

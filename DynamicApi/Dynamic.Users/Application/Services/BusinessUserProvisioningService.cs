@@ -185,11 +185,6 @@ public class BusinessUserProvisioningService : IBusinessUserProvisioningService
             }
         }
 
-        if (ownerRoute && negocio.OwnerUserId.HasValue)
-        {
-            return ServiceResult<ProvisionedBusinessUserResponse>.Failure("conflict", "El negocio ya tiene un propietario asignado.");
-        }
-
         ServiceResult validation = await ValidateRequestAsync(request, cancellationToken);
         if (!validation.Succeeded)
         {
@@ -383,13 +378,17 @@ public class BusinessUserProvisioningService : IBusinessUserProvisioningService
 
         if (ownerRoute)
         {
-            negocio.OwnerUserId = userId;
-            negocio.UpdatedAtUtc = now;
-            _negocioRepository.Update(negocio);
+            bool isPrimaryOwner = !negocio.OwnerUserId.HasValue || negocio.OwnerUserId == userId;
+            if (!negocio.OwnerUserId.HasValue)
+            {
+                negocio.OwnerUserId = userId;
+                negocio.UpdatedAtUtc = now;
+                _negocioRepository.Update(negocio);
+            }
 
             vinculacion.TipoVinculacion = TipoVinculacionNegocioUsuario.Propietario;
             vinculacion.TituloRelacion = "Propietario";
-            vinculacion.EsPrincipal = true;
+            vinculacion.EsPrincipal = isPrimaryOwner;
             vinculacion.PuedeAccederBackoffice = true;
             vinculacion.PuedeGestionarNegocio = true;
             vinculacion.PuedeGestionarClientes = true;

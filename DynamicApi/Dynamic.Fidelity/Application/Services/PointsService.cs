@@ -15,6 +15,8 @@ using Dynamic.Negocios.Application.Contracts.Services;
 using Dynamic.Negocios.Application.DTOs.Requests;
 using Dynamic.Negocios.Domain.Entities;
 using Dynamic.Negocios.Domain.Enums;
+using Dynamic.Notify.Application.Contracts;
+using Dynamic.Notify.Application.Models;
 
 namespace Dynamic.Fidelity.Application.Services;
 
@@ -30,6 +32,7 @@ public class PointsService : IPointsService
     private readonly INegocioUsuarioVinculacionRepository _negocioUsuarioVinculacionRepository;
     private readonly INegocioUsuarioVinculacionService _negocioUsuarioVinculacionService;
     private readonly IRegistrationRewardService _registrationRewardService;
+    private readonly IUserEventPublisher _userEventPublisher;
 
     public PointsService(
         DynamicFidelityDbContext dbContext,
@@ -41,7 +44,8 @@ public class PointsService : IPointsService
         INegocioRepository negocioRepository,
         INegocioUsuarioVinculacionRepository negocioUsuarioVinculacionRepository,
         INegocioUsuarioVinculacionService negocioUsuarioVinculacionService,
-        IRegistrationRewardService registrationRewardService)
+        IRegistrationRewardService registrationRewardService,
+        IUserEventPublisher userEventPublisher)
     {
         _dbContext = dbContext;
         _pointsRepository = pointsRepository;
@@ -53,6 +57,7 @@ public class PointsService : IPointsService
         _negocioUsuarioVinculacionRepository = negocioUsuarioVinculacionRepository;
         _negocioUsuarioVinculacionService = negocioUsuarioVinculacionService;
         _registrationRewardService = registrationRewardService;
+        _userEventPublisher = userEventPublisher;
     }
 
     public async Task<ServiceResult<PointsSummary>> GetBalanceAsync(Guid userId, Guid negocioId, CancellationToken cancellationToken = default)
@@ -299,6 +304,7 @@ public class PointsService : IPointsService
 
         _pointsOperationRepository.Update(operation);
         await _dbContext.SaveChangesAsync(cancellationToken);
+        await PublishPointsReceivedAsync(transaction, cancellationToken);
 
         return ServiceResult<PointsEarnValidationResponse>.Success(new PointsEarnValidationResponse
         {
@@ -403,6 +409,21 @@ public class PointsService : IPointsService
             cancellationToken);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+        await PublishPointsReceivedAsync(
+            userId.Value,
+            negocioId,
+            pointsEarned,
+            balanceBefore,
+            balanceAfter,
+            PointsTransactionType.BackofficeEarn,
+            Normalize(request.Reason) ?? "AcreditaciÃ³n directa de backoffice",
+            Normalize(request.Reference),
+            transactionId: null,
+            operationId: null,
+            validatorUserId: validatorUserId,
+            counterpartyUserId: null,
+            createdAtUtc: now,
+            cancellationToken: cancellationToken);
 
         return ServiceResult<PointsEarnValidationResponse>.Success(new PointsEarnValidationResponse
         {
@@ -536,6 +557,21 @@ public class PointsService : IPointsService
             cancellationToken);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+        await PublishPointsReceivedAsync(
+            request.UserId,
+            negocio.Id,
+            pointsEarned,
+            balanceBefore,
+            balanceAfter,
+            PointsTransactionType.BackofficeEarn,
+            reason,
+            reference,
+            transactionId: null,
+            operationId: null,
+            validatorUserId: request.TrabajadorId,
+            counterpartyUserId: null,
+            createdAtUtc: now,
+            cancellationToken: cancellationToken);
 
         return ServiceResult<PointsEarnValidationResponse>.Success(new PointsEarnValidationResponse
         {
@@ -700,6 +736,21 @@ public class PointsService : IPointsService
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+        await PublishPointsReceivedAsync(
+            recipientUserId.Value,
+            negocioId,
+            request.Amount,
+            recipientPoints.CurrentBalance - request.Amount,
+            recipientPoints.CurrentBalance,
+            PointsTransactionType.TransferIn,
+            incomingReason,
+            reference,
+            transactionId: null,
+            operationId: null,
+            validatorUserId: null,
+            counterpartyUserId: senderUserId,
+            createdAtUtc: now,
+            cancellationToken: cancellationToken);
 
         return ServiceResult<GiftPointsResponse>.Success(new GiftPointsResponse
         {
@@ -763,6 +814,21 @@ public class PointsService : IPointsService
             cancellationToken);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+        await PublishPointsReceivedAsync(
+            userId,
+            negocioId,
+            amount,
+            points.CurrentBalance - amount,
+            points.CurrentBalance,
+            PointsTransactionType.Earn,
+            Normalize(reason),
+            Normalize(reference),
+            transactionId: null,
+            operationId: null,
+            validatorUserId: null,
+            counterpartyUserId: null,
+            createdAtUtc: now,
+            cancellationToken: cancellationToken);
         return ServiceResult<PointsSummary>.Success(points.ToSummary());
     }
 
@@ -1010,6 +1076,63 @@ public class PointsService : IPointsService
             },
             cancellationToken);
     }
+
+    private Task PublishPointsReceivedAsync(PointsTransaction transaction, CancellationToken cancellationToken)
+        => PublishPointsReceivedAsync(
+            transaction.UserId,
+            transaction.NegocioId,
+            transaction.PointsAmount,
+            transaction.BalanceBefore,
+            transaction.BalanceAfter,
+            transaction.TransactionType,
+            transaction.Reason,
+            transaction.Reference,
+            transaction.Id,
+            transaction.OperationId,
+            transaction.ValidatorUserId,
+            transaction.CounterpartyUserId,
+            transaction.CreatedAtUtc,
+            cancellationToken);
+
+    private Task PublishPointsReceivedAsync(
+        Guid userId,
+        Guid negocioId,
+        int pointsAmount,
+        int balanceBefore,
+        int balanceAfter,
+        PointsTransactionType transactionType,
+        string? reason,
+        string? reference,
+        Guid? transactionId,
+        Guid? operationId,
+        Guid? validatorUserId,
+        Guid? counterpartyUserId,
+        DateTime createdAtUtc,
+        CancellationToken cancellationToken)
+        => _userEventPublisher.PublishAsync(
+            userId,
+            new UserAppEvent
+            {
+                Type = "fidelity.points.received",
+                OccurredAtUtc = createdAtUtc,
+                Payload = new PointsReceivedEventPayload
+                {
+                    UserId = userId,
+                    NegocioId = negocioId,
+                    TransactionId = transactionId,
+                    OperationId = operationId,
+                    ValidatorUserId = validatorUserId,
+                    CounterpartyUserId = counterpartyUserId,
+                    PointsAmount = pointsAmount,
+                    BalanceBefore = balanceBefore,
+                    BalanceAfter = balanceAfter,
+                    TransactionType = transactionType.ToString(),
+                    Reason = reason,
+                    Reference = reference,
+                    CreatedAtUtc = createdAtUtc
+                }
+            },
+            cancellationToken);
 
     private async Task<ServiceResult> EnsureCanManagePointsAsync(Guid negocioId, Guid requesterUserId, bool isAdmin, CancellationToken cancellationToken)
     {

@@ -34,6 +34,10 @@ public class DynamicUsersModuleStartup
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
+        services.AddOptions<ExternalAuthOptions>()
+            .Bind(configuration.GetSection(ExternalAuthOptions.SectionName))
+            .ValidateOnStart();
+
         DynamicUsersDatabaseOptions databaseOptions = configuration
             .GetSection(DynamicUsersDatabaseOptions.SectionName)
             .Get<DynamicUsersDatabaseOptions>() ?? new();
@@ -56,7 +60,9 @@ public class DynamicUsersModuleStartup
         services.AddScoped<IUserDeviceRepository, UserDeviceRepository>();
         services.AddScoped<IUserSessionRepository, UserSessionRepository>();
         services.AddScoped<IUserAuthEventRepository, UserAuthEventRepository>();
+        services.AddScoped<IUserExternalLoginRepository, UserExternalLoginRepository>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
+        services.AddScoped<IExternalAuthTokenValidator, ExternalAuthTokenValidator>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IBusinessUserProvisioningService, BusinessUserProvisioningService>();

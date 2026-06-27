@@ -1,7 +1,9 @@
 using Dynamic.Notify.Application.Contracts;
 using Dynamic.Notify.Application.Options;
+using Dynamic.Notify.Infrastructure.Realtime;
 using Dynamic.Notify.Infrastructure.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -22,5 +24,8 @@ public class DynamicNotifyModuleStartup
             .ValidateOnStart();
 
         services.AddScoped<IEmailNotificationService, SmtpEmailNotificationService>();
+        services.AddSignalR();
+        services.AddSingleton<IUserIdProvider, AuthenticatedUserIdProvider>();
+        services.AddScoped<IUserEventPublisher, SignalRUserEventPublisher>();
     }
 }
