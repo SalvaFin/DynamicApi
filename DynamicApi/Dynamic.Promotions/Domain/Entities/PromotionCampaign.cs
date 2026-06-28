@@ -7,15 +7,13 @@ public class PromotionCampaign
     public Guid Id { get; set; }
     public Guid NegocioId { get; set; }
     public Guid CreatedByUserId { get; set; }
+    public Guid TicketTemplateId { get; set; }
     public string NegocioNombreSnapshot { get; set; } = string.Empty;
     public string NegocioSlugSnapshot { get; set; } = string.Empty;
     public string? NegocioLogoUrlSnapshot { get; set; }
-    public string Title { get; set; } = string.Empty;
-    public string Message { get; set; } = string.Empty;
-    public string? ImageUrl { get; set; }
-    public string? ActionLabel { get; set; }
-    public string? DeepLink { get; set; }
-    public string? Conditions { get; set; }
+    public string TicketNombreSnapshot { get; set; } = string.Empty;
+    public string? TicketDescripcionSnapshot { get; set; }
+    public string TicketSnapshotJson { get; set; } = "{}";
     public string FiltersJson { get; set; } = "{}";
     public PromotionCampaignStatus Status { get; set; } = PromotionCampaignStatus.Queued;
     public int AudienceCount { get; set; }

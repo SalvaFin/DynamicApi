@@ -55,6 +55,7 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
         try
         {
             await InsertRecipientsAsync(campaign, filters, now, cancellationToken);
+            await InsertAssignedTicketsAsync(campaign.Id, now, cancellationToken);
             if (campaign.PushEnabled && _firebaseOptions.Enabled)
             {
                 await InsertPushDeliveriesAsync(campaign.Id, campaign.StartsAtUtc, now, cancellationToken);
@@ -198,6 +199,52 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
         await ExecuteCommandAsync(
             sql,
             [("@campaignId", campaignId.ToString()), ("@now", now), ("@nextAttemptAt", startsAtUtc > now ? startsAtUtc : now)],
+            cancellationToken);
+    }
+
+    private async Task InsertAssignedTicketsAsync(
+        Guid campaignId,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            INSERT IGNORE INTO `fidelity_tickets`
+                (`Id`, `NegocioId`, `UserId`, `ParentTicketId`, `SourcePromotionCampaignId`, `SourcePromotionRecipientId`,
+                 `Nombre`, `Descripcion`, `Tipo`, `CategoriaEnvioEspecial`, `Valor`, `CodigoInterno`, `CodigoVisible`,
+                 `TituloCanje`, `InstruccionesCanje`, `CondicionesUso`, `MensajeMarketing`, `DescuentoPorcentaje`,
+                 `DescuentoImporteFijo`, `BeneficioEspecialResumen`, `BeneficioEspecialDetalle`, `GastoMinimoRequerido`,
+                 `PuntosCoste`, `MaxUsosPorCliente`, `UsosConsumidos`, `ValidezDiasDesdeAsignacion`,
+                 `RequiereValidacionManual`, `EsDeUnSoloUso`, `EsPlantilla`, `Activo`, `Publicado`, `Usado`,
+                 `CreatedAtUtc`, `AvailableFromUtc`, `ExpiresAtUtc`, `UpdatedAtUtc`)
+            SELECT UUID(), template.`NegocioId`, recipient.`UserId`, template.`Id`, campaign.`Id`, recipient.`Id`,
+                   template.`Nombre`, template.`Descripcion`, template.`Tipo`, template.`CategoriaEnvioEspecial`,
+                   template.`Valor`, template.`CodigoInterno`,
+                   CONCAT(LEFT(COALESCE(NULLIF(template.`CodigoVisible`, ''), 'CAMPAIGN'), 8), '-', SUBSTRING(REPLACE(UUID(), '-', ''), 1, 11)),
+                   template.`TituloCanje`, template.`InstruccionesCanje`, template.`CondicionesUso`, template.`MensajeMarketing`,
+                   template.`DescuentoPorcentaje`, template.`DescuentoImporteFijo`, template.`BeneficioEspecialResumen`,
+                   template.`BeneficioEspecialDetalle`, template.`GastoMinimoRequerido`, template.`PuntosCoste`,
+                   template.`MaxUsosPorCliente`, 0, template.`ValidezDiasDesdeAsignacion`, template.`RequiereValidacionManual`,
+                   template.`EsDeUnSoloUso`, 0, template.`Activo`, template.`Publicado`, 0, @now,
+                   CASE
+                       WHEN template.`AvailableFromUtc` IS NULL OR template.`AvailableFromUtc` < campaign.`StartsAtUtc`
+                           THEN campaign.`StartsAtUtc`
+                       ELSE template.`AvailableFromUtc`
+                   END,
+                   CASE
+                       WHEN template.`ValidezDiasDesdeAsignacion` IS NOT NULL
+                           THEN DATE_ADD(@now, INTERVAL template.`ValidezDiasDesdeAsignacion` DAY)
+                       ELSE template.`ExpiresAtUtc`
+                   END,
+                   @now
+            FROM `promotion_recipients` recipient
+            INNER JOIN `promotion_campaigns` campaign ON campaign.`Id` = recipient.`CampaignId`
+            INNER JOIN `fidelity_tickets` template ON template.`Id` = campaign.`TicketTemplateId`
+            WHERE recipient.`CampaignId` = @campaignId
+        """;
+
+        await ExecuteCommandAsync(
+            sql,
+            [("@campaignId", campaignId.ToString()), ("@now", now)],
             cancellationToken);
     }
 
@@ -442,7 +489,7 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
         "LEAST(COALESCE(points_data.`CreatedAtUtc`, '9999-12-31'), COALESCE(ticket_stats.`FirstTicketAtUtc`, '9999-12-31'))";
 
     private const string AgeExpression =
-        "CASE WHEN user_account.`BirthDate` IS NOT NULL THEN TIMESTAMPDIFF(YEAR, user_account.`BirthDate`, @now) ELSE user_account.`AgeAtRegistration` + TIMESTAMPDIFF(YEAR, user_account.`RegistrationCompletedAtUtc`, @now) END";
+        "TIMESTAMPDIFF(YEAR, user_account.`BirthDate`, @now)";
 
     private static JsonSerializerOptions CreateJsonOptions()
     {

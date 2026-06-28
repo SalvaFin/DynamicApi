@@ -1,4 +1,6 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
+using Dynamic.Users.Application.Common;
 using Dynamic.Users.Domain.Enums;
 
 namespace Dynamic.Users.Application.DTOs.Requests;
@@ -14,6 +16,7 @@ public class UpdateProfileRequest
     [MaxLength(128)]
     public string? DisplayName { get; set; }
 
+    [JsonConverter(typeof(UserGenderJsonConverter))]
     public UserGender Gender { get; set; } = UserGender.OtroPrefieroNoEspecificar;
 
     public DateTime? BirthDate { get; set; }

@@ -23,6 +23,9 @@ public class UserPortalTicketResponse
     public DateTime? FechaCanjeUtc { get; set; }
     public string? CondicionesUso { get; set; }
     public string? InstruccionesCanje { get; set; }
+    public Guid? SourcePromotionCampaignId { get; set; }
+    public Guid? SourcePromotionRecipientId { get; set; }
+    public bool RecibidoPorCampana { get; set; }
     public bool RequiereValidacionManual { get; set; }
     public bool EsDeUnSoloUso { get; set; }
     public bool Activo { get; set; }

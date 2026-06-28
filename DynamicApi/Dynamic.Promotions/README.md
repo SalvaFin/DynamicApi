@@ -47,7 +47,7 @@ Todos son opcionales y se combinan con AND. Dentro de un campo de lista (`gender
 | Campo | Semantica |
 |---|---|
 | `genders` | `Hombre`, `Mujer`, `OtroPrefieroNoEspecificar`. Omitido o vacio significa todos |
-| `minimumAge` / `maximumAge` | Edad actual calculada desde fecha de nacimiento o aproximada desde la edad de registro |
+| `minimumAge` / `maximumAge` | Edad actual calculada desde la fecha de nacimiento |
 | `minimumCurrentPoints` / `maximumCurrentPoints` | Saldo actual en el negocio |
 | `minimumTotalPointsEarned` / `maximumTotalPointsEarned` | Total historico acumulado en el negocio |
 | `minimumTotalPointsSpent` / `maximumTotalPointsSpent` | Total historico de puntos gastados |

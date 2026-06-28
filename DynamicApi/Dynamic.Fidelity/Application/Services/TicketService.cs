@@ -72,7 +72,7 @@ public class TicketService : ITicketService
             return ServiceResult<IReadOnlyCollection<TicketResponse>>.Failure("validation_error", "El slug del negocio es obligatorio.");
         }
 
-        Negocio? negocio = await _negocioRepository.GetBySlugAsync(slugPortal.Trim().ToLowerInvariant(), cancellationToken);
+        Negocio? negocio = await _negocioRepository.GetByPublicIdentifierAsync(slugPortal.Trim(), cancellationToken);
         if (!IsBusinessPubliclyAvailable(negocio))
         {
             return ServiceResult<IReadOnlyCollection<TicketResponse>>.Failure("not_found", "Negocio no encontrado.");

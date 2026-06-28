@@ -50,7 +50,7 @@ Content-Type: application/json
   "nonce": null,
   "nombre": "Nombre",
   "apellidos": "Apellidos",
-  "edad": 18,
+  "birthDate": "1995-04-18",
   "gender": "OtroPrefieroNoEspecificar",
   "termsAccepted": true,
   "privacyPolicyAccepted": true,

@@ -17,6 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Dynamic.Fidelity\Dynamic.Fidelity.csproj" />
     <ProjectReference Include="..\Dynamic.Negocios\Dynamic.Negocios.csproj" />
     <ProjectReference Include="..\Dynamic.Users\Dynamic.Users.csproj" />
   </ItemGroup>

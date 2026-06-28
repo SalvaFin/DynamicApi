@@ -132,17 +132,17 @@ public class TicketQrService : ITicketQrService
             return ServiceResult<TicketQrLookupResponse>.Failure("validation_error", "El slug del negocio y el qr son obligatorios.");
         }
 
-        string normalizedSlug = slugPortal.Trim().ToLowerInvariant();
+        string normalizedSlug = slugPortal.Trim().Trim('/').ToLowerInvariant();
         QrCampaign? campaign = await _qrCampaignRepository.GetByTokenAsync(qrToken.Trim(), cancellationToken);
         if (!IsCampaignValid(campaign) || !campaign!.WelcomeTicketTemplateId.HasValue)
         {
             return ServiceResult<TicketQrLookupResponse>.Failure("not_found", "El QR no existe o no tiene un ticket asociado.");
         }
 
-        Negocio? negocio = await _negocioRepository.GetByIdAsync(campaign.NegocioId, cancellationToken);
+        Negocio? negocio = await _negocioRepository.GetByPublicIdentifierAsync(normalizedSlug, cancellationToken);
         if (negocio is null ||
             negocio.IsDeleted ||
-            !string.Equals(negocio.SlugPortal, normalizedSlug, StringComparison.OrdinalIgnoreCase))
+            negocio.Id != campaign.NegocioId)
         {
             return ServiceResult<TicketQrLookupResponse>.Failure("not_found", "El QR no pertenece al negocio indicado.");
         }

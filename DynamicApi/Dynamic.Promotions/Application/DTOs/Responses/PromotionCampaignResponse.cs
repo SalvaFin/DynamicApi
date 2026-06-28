@@ -1,3 +1,4 @@
+using Dynamic.Fidelity.Application.DTOs.Responses;
 using Dynamic.Promotions.Application.DTOs.Requests;
 using Dynamic.Promotions.Domain.Enums;
 
@@ -8,12 +9,8 @@ public class PromotionCampaignResponse
     public Guid Id { get; set; }
     public Guid NegocioId { get; set; }
     public string NegocioName { get; set; } = string.Empty;
-    public string Title { get; set; } = string.Empty;
-    public string Message { get; set; } = string.Empty;
-    public string? ImageUrl { get; set; }
-    public string? ActionLabel { get; set; }
-    public string? DeepLink { get; set; }
-    public string? Conditions { get; set; }
+    public Guid TicketTemplateId { get; set; }
+    public TicketResponse Ticket { get; set; } = new();
     public PromotionCampaignStatus Status { get; set; }
     public int AudienceCount { get; set; }
     public int PushEligibleCount { get; set; }

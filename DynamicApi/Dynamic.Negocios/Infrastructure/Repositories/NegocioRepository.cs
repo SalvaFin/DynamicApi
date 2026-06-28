@@ -47,6 +47,19 @@ public class NegocioRepository : INegocioRepository
     public Task<Negocio?> GetBySlugAsync(string slugPortal, CancellationToken cancellationToken = default)
         => _dbContext.Negocios.FirstOrDefaultAsync(negocio => negocio.SlugPortal == slugPortal && !negocio.IsDeleted, cancellationToken);
 
+    public Task<Negocio?> GetByPublicIdentifierAsync(string publicIdentifier, CancellationToken cancellationToken = default)
+    {
+        string normalizedIdentifier = NormalizePublicIdentifier(publicIdentifier);
+        string routeWithLeadingSlash = $"/{normalizedIdentifier}";
+
+        return _dbContext.Negocios.FirstOrDefaultAsync(
+            negocio => !negocio.IsDeleted &&
+                (negocio.SlugPortal == normalizedIdentifier ||
+                 negocio.RutaPortal == normalizedIdentifier ||
+                 negocio.RutaPortal == routeWithLeadingSlash),
+            cancellationToken);
+    }
+
     public Task AddAsync(Negocio negocio, CancellationToken cancellationToken = default)
         => _dbContext.Negocios.AddAsync(negocio, cancellationToken).AsTask();
 
@@ -58,4 +71,7 @@ public class NegocioRepository : INegocioRepository
             .Replace("\\", "\\\\", StringComparison.Ordinal)
             .Replace("%", "\\%", StringComparison.Ordinal)
             .Replace("_", "\\_", StringComparison.Ordinal);
+
+    private static string NormalizePublicIdentifier(string value)
+        => value.Trim().Trim('/').ToLowerInvariant();
 }

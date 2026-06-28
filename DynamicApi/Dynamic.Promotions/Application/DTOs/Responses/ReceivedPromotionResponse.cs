@@ -1,16 +1,15 @@
+using Dynamic.Fidelity.Application.DTOs.Responses;
+
 namespace Dynamic.Promotions.Application.DTOs.Responses;
 
 public class ReceivedPromotionResponse
 {
     public Guid Id { get; set; }
     public Guid CampaignId { get; set; }
+    public Guid TicketTemplateId { get; set; }
+    public Guid? AssignedTicketId { get; set; }
     public PromotionBusinessSummaryResponse Negocio { get; set; } = new();
-    public string Title { get; set; } = string.Empty;
-    public string Message { get; set; } = string.Empty;
-    public string? ImageUrl { get; set; }
-    public string? ActionLabel { get; set; }
-    public string? DeepLink { get; set; }
-    public string? Conditions { get; set; }
+    public TicketResponse Ticket { get; set; } = new();
     public DateTime StartsAtUtc { get; set; }
     public DateTime ExpiresAtUtc { get; set; }
     public DateTime ReceivedAtUtc { get; set; }

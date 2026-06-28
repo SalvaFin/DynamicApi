@@ -13,6 +13,8 @@ public class TicketConfiguration : IEntityTypeConfiguration<Ticket>
 
         builder.Property(ticket => ticket.ParentTicketId);
         builder.Property(ticket => ticket.SourceQrCampaignId);
+        builder.Property(ticket => ticket.SourcePromotionCampaignId);
+        builder.Property(ticket => ticket.SourcePromotionRecipientId);
         builder.Property(ticket => ticket.Nombre).HasMaxLength(180).IsRequired();
         builder.Property(ticket => ticket.Descripcion).HasMaxLength(2000);
         builder.Property(ticket => ticket.Tipo).HasConversion<string>().HasMaxLength(32).IsRequired();
@@ -44,6 +46,8 @@ public class TicketConfiguration : IEntityTypeConfiguration<Ticket>
         builder.HasIndex(ticket => ticket.Usado);
         builder.HasIndex(ticket => ticket.EsPlantilla);
         builder.HasIndex(ticket => ticket.ParentTicketId);
+        builder.HasIndex(ticket => ticket.SourcePromotionCampaignId);
+        builder.HasIndex(ticket => ticket.SourcePromotionRecipientId).IsUnique();
         builder.HasIndex(ticket => new { ticket.NegocioId, ticket.CodigoVisible });
         builder.HasIndex(ticket => new { ticket.NegocioId, ticket.UserId });
     }

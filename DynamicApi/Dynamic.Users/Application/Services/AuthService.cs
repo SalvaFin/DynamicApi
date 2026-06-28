@@ -274,9 +274,12 @@ public class AuthService : IAuthService
             return ServiceResult<CompleteRegistrationResponse>.Failure("validation_error", "Faltan datos para completar el registro.");
         }
 
-        if (request.Edad < _userRegistrationOptions.MinimumAge)
+        ServiceResult<int> birthDateValidation = ValidateBirthDateForRegistration(request.BirthDate);
+        if (!birthDateValidation.Succeeded)
         {
-            return ServiceResult<CompleteRegistrationResponse>.Failure("validation_error", $"La edad mínima para registrarse es de {_userRegistrationOptions.MinimumAge} años.");
+            return ServiceResult<CompleteRegistrationResponse>.Failure(
+                birthDateValidation.ErrorCode ?? "validation_error",
+                birthDateValidation.ErrorMessage ?? $"La fecha de nacimiento debe indicar al menos {_userRegistrationOptions.MinimumAge} años.");
         }
 
         ContactInfo? contactInfo = ParseContact(request.Contact);
@@ -312,7 +315,8 @@ public class AuthService : IAuthService
         userByContact.FirstName = request.Nombre.Trim();
         userByContact.LastName = request.Apellidos.Trim();
         userByContact.DisplayName = $"{request.Nombre} {request.Apellidos}".Trim();
-        userByContact.AgeAtRegistration = request.Edad;
+        userByContact.AgeAtRegistration = null;
+        userByContact.BirthDate = request.BirthDate!.Value.Date;
         userByContact.Gender = request.Gender;
         userByContact.RegistrationCompleted = true;
         userByContact.RegistrationCompletedAtUtc = now;
@@ -993,11 +997,12 @@ public class AuthService : IAuthService
                 "Proveedor, id_token, nombre y apellidos son obligatorios.");
         }
 
-        if (request.Edad < _userRegistrationOptions.MinimumAge)
+        ServiceResult<int> birthDateValidation = ValidateBirthDateForRegistration(request.BirthDate);
+        if (!birthDateValidation.Succeeded)
         {
             return ServiceResult<AuthResponse>.Failure(
-                "validation_error",
-                $"La edad minima para registrarse es de {_userRegistrationOptions.MinimumAge} anos.");
+                birthDateValidation.ErrorCode ?? "validation_error",
+                birthDateValidation.ErrorMessage ?? $"La fecha de nacimiento debe indicar al menos {_userRegistrationOptions.MinimumAge} años.");
         }
 
         if (!request.TermsAccepted || !request.PrivacyPolicyAccepted)
@@ -1084,7 +1089,8 @@ public class AuthService : IAuthService
             user.FirstName = request.Nombre.Trim();
             user.LastName = request.Apellidos.Trim();
             user.DisplayName = $"{user.FirstName} {user.LastName}".Trim();
-            user.AgeAtRegistration = request.Edad;
+            user.AgeAtRegistration = null;
+            user.BirthDate = request.BirthDate!.Value.Date;
             user.Gender = request.Gender;
             user.RegistrationCompleted = true;
             user.RegistrationCompletedAtUtc = now;
@@ -1513,6 +1519,48 @@ public class AuthService : IAuthService
         user.PrivacyPolicyAcceptedAtUtc = privacyPolicyAccepted ? now : null;
         user.MarketingAccepted = marketingAccepted;
         user.MarketingAcceptedAtUtc = marketingAccepted ? now : null;
+    }
+
+    private ServiceResult<int> ValidateBirthDateForRegistration(DateTime? birthDate)
+    {
+        if (!birthDate.HasValue)
+        {
+            return ServiceResult<int>.Failure("validation_error", "La fecha de nacimiento es obligatoria.");
+        }
+
+        DateTime birthDateValue = birthDate.Value.Date;
+        DateTime today = DateTime.UtcNow.Date;
+
+        if (birthDateValue > today)
+        {
+            return ServiceResult<int>.Failure("validation_error", "La fecha de nacimiento no puede ser futura.");
+        }
+
+        int age = CalculateAge(birthDateValue, today);
+        if (age < _userRegistrationOptions.MinimumAge)
+        {
+            return ServiceResult<int>.Failure(
+                "validation_error",
+                $"La edad mínima para registrarse es de {_userRegistrationOptions.MinimumAge} años.");
+        }
+
+        if (age > 130)
+        {
+            return ServiceResult<int>.Failure("validation_error", "La fecha de nacimiento no es válida.");
+        }
+
+        return ServiceResult<int>.Success(age);
+    }
+
+    private static int CalculateAge(DateTime birthDate, DateTime today)
+    {
+        int age = today.Year - birthDate.Year;
+        if (birthDate.Date > today.AddYears(-age))
+        {
+            age--;
+        }
+
+        return age;
     }
 
     private static void ApplyExternalProfileHints(ExternalAuthTokenPayload externalPayload, ExternalLoginRequest request)

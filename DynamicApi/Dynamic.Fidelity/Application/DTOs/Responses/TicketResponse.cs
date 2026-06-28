@@ -14,6 +14,8 @@ public class TicketResponse
     public int? PuntosCoste { get; set; }
     public Guid? UserId { get; set; }
     public Guid? ParentTicketId { get; set; }
+    public Guid? SourcePromotionCampaignId { get; set; }
+    public Guid? SourcePromotionRecipientId { get; set; }
     public bool Activo { get; set; }
     public bool Publicado { get; set; }
     public bool EsDeUnSoloUso { get; set; }

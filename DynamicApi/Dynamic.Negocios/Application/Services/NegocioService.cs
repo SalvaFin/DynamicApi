@@ -111,7 +111,7 @@ public class NegocioService : INegocioService
         }
 
         string normalizedSlug = slugPortal.Trim().ToLowerInvariant();
-        Negocio? negocio = await _negocioRepository.GetBySlugAsync(normalizedSlug, cancellationToken);
+        Negocio? negocio = await _negocioRepository.GetByPublicIdentifierAsync(normalizedSlug, cancellationToken);
 
         return negocio is null
             ? ServiceResult<NegocioResponse>.Failure("not_found", "Negocio no encontrado.")

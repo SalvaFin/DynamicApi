@@ -9,6 +9,8 @@ public class Ticket
     public Guid? UserId { get; set; }
     public Guid? ParentTicketId { get; set; }
     public Guid? SourceQrCampaignId { get; set; }
+    public Guid? SourcePromotionCampaignId { get; set; }
+    public Guid? SourcePromotionRecipientId { get; set; }
     public string Nombre { get; set; } = string.Empty;
     public string? Descripcion { get; set; }
     public TipoTicket Tipo { get; set; } = TipoTicket.Especial;

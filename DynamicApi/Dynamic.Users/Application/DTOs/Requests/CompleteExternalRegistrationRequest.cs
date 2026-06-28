@@ -1,4 +1,6 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
+using Dynamic.Users.Application.Common;
 using Dynamic.Users.Domain.Enums;
 
 namespace Dynamic.Users.Application.DTOs.Requests;
@@ -23,9 +25,9 @@ public class CompleteExternalRegistrationRequest
     [MaxLength(128)]
     public string Apellidos { get; set; } = string.Empty;
 
-    [Range(0, 130)]
-    public int Edad { get; set; }
+    public DateTime? BirthDate { get; set; }
 
+    [JsonConverter(typeof(UserGenderJsonConverter))]
     public UserGender Gender { get; set; } = UserGender.OtroPrefieroNoEspecificar;
 
     public bool TermsAccepted { get; set; }

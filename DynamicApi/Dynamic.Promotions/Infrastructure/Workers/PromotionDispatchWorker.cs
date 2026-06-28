@@ -1,3 +1,5 @@
+using System.Text.Json;
+using Dynamic.Fidelity.Application.DTOs.Responses;
 using Dynamic.Promotions.Application.Contracts;
 using Dynamic.Promotions.Application.Models;
 using Dynamic.Promotions.Application.Options;
@@ -16,6 +18,7 @@ namespace Dynamic.Promotions.Infrastructure.Workers;
 
 public class PromotionDispatchWorker : BackgroundService
 {
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly PromotionDispatchOptions _options;
     private readonly ILogger<PromotionDispatchWorker> _logger;
@@ -197,13 +200,13 @@ public class PromotionDispatchWorker : BackgroundService
                     new PromotionPushMessage
                     {
                         Token = device.PushToken,
-                        Title = delivery.Campaign.Title,
-                        Body = delivery.Campaign.Message,
-                        ImageUrl = delivery.Campaign.ImageUrl,
+                        Title = BuildPushTitle(delivery.Campaign),
+                        Body = BuildPushBody(delivery.Campaign),
+                        ImageUrl = delivery.Campaign.NegocioLogoUrlSnapshot,
                         PromotionRecipientId = delivery.RecipientId,
                         CampaignId = delivery.CampaignId,
                         NegocioId = delivery.Campaign.NegocioId,
-                        DeepLink = delivery.Campaign.DeepLink
+                        DeepLink = "/mis-tickets"
                     },
                     cancellationToken);
 
@@ -286,4 +289,28 @@ public class PromotionDispatchWorker : BackgroundService
 
     private static string Truncate(string value, int maxLength)
         => value.Length <= maxLength ? value : value[..maxLength];
+
+    private static string BuildPushTitle(PromotionCampaign campaign)
+    {
+        TicketResponse? ticket = DeserializeTicket(campaign);
+        return string.IsNullOrWhiteSpace(ticket?.Nombre)
+            ? campaign.NegocioNombreSnapshot
+            : $"{campaign.NegocioNombreSnapshot}: {ticket.Nombre}";
+    }
+
+    private static string BuildPushBody(PromotionCampaign campaign)
+    {
+        TicketResponse? ticket = DeserializeTicket(campaign);
+        if (!string.IsNullOrWhiteSpace(ticket?.Descripcion))
+        {
+            return ticket.Descripcion;
+        }
+
+        return $"Has recibido un nuevo ticket de {campaign.NegocioNombreSnapshot}.";
+    }
+
+    private static TicketResponse? DeserializeTicket(PromotionCampaign campaign)
+        => string.IsNullOrWhiteSpace(campaign.TicketSnapshotJson)
+            ? null
+            : JsonSerializer.Deserialize<TicketResponse>(campaign.TicketSnapshotJson, JsonOptions);
 }

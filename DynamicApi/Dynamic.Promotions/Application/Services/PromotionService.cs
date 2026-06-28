@@ -1,5 +1,12 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Dynamic.Fidelity.Application.Contracts.Services;
+using Dynamic.Fidelity.Application.DTOs.Requests;
+using Dynamic.Fidelity.Application.DTOs.Responses;
+using Dynamic.Fidelity.Application.Mappings;
+using Dynamic.Fidelity.Domain.Entities;
+using Dynamic.Fidelity.Domain.Enums;
+using Dynamic.Fidelity.Infrastructure.Persistence;
 using Dynamic.Negocios.Domain.Enums;
 using Dynamic.Negocios.Infrastructure.Persistence;
 using Dynamic.Promotions.Application.Common;
@@ -21,13 +28,19 @@ public class PromotionService : IPromotionService
 
     private readonly DynamicPromotionsDbContext _promotionsDbContext;
     private readonly DynamicNegociosDbContext _negociosDbContext;
+    private readonly DynamicFidelityDbContext _fidelityDbContext;
+    private readonly ITicketService _ticketService;
 
     public PromotionService(
         DynamicPromotionsDbContext promotionsDbContext,
-        DynamicNegociosDbContext negociosDbContext)
+        DynamicNegociosDbContext negociosDbContext,
+        DynamicFidelityDbContext fidelityDbContext,
+        ITicketService ticketService)
     {
         _promotionsDbContext = promotionsDbContext;
         _negociosDbContext = negociosDbContext;
+        _fidelityDbContext = fidelityDbContext;
+        _ticketService = ticketService;
     }
 
     public async Task<PromotionServiceResult<PromotionCampaignResponse>> CreateCampaignAsync(
@@ -88,20 +101,34 @@ public class PromotionService : IPromotionService
             }
         }
 
+        PromotionServiceResult<Ticket> ticketResolutionResult = await ResolveTicketTemplateAsync(
+            negocioId,
+            requesterUserId,
+            requesterIsAdmin,
+            request,
+            cancellationToken);
+        if (!ticketResolutionResult.Succeeded || ticketResolutionResult.Data is null)
+        {
+            return PromotionServiceResult<PromotionCampaignResponse>.Failure(
+                ticketResolutionResult.ErrorCode ?? "validation_error",
+                ticketResolutionResult.ErrorMessage ?? "No se ha podido resolver el ticket de la campaña.");
+        }
+
+        Ticket ticketTemplate = ticketResolutionResult.Data;
+        TicketResponse ticketSnapshot = ticketTemplate.ToResponse();
+
         PromotionCampaign campaign = new()
         {
             Id = Guid.NewGuid(),
             NegocioId = negocioId,
             CreatedByUserId = requesterUserId,
+            TicketTemplateId = ticketTemplate.Id,
             NegocioNombreSnapshot = negocio.NombreComercial,
             NegocioSlugSnapshot = negocio.SlugPortal,
             NegocioLogoUrlSnapshot = negocio.LogoPrincipalUrl ?? negocio.IconoUrl,
-            Title = request.Title.Trim(),
-            Message = request.Message.Trim(),
-            ImageUrl = Normalize(request.ImageUrl),
-            ActionLabel = Normalize(request.ActionLabel),
-            DeepLink = Normalize(request.DeepLink),
-            Conditions = Normalize(request.Conditions),
+            TicketNombreSnapshot = ticketTemplate.Nombre,
+            TicketDescripcionSnapshot = ticketTemplate.Descripcion,
+            TicketSnapshotJson = JsonSerializer.Serialize(ticketSnapshot, JsonOptions),
             FiltersJson = JsonSerializer.Serialize(request.Filters ?? new PromotionAudienceFiltersRequest(), JsonOptions),
             Status = PromotionCampaignStatus.Queued,
             PushEnabled = negocio.PermiteNotificacionesPush,
@@ -211,9 +238,17 @@ public class PromotionService : IPromotionService
             .Take(pageSize)
             .ToArrayAsync(cancellationToken);
 
+        Guid[] recipientIds = recipients.Select(recipient => recipient.Id).ToArray();
+        Dictionary<Guid, Guid> assignedTicketIdsByRecipient = recipientIds.Length == 0
+            ? []
+            : await _fidelityDbContext.Tickets
+                .AsNoTracking()
+                .Where(ticket => ticket.SourcePromotionRecipientId.HasValue && recipientIds.Contains(ticket.SourcePromotionRecipientId.Value))
+                .ToDictionaryAsync(ticket => ticket.SourcePromotionRecipientId!.Value, ticket => ticket.Id, cancellationToken);
+
         return new ReceivedPromotionsPageResponse
         {
-            Items = recipients.Select(ToReceivedResponse).ToArray(),
+            Items = recipients.Select(recipient => ToReceivedResponse(recipient, assignedTicketIdsByRecipient)).ToArray(),
             Page = page,
             PageSize = pageSize,
             TotalItems = totalItems,
@@ -250,9 +285,12 @@ public class PromotionService : IPromotionService
         DateTime scheduledAt,
         DateTime startsAt)
     {
-        if (string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.Message))
+        bool hasExistingTicket = request.TicketTemplateId.HasValue;
+        bool hasTicketToCreate = request.Ticket is not null;
+
+        if (hasExistingTicket == hasTicketToCreate)
         {
-            return "Titulo y mensaje son obligatorios.";
+            return "Debes indicar un ticket existente o un ticket nuevo para la campaña.";
         }
 
         if (request.ExpiresAtUtc <= now || request.ExpiresAtUtc <= startsAt || request.ExpiresAtUtc <= scheduledAt)
@@ -342,12 +380,14 @@ public class PromotionService : IPromotionService
             Id = campaign.Id,
             NegocioId = campaign.NegocioId,
             NegocioName = campaign.NegocioNombreSnapshot,
-            Title = campaign.Title,
-            Message = campaign.Message,
-            ImageUrl = campaign.ImageUrl,
-            ActionLabel = campaign.ActionLabel,
-            DeepLink = campaign.DeepLink,
-            Conditions = campaign.Conditions,
+            TicketTemplateId = campaign.TicketTemplateId,
+            Ticket = JsonSerializer.Deserialize<TicketResponse>(campaign.TicketSnapshotJson, JsonOptions) ?? new TicketResponse
+            {
+                Id = campaign.TicketTemplateId,
+                NegocioId = campaign.NegocioId,
+                Nombre = campaign.TicketNombreSnapshot,
+                Descripcion = campaign.TicketDescripcionSnapshot
+            },
             Status = campaign.Status,
             AudienceCount = campaign.AudienceCount,
             PushEligibleCount = campaign.PushEligibleCount,
@@ -363,11 +403,17 @@ public class PromotionService : IPromotionService
             LastError = campaign.LastError
         };
 
-    private static ReceivedPromotionResponse ToReceivedResponse(PromotionRecipient recipient)
+    private static ReceivedPromotionResponse ToReceivedResponse(
+        PromotionRecipient recipient,
+        IReadOnlyDictionary<Guid, Guid> assignedTicketIdsByRecipient)
         => new()
         {
             Id = recipient.Id,
             CampaignId = recipient.CampaignId,
+            TicketTemplateId = recipient.Campaign.TicketTemplateId,
+            AssignedTicketId = assignedTicketIdsByRecipient.TryGetValue(recipient.Id, out Guid assignedTicketId)
+                ? assignedTicketId
+                : null,
             Negocio = new PromotionBusinessSummaryResponse
             {
                 Id = recipient.Campaign.NegocioId,
@@ -375,12 +421,13 @@ public class PromotionService : IPromotionService
                 Slug = recipient.Campaign.NegocioSlugSnapshot,
                 LogoUrl = recipient.Campaign.NegocioLogoUrlSnapshot
             },
-            Title = recipient.Campaign.Title,
-            Message = recipient.Campaign.Message,
-            ImageUrl = recipient.Campaign.ImageUrl,
-            ActionLabel = recipient.Campaign.ActionLabel,
-            DeepLink = recipient.Campaign.DeepLink,
-            Conditions = recipient.Campaign.Conditions,
+            Ticket = JsonSerializer.Deserialize<TicketResponse>(recipient.Campaign.TicketSnapshotJson, JsonOptions) ?? new TicketResponse
+            {
+                Id = recipient.Campaign.TicketTemplateId,
+                NegocioId = recipient.Campaign.NegocioId,
+                Nombre = recipient.Campaign.TicketNombreSnapshot,
+                Descripcion = recipient.Campaign.TicketDescripcionSnapshot
+            },
             StartsAtUtc = recipient.Campaign.StartsAtUtc,
             ExpiresAtUtc = recipient.ExpiresAtUtc,
             ReceivedAtUtc = recipient.ReceivedAtUtc,
@@ -397,4 +444,66 @@ public class PromotionService : IPromotionService
 
     private static string? Normalize(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private async Task<PromotionServiceResult<Ticket>> ResolveTicketTemplateAsync(
+        Guid negocioId,
+        Guid requesterUserId,
+        bool requesterIsAdmin,
+        CreatePromotionCampaignRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (request.TicketTemplateId.HasValue)
+        {
+            Ticket? existingTicket = await _fidelityDbContext.Tickets
+                .AsNoTracking()
+                .FirstOrDefaultAsync(
+                    ticket => ticket.Id == request.TicketTemplateId.Value &&
+                              ticket.NegocioId == negocioId &&
+                              ticket.EsPlantilla &&
+                              !ticket.UserId.HasValue,
+                    cancellationToken);
+
+            if (existingTicket is null)
+            {
+                return PromotionServiceResult<Ticket>.Failure("not_found", "El ticket seleccionado no existe o no pertenece al negocio.");
+            }
+
+            if (existingTicket.CategoriaEnvioEspecial != CategoriaEnvioTicket.General)
+            {
+                return PromotionServiceResult<Ticket>.Failure("validation_error", "Solo puedes enviar tickets generales desde campañas.");
+            }
+
+            return PromotionServiceResult<Ticket>.Success(existingTicket);
+        }
+
+        if (request.Ticket is null)
+        {
+            return PromotionServiceResult<Ticket>.Failure("validation_error", "Debes indicar un ticket para crear la campaña.");
+        }
+
+        CreateTicketRequest createTicketRequest = request.Ticket;
+        createTicketRequest.CategoriaEnvioEspecial = CategoriaEnvioTicket.General;
+
+        var createResult = await _ticketService.CreateAsync(
+            negocioId,
+            requesterUserId,
+            requesterIsAdmin,
+            createTicketRequest,
+            cancellationToken);
+
+        if (!createResult.Succeeded || createResult.Data is null)
+        {
+            return PromotionServiceResult<Ticket>.Failure(
+                createResult.ErrorCode ?? "validation_error",
+                createResult.ErrorMessage ?? "No se ha podido crear el ticket de la campaña.");
+        }
+
+        Ticket? createdTicket = await _fidelityDbContext.Tickets
+            .AsNoTracking()
+            .FirstOrDefaultAsync(ticket => ticket.Id == createResult.Data.Id, cancellationToken);
+
+        return createdTicket is null
+            ? PromotionServiceResult<Ticket>.Failure("not_found", "El ticket creado para la campaña no se ha podido recuperar.")
+            : PromotionServiceResult<Ticket>.Success(createdTicket);
+    }
 }
