@@ -313,6 +313,10 @@ public class TicketQrService : ITicketQrService
         }
 
         DateTime now = DateTime.UtcNow;
+        decimal? discountAmount = CalculateDiscountAmount(ticket, calculablePurchaseAmount);
+        decimal? finalAmount = CalculateFinalAmount(ticket, calculablePurchaseAmount);
+        bool? minimumSpendSatisfied = ResolveMinimumSpendSatisfied(ticket, calculablePurchaseAmount);
+
         ticket.UsosConsumidos++;
 
         int? usageLimit = ticket.MaxUsosPorCliente ?? (ticket.EsDeUnSoloUso ? 1 : null);
@@ -325,6 +329,30 @@ public class TicketQrService : ITicketQrService
         ticket.UsedInStoreReference = Normalize(request.StoreReference);
         ticket.UsedByEmployeeReference = employeeUserId.ToString("D");
         ticket.UpdatedAtUtc = now;
+
+        await _dbContext.TicketRedemptions.AddAsync(new TicketRedemption
+        {
+            Id = Guid.NewGuid(),
+            TicketId = ticket.Id,
+            NegocioId = negocioId,
+            UserId = ticket.UserId!.Value,
+            ValidatedByUserId = employeeUserId,
+            ParentTicketId = ticket.ParentTicketId,
+            SourceQrCampaignId = ticket.SourceQrCampaignId,
+            SourcePromotionCampaignId = ticket.SourcePromotionCampaignId,
+            SourcePromotionRecipientId = ticket.SourcePromotionRecipientId,
+            TicketNombreSnapshot = ticket.Nombre,
+            TicketTipoSnapshot = ticket.Tipo.ToString(),
+            TicketCategoriaSnapshot = ticket.CategoriaEnvioEspecial.ToString(),
+            TicketCodeSnapshot = ticket.CodigoVisible,
+            UsageNumber = ticket.UsosConsumidos,
+            PurchaseAmount = calculablePurchaseAmount,
+            DiscountAmount = discountAmount,
+            FinalAmount = finalAmount,
+            MinimumSpendSatisfied = minimumSpendSatisfied,
+            StoreReference = ticket.UsedInStoreReference,
+            CreatedAtUtc = now
+        }, cancellationToken);
 
         _ticketRepository.Update(ticket);
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -339,9 +367,9 @@ public class TicketQrService : ITicketQrService
             UsosConsumidos = ticket.UsosConsumidos,
             UsedAtUtc = ticket.UsedAtUtc,
             PurchaseAmount = calculablePurchaseAmount,
-            DiscountAmount = CalculateDiscountAmount(ticket, calculablePurchaseAmount),
-            FinalAmount = CalculateFinalAmount(ticket, calculablePurchaseAmount),
-            MinimumSpendSatisfied = ResolveMinimumSpendSatisfied(ticket, calculablePurchaseAmount),
+            DiscountAmount = discountAmount,
+            FinalAmount = finalAmount,
+            MinimumSpendSatisfied = minimumSpendSatisfied,
             Message = ticket.Usado
                 ? "El ticket se ha validado y marcado como usado."
                 : "El uso del ticket se ha validado correctamente.",
