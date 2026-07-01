@@ -52,7 +52,7 @@ Content-Type: application/json
   "apellidos": "Apellidos",
   "birthDate": "1995-04-18",
   "gender": "OtroPrefieroNoEspecificar",
-  "postalCode": "28001",
+  "postalCode": null,
   "termsAccepted": true,
   "privacyPolicyAccepted": true,
   "marketingAccepted": false,

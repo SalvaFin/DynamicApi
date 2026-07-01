@@ -998,13 +998,12 @@ public class AuthService : IAuthService
             string.IsNullOrWhiteSpace(request.IdToken) ||
             string.IsNullOrWhiteSpace(request.Nombre) ||
             string.IsNullOrWhiteSpace(request.Apellidos) ||
-            string.IsNullOrWhiteSpace(request.PostalCode) ||
             !request.Province.HasValue ||
             !Enum.IsDefined(request.Province.Value))
         {
             return ServiceResult<AuthResponse>.Failure(
                 "validation_error",
-                "Proveedor, id_token, nombre, apellidos, codigo postal y provincia son obligatorios.");
+                "Proveedor, id_token, nombre, apellidos y provincia son obligatorios.");
         }
 
         ServiceResult<int> birthDateValidation = ValidateBirthDateForRegistration(request.BirthDate);

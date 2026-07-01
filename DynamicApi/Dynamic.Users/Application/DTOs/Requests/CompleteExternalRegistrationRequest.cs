@@ -30,9 +30,8 @@ public class CompleteExternalRegistrationRequest
     [JsonConverter(typeof(UserGenderJsonConverter))]
     public UserGender Gender { get; set; } = UserGender.OtroPrefieroNoEspecificar;
 
-    [Required]
     [MaxLength(24)]
-    public string PostalCode { get; set; } = string.Empty;
+    public string? PostalCode { get; set; }
 
     [Required]
     public SpanishProvince? Province { get; set; }
