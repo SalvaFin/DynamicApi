@@ -59,11 +59,6 @@ public class UserService : IUserService
             return ServiceResult<UserSummaryResponse>.Failure("validation_error", "La fecha de nacimiento no puede ser futura.");
         }
 
-        if (string.IsNullOrWhiteSpace(request.PostalCode))
-        {
-            return ServiceResult<UserSummaryResponse>.Failure("validation_error", "El codigo postal es obligatorio.");
-        }
-
         user.FirstName = NormalizeNullable(request.FirstName);
         user.LastName = NormalizeNullable(request.LastName);
         user.DisplayName = NormalizeNullable(request.DisplayName)

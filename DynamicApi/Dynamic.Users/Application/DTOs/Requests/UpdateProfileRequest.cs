@@ -33,9 +33,8 @@ public class UpdateProfileRequest
     [MaxLength(128)]
     public string? Region { get; set; }
 
-    [Required]
     [MaxLength(24)]
-    public string PostalCode { get; set; } = string.Empty;
+    public string? PostalCode { get; set; }
 
     [MaxLength(512)]
     [Url]

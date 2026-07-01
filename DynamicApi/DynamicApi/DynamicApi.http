@@ -87,7 +87,7 @@ Content-Type: application/json
   "timeZone": "Europe/Madrid",
   "countryCode": "ES",
   "region": "Comunidad de Madrid",
-  "postalCode": "28001",
+  "postalCode": null,
   "avatarUrl": "https://cdn.dynamic.app/avatars/salva.png"
 }
 
