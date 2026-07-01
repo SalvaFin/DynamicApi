@@ -29,7 +29,7 @@ public class UserAccountConfiguration : IEntityTypeConfiguration<UserAccount>
         builder.Property(user => user.TimeZone).HasMaxLength(64);
         builder.Property(user => user.CountryCode).HasMaxLength(8);
         builder.Property(user => user.Region).HasMaxLength(128);
-        builder.Property(user => user.City).HasMaxLength(128);
+        builder.Property(user => user.PostalCode).HasMaxLength(24);
         builder.Property(user => user.AvatarUrl).HasMaxLength(512);
         builder.Property(user => user.Gender)
             .HasConversion<string>()
@@ -43,6 +43,7 @@ public class UserAccountConfiguration : IEntityTypeConfiguration<UserAccount>
         builder.HasIndex(user => user.NormalizedEmail).IsUnique();
         builder.HasIndex(user => user.NormalizedUserName).IsUnique();
         builder.HasIndex(user => user.NormalizedPhoneNumber).IsUnique();
+        builder.HasIndex(user => user.PostalCode);
         builder.HasIndex(user => user.RegistrationValidationToken);
         builder.HasIndex(user => user.PasswordResetTokenHash);
 

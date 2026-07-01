@@ -30,7 +30,7 @@ public static class UserMappingExtensions
             TimeZone = user.TimeZone,
             CountryCode = user.CountryCode,
             Region = user.Region,
-            City = user.City,
+            PostalCode = user.PostalCode,
             AvatarUrl = user.AvatarUrl,
             CreatedAtUtc = user.CreatedAtUtc,
             LastLoginAtUtc = user.LastLoginAtUtc

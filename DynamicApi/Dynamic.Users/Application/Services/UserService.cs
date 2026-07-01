@@ -59,6 +59,11 @@ public class UserService : IUserService
             return ServiceResult<UserSummaryResponse>.Failure("validation_error", "La fecha de nacimiento no puede ser futura.");
         }
 
+        if (string.IsNullOrWhiteSpace(request.PostalCode))
+        {
+            return ServiceResult<UserSummaryResponse>.Failure("validation_error", "El codigo postal es obligatorio.");
+        }
+
         user.FirstName = NormalizeNullable(request.FirstName);
         user.LastName = NormalizeNullable(request.LastName);
         user.DisplayName = NormalizeNullable(request.DisplayName)
@@ -69,7 +74,7 @@ public class UserService : IUserService
         user.TimeZone = NormalizeNullable(request.TimeZone);
         user.CountryCode = NormalizeNullable(request.CountryCode);
         user.Region = NormalizeNullable(request.Region);
-        user.City = NormalizeNullable(request.City);
+        user.PostalCode = NormalizePostalCode(request.PostalCode);
         user.AvatarUrl = NormalizeNullable(request.AvatarUrl);
         user.UpdatedAtUtc = DateTime.UtcNow;
 
@@ -142,6 +147,9 @@ public class UserService : IUserService
 
     private static string? NormalizeNullable(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string? NormalizePostalCode(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim().ToUpperInvariant();
 
     private static string BuildDisplayName(string? firstName, string? lastName, string userName)
     {

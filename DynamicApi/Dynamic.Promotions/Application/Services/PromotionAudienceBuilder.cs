@@ -335,7 +335,7 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
             AppendComparison(where, parameters, "MONTH(user_account.`BirthDate`)", "=", "@birthMonth", filters.BirthMonth.Value);
         }
 
-        AppendStringCollection(where, parameters, "user_account.`City`", "city", filters.Cities);
+        AppendStringCollection(where, parameters, "user_account.`PostalCode`", "postalCode", filters.PostalCodes);
         AppendStringCollection(where, parameters, "user_account.`Region`", "region", filters.Regions);
         AppendStringCollection(where, parameters, "user_account.`CountryCode`", "countryCode", filters.CountryCodes);
         AppendStringCollection(where, parameters, "user_account.`Language`", "language", filters.Languages);

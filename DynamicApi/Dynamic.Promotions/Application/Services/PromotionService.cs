@@ -365,7 +365,7 @@ public class PromotionService : IPromotionService
             return "Los rangos de tickets no son validos.";
         }
 
-        if (filters.Cities?.Count > 100 || filters.Regions?.Count > 100 ||
+        if (filters.PostalCodes?.Count > 100 || filters.Regions?.Count > 100 ||
             filters.CountryCodes?.Count > 100 || filters.Languages?.Count > 100)
         {
             return "Cada filtro geografico o de idioma admite un maximo de 100 valores.";

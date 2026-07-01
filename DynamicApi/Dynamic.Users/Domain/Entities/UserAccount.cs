@@ -34,7 +34,7 @@ public class UserAccount
     public string? TimeZone { get; set; }
     public string? CountryCode { get; set; }
     public string? Region { get; set; }
-    public string? City { get; set; }
+    public string? PostalCode { get; set; }
     public string? AvatarUrl { get; set; }
     public DateTime? BirthDate { get; set; }
     public UserGender Gender { get; set; } = UserGender.OtroPrefieroNoEspecificar;

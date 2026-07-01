@@ -38,10 +38,6 @@ namespace DynamicApi.Migrations
                     b.Property<DateTime?>("BirthDate")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<string>("City")
-                        .HasMaxLength(128)
-                        .HasColumnType("varchar(128)");
-
                     b.Property<string>("CountryCode")
                         .HasMaxLength(8)
                         .HasColumnType("varchar(8)");
@@ -136,6 +132,10 @@ namespace DynamicApi.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("varchar(32)");
 
+                    b.Property<string>("PostalCode")
+                        .HasMaxLength(24)
+                        .HasColumnType("varchar(24)");
+
                     b.Property<bool>("PhoneNumberConfirmed")
                         .HasColumnType("tinyint(1)");
 
@@ -208,6 +208,8 @@ namespace DynamicApi.Migrations
                         .IsUnique();
 
                     b.HasIndex("PasswordResetTokenHash");
+
+                    b.HasIndex("PostalCode");
 
                     b.HasIndex("RegistrationValidationToken");
 

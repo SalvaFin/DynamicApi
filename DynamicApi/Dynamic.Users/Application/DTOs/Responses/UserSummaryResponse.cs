@@ -25,7 +25,7 @@ public class UserSummaryResponse
     public string? TimeZone { get; set; }
     public string? CountryCode { get; set; }
     public string? Region { get; set; }
-    public string? City { get; set; }
+    public string? PostalCode { get; set; }
     public string? AvatarUrl { get; set; }
     public DateTime CreatedAtUtc { get; set; }
     public DateTime? LastLoginAtUtc { get; set; }

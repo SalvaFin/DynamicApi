@@ -28,6 +28,10 @@ public class CompleteRegistrationRequest
     [JsonConverter(typeof(UserGenderJsonConverter))]
     public UserGender Gender { get; set; } = UserGender.OtroPrefieroNoEspecificar;
 
+    [Required]
+    [MaxLength(24)]
+    public string PostalCode { get; set; } = string.Empty;
+
     public bool TermsAccepted { get; set; }
 
     public bool PrivacyPolicyAccepted { get; set; }

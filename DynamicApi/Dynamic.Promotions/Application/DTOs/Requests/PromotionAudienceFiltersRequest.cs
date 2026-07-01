@@ -31,7 +31,7 @@ public class PromotionAudienceFiltersRequest
     public int? MinimumDaysSinceLastAppSeen { get; set; }
     public int? MaximumDaysSinceLastAppSeen { get; set; }
     public int? BirthMonth { get; set; }
-    public IReadOnlyCollection<string>? Cities { get; set; }
+    public IReadOnlyCollection<string>? PostalCodes { get; set; }
     public IReadOnlyCollection<string>? Regions { get; set; }
     public IReadOnlyCollection<string>? CountryCodes { get; set; }
     public IReadOnlyCollection<string>? Languages { get; set; }

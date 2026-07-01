@@ -42,7 +42,7 @@ Estados posibles: `Queued`, `ProcessingAudience`, `Sent`, `Failed`, `Cancelled`.
 
 ### Filtros disponibles
 
-Todos son opcionales y se combinan con AND. Dentro de un campo de lista (`genders`, `cities`, etc.), los valores se combinan con OR. Una lista omitida o vacia no filtra:
+Todos son opcionales y se combinan con AND. Dentro de un campo de lista (`genders`, `postalCodes`, etc.), los valores se combinan con OR. Una lista omitida o vacia no filtra:
 
 | Campo | Semantica |
 |---|---|
@@ -62,7 +62,7 @@ Todos son opcionales y se combinan con AND. Dentro de un campo de lista (`gender
 | `lastAppSeenBeforeUtc` / `lastAppSeenAfterUtc` | Ultima actividad conocida en Dynamic |
 | `minimumDaysSinceLastAppSeen` / `maximumDaysSinceLastAppSeen` | Dias desde la ultima actividad en Dynamic |
 | `birthMonth` | Mes de nacimiento, de 1 a 12 |
-| `cities`, `regions`, `countryCodes`, `languages` | Segmentacion geografica y de idioma; hasta 100 valores por campo |
+| `postalCodes`, `regions`, `countryCodes`, `languages` | Segmentacion geografica y de idioma; hasta 100 valores por campo |
 | `hasAnyPoints` / `hasAnyTickets` | Tiene relacion con el negocio por puntos o por tickets |
 | `hasActiveTickets` | Tiene al menos un ticket activo, no usado y no caducado |
 | `hasEverUsedTicket` | Ha utilizado al menos un ticket del negocio |
@@ -148,4 +148,4 @@ La app Android debe crear el canal de notificaciones `promotions`.
 
 ## Registro y genero
 
-Los endpoints de finalizacion de registro y edicion de perfil aceptan `gender`: `Hombre`, `Mujer` u `OtroPrefieroNoEspecificar`. Los valores anteriores se normalizan mediante migracion.
+Los endpoints de finalizacion de registro y edicion de perfil aceptan `gender`: `Hombre`, `Mujer` u `OtroPrefieroNoEspecificar`. Tambien aceptan `postalCode` para identificar la zona del usuario. Los valores de genero anteriores se normalizan mediante migracion.

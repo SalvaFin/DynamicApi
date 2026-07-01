@@ -269,7 +269,8 @@ public class AuthService : IAuthService
         if (string.IsNullOrWhiteSpace(request.Contact) ||
             string.IsNullOrWhiteSpace(request.ValidationToken) ||
             string.IsNullOrWhiteSpace(request.Nombre) ||
-            string.IsNullOrWhiteSpace(request.Apellidos))
+            string.IsNullOrWhiteSpace(request.Apellidos) ||
+            string.IsNullOrWhiteSpace(request.PostalCode))
         {
             return ServiceResult<CompleteRegistrationResponse>.Failure("validation_error", "Faltan datos para completar el registro.");
         }
@@ -318,6 +319,7 @@ public class AuthService : IAuthService
         userByContact.AgeAtRegistration = null;
         userByContact.BirthDate = request.BirthDate!.Value.Date;
         userByContact.Gender = request.Gender;
+        userByContact.PostalCode = NormalizePostalCode(request.PostalCode);
         userByContact.RegistrationCompleted = true;
         userByContact.RegistrationCompletedAtUtc = now;
         userByContact.RegistrationValidationToken = null;
@@ -990,11 +992,12 @@ public class AuthService : IAuthService
         if (!TryParseExternalProvider(request.Provider, out ExternalAuthProvider provider) ||
             string.IsNullOrWhiteSpace(request.IdToken) ||
             string.IsNullOrWhiteSpace(request.Nombre) ||
-            string.IsNullOrWhiteSpace(request.Apellidos))
+            string.IsNullOrWhiteSpace(request.Apellidos) ||
+            string.IsNullOrWhiteSpace(request.PostalCode))
         {
             return ServiceResult<AuthResponse>.Failure(
                 "validation_error",
-                "Proveedor, id_token, nombre y apellidos son obligatorios.");
+                "Proveedor, id_token, nombre, apellidos y codigo postal son obligatorios.");
         }
 
         ServiceResult<int> birthDateValidation = ValidateBirthDateForRegistration(request.BirthDate);
@@ -1092,6 +1095,7 @@ public class AuthService : IAuthService
             user.AgeAtRegistration = null;
             user.BirthDate = request.BirthDate!.Value.Date;
             user.Gender = request.Gender;
+            user.PostalCode = NormalizePostalCode(request.PostalCode);
             user.RegistrationCompleted = true;
             user.RegistrationCompletedAtUtc = now;
             user.Status = UserStatus.Active;
@@ -1957,6 +1961,9 @@ public class AuthService : IAuthService
 
     private static string? NormalizeNullable(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string? NormalizePostalCode(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim().ToUpperInvariant();
 
     private enum ContactType
     {

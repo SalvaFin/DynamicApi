@@ -27,7 +27,7 @@ Content-Type: application/json
     "minimumAge": 18,
     "minimumDaysSinceLastPointsEarned": 30,
     "includeUsersWithoutPointEarnings": false,
-    "cities": ["Madrid"],
+    "postalCodes": ["28001"],
     "minimumTicketCount": 1,
     "lastAppSeenAfterUtc": "2026-01-01T00:00:00Z"
   }
@@ -52,6 +52,7 @@ Content-Type: application/json
   "apellidos": "Apellidos",
   "birthDate": "1995-04-18",
   "gender": "OtroPrefieroNoEspecificar",
+  "postalCode": "28001",
   "termsAccepted": true,
   "privacyPolicyAccepted": true,
   "marketingAccepted": false,
@@ -86,7 +87,7 @@ Content-Type: application/json
   "timeZone": "Europe/Madrid",
   "countryCode": "ES",
   "region": "Comunidad de Madrid",
-  "city": "Madrid",
+  "postalCode": "28001",
   "avatarUrl": "https://cdn.dynamic.app/avatars/salva.png"
 }
 
