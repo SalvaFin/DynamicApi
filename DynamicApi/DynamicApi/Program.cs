@@ -10,6 +10,7 @@ using DynamicApi.Infrastructure.DependencyInjection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.Extensions.FileProviders;
 
@@ -101,6 +102,12 @@ string negocioMediaRootPath = Path.IsPathRooted(negocioMediaOptions.StorageRootP
 
 Directory.CreateDirectory(negocioMediaRootPath);
 
+FileExtensionContentTypeProvider negocioMediaContentTypes = new();
+negocioMediaContentTypes.Mappings[".jfif"] = "image/jpeg";
+negocioMediaContentTypes.Mappings[".avif"] = "image/avif";
+negocioMediaContentTypes.Mappings[".heic"] = "image/heic";
+negocioMediaContentTypes.Mappings[".heif"] = "image/heif";
+
 await using (AsyncServiceScope scope = app.Services.CreateAsyncScope())
 {
     await scope.ServiceProvider.GetRequiredService<DynamicUsersDbContext>().Database.MigrateAsync();
@@ -120,6 +127,7 @@ app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new PhysicalFileProvider(negocioMediaRootPath),
     RequestPath = NegocioMediaOptions.PublicRequestPath,
+    ContentTypeProvider = negocioMediaContentTypes,
     OnPrepareResponse = context =>
     {
         context.Context.Response.Headers["Access-Control-Allow-Origin"] = "*";

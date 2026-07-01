@@ -13,11 +13,24 @@ public class NegocioMediaStorageService : INegocioMediaStorageService
     [
         ".jpg",
         ".jpeg",
+        ".jfif",
         ".png",
         ".webp",
+        ".avif",
         ".gif",
+        ".bmp",
+        ".tif",
+        ".tiff",
+        ".heic",
+        ".heif",
         ".svg"
     ];
+
+    private static readonly HashSet<string> GenericBinaryContentTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "application/octet-stream",
+        "binary/octet-stream"
+    };
 
     private readonly NegocioMediaOptions _options;
     private readonly IHostEnvironment _hostEnvironment;
@@ -44,15 +57,21 @@ public class NegocioMediaStorageService : INegocioMediaStorageService
             return ServiceResult<string>.Failure("validation_error", $"La imagen supera el tama\u00f1o m\u00e1ximo permitido de {_options.MaxFileSizeBytes} bytes.");
         }
 
-        if (string.IsNullOrWhiteSpace(file.ContentType) || !file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
-        {
-            return ServiceResult<string>.Failure("validation_error", "El fichero enviado no es una imagen v\u00e1lida.");
-        }
-
-        string extension = Path.GetExtension(file.FileName);
-        if (string.IsNullOrWhiteSpace(extension) || !AllowedExtensions.Contains(extension.ToLowerInvariant()))
+        string extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(extension) || !AllowedExtensions.Contains(extension))
         {
             return ServiceResult<string>.Failure("validation_error", "La extensi\u00f3n de la imagen no est\u00e1 permitida.");
+        }
+
+        string contentType = file.ContentType?.Split(';', 2)[0].Trim() ?? string.Empty;
+        bool hasAcceptedContentType =
+            string.IsNullOrWhiteSpace(contentType) ||
+            contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ||
+            GenericBinaryContentTypes.Contains(contentType);
+
+        if (!hasAcceptedContentType)
+        {
+            return ServiceResult<string>.Failure("validation_error", "El fichero enviado no es una imagen v\u00e1lida.");
         }
 
         string storageRootPath = ResolveStorageRootPath();
@@ -60,7 +79,7 @@ public class NegocioMediaStorageService : INegocioMediaStorageService
         Directory.CreateDirectory(negocioFolderPath);
 
         string safeSlot = string.Concat(imageSlot.Where(ch => char.IsLetterOrDigit(ch) || ch == '-' || ch == '_'));
-        string fileName = $"{safeSlot}-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}{extension.ToLowerInvariant()}";
+        string fileName = $"{safeSlot}-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}{extension}";
         string absoluteFilePath = Path.Combine(negocioFolderPath, fileName);
 
         await using FileStream stream = new(absoluteFilePath, FileMode.Create, FileAccess.Write, FileShare.None);

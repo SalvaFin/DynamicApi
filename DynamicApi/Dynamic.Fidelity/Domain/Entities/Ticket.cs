@@ -13,9 +13,9 @@ public class Ticket
     public Guid? SourcePromotionRecipientId { get; set; }
     public string Nombre { get; set; } = string.Empty;
     public string? Descripcion { get; set; }
-    public TipoTicket Tipo { get; set; } = TipoTicket.Especial;
+    public TipoTicket Tipo { get; set; } = TipoTicket.Libre;
     public CategoriaEnvioTicket CategoriaEnvioEspecial { get; set; } = CategoriaEnvioTicket.General;
-    public decimal Valor { get; set; }
+    public decimal? Valor { get; set; }
     public string? CodigoInterno { get; set; }
     public string? CodigoVisible { get; set; }
     public string? TituloCanje { get; set; }

@@ -10,7 +10,7 @@ public class TicketResponse
     public string? Descripcion { get; set; }
     public TipoTicket Tipo { get; set; }
     public CategoriaEnvioTicket CategoriaEnvioEspecial { get; set; }
-    public decimal Valor { get; set; }
+    public decimal? Valor { get; set; }
     public int? PuntosCoste { get; set; }
     public Guid? UserId { get; set; }
     public Guid? ParentTicketId { get; set; }

@@ -56,7 +56,9 @@ public class DynamicFidelityModuleStartup
         services.AddScoped<IQrCampaignRepository, QrCampaignRepository>();
         services.AddScoped<IPendingTicketAssignmentRepository, PendingTicketAssignmentRepository>();
         services.AddScoped<IRegistrationRewardService, RegistrationRewardService>();
+        services.AddScoped<ISeguirNegocioService, SeguirNegocioService>();
         services.AddScoped<ITicketQrService, TicketQrService>();
+        services.AddScoped<IBusinessQrService, BusinessQrService>();
         services.AddScoped<IUserCodeDirectoryService, UserCodeDirectoryService>();
 
         mvcBuilder.AddApplicationPart(typeof(TicketQrController).Assembly);

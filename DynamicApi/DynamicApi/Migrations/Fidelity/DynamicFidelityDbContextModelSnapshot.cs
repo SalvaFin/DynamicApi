@@ -528,7 +528,7 @@ namespace DynamicApi.Migrations.Fidelity
                     b.Property<int?>("ValidezDiasDesdeAsignacion")
                         .HasColumnType("int");
 
-                    b.Property<decimal>("Valor")
+                    b.Property<decimal?>("Valor")
                         .HasPrecision(10, 2)
                         .HasColumnType("decimal(10,2)");
 

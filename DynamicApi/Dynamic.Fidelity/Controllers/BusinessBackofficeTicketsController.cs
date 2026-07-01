@@ -111,7 +111,7 @@ public class BusinessBackofficeTicketsController : ControllerBase
         => await CreateByType(
             negocioId,
             request,
-            TipoTicket.DescuentoPorcentual,
+            TipoTicket.Porcentual,
             cancellationToken);
 
     [HttpPost("fixed-discounts")]
@@ -122,40 +122,18 @@ public class BusinessBackofficeTicketsController : ControllerBase
         => await CreateByType(
             negocioId,
             request,
-            TipoTicket.DescuentoImporteFijo,
+            TipoTicket.ValorFijo,
             cancellationToken);
 
-    [HttpPost("gifts")]
-    public async Task<IActionResult> CreateGift(
+    [HttpPost("free")]
+    public async Task<IActionResult> CreateFree(
         Guid negocioId,
         [FromBody] CreateBackofficeTicketByTypeRequest request,
         CancellationToken cancellationToken)
         => await CreateByType(
             negocioId,
             request,
-            TipoTicket.Regalo,
-            cancellationToken);
-
-    [HttpPost("two-for-one")]
-    public async Task<IActionResult> CreateTwoForOne(
-        Guid negocioId,
-        [FromBody] CreateBackofficeTicketByTypeRequest request,
-        CancellationToken cancellationToken)
-        => await CreateByType(
-            negocioId,
-            request,
-            TipoTicket.DosPorUno,
-            cancellationToken);
-
-    [HttpPost("specials")]
-    public async Task<IActionResult> CreateSpecial(
-        Guid negocioId,
-        [FromBody] CreateBackofficeTicketByTypeRequest request,
-        CancellationToken cancellationToken)
-        => await CreateByType(
-            negocioId,
-            request,
-            TipoTicket.Especial,
+            TipoTicket.Libre,
             cancellationToken);
 
     [HttpPost("scan")]

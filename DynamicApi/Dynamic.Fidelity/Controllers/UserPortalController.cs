@@ -116,10 +116,23 @@ public class UserPortalController : ControllerBase
             })
             .ToListAsync(cancellationToken);
 
+        Guid[] explicitlyUnlinkedNegocioIds = await _negociosDbContext.NegociosUsuariosVinculaciones
+            .AsNoTracking()
+            .Where(link =>
+                link.UserId == userId.Value &&
+                link.TipoVinculacion == Dynamic.Negocios.Domain.Enums.TipoVinculacionNegocioUsuario.Cliente &&
+                (!link.Activa || link.RevokedAtUtc.HasValue ||
+                 (link.FechaFinUtc.HasValue && link.FechaFinUtc.Value <= now)))
+            .Select(link => link.NegocioId)
+            .ToArrayAsync(cancellationToken);
+
+        HashSet<Guid> explicitlyUnlinkedNegocioIdSet = explicitlyUnlinkedNegocioIds.ToHashSet();
+
         Guid[] negocioIds = ticketStats.Select(ticket => ticket.NegocioId)
             .Concat(pointStats.Select(points => points.NegocioId))
             .Concat(activeLinks.Select(link => link.NegocioId))
             .Distinct()
+            .Where(negocioId => !explicitlyUnlinkedNegocioIdSet.Contains(negocioId))
             .ToArray();
 
         if (negocioIds.Length == 0)

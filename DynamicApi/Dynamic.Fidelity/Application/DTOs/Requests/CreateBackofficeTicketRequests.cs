@@ -12,7 +12,7 @@ public abstract class CreateBackofficeTicketBaseRequest
     [MaxLength(2000)]
     public string? Descripcion { get; set; }
 
-    public decimal Valor { get; set; }
+    public decimal? Valor { get; set; }
     public int? PuntosCoste { get; set; }
 
     public int? MaxUsosPorCliente { get; set; }
@@ -28,7 +28,7 @@ public abstract class CreateBackofficeTicketBaseRequest
 
 public class CreateBackofficeTicketByCategoryRequest : CreateBackofficeTicketBaseRequest
 {
-    public TipoTicket Tipo { get; set; } = TipoTicket.Especial;
+    public TipoTicket Tipo { get; set; } = TipoTicket.Libre;
 }
 
 public class CreateBackofficeTicketByTypeRequest : CreateBackofficeTicketBaseRequest

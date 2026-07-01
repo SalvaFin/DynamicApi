@@ -1,5 +1,6 @@
 using Dynamic.Fidelity.Application.Contracts.Repositories;
 using Dynamic.Fidelity.Domain.Entities;
+using Dynamic.Fidelity.Domain.Enums;
 using Dynamic.Fidelity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -39,6 +40,21 @@ public class TicketRepository : ITicketRepository
             .OrderByDescending(ticket => ticket.UpdatedAtUtc)
             .ThenByDescending(ticket => ticket.CreatedAtUtc)
             .ToListAsync(cancellationToken);
+
+    public Task<bool> ExistsActiveTemplateByCategoryAsync(
+        Guid negocioId,
+        CategoriaEnvioTicket category,
+        Guid? excludedTicketId = null,
+        CancellationToken cancellationToken = default)
+        => _dbContext.Tickets.AnyAsync(
+            ticket =>
+                ticket.NegocioId == negocioId &&
+                ticket.EsPlantilla &&
+                ticket.UserId == null &&
+                ticket.Activo &&
+                ticket.CategoriaEnvioEspecial == category &&
+                (!excludedTicketId.HasValue || ticket.Id != excludedTicketId.Value),
+            cancellationToken);
 
     public Task<int> CountAssignedToUserByTemplateAsync(Guid userId, Guid templateTicketId, CancellationToken cancellationToken = default)
         => _dbContext.Tickets.CountAsync(

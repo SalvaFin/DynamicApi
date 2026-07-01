@@ -14,7 +14,7 @@ public class UserPortalTicketResponse
     public string Estado { get; set; } = string.Empty;
     public int ProgresoActual { get; set; }
     public int? ProgresoObjetivo { get; set; }
-    public decimal Valor { get; set; }
+    public decimal? Valor { get; set; }
     public int? PuntosCoste { get; set; }
     public string? Code { get; set; }
     public DateTime FechaAltaUtc { get; set; }

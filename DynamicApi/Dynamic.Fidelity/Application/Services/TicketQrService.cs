@@ -77,6 +77,13 @@ public class TicketQrService : ITicketQrService
             return ServiceResult<TicketQrResponse>.Failure("not_found", "El ticket no existe o no pertenece al negocio.");
         }
 
+        if (ticket.CategoriaEnvioEspecial != CategoriaEnvioTicket.PrimerRegistro)
+        {
+            return ServiceResult<TicketQrResponse>.Failure(
+                "validation_error",
+                "Solo se puede generar este QR para tickets de bienvenida con tipo de envío PrimerRegistro.");
+        }
+
         DateTime now = DateTime.UtcNow;
         string qrToken = GenerateQrToken();
         Negocio? negocio = await _negocioRepository.GetByIdAsync(negocioId, cancellationToken);
@@ -602,8 +609,8 @@ public class TicketQrService : ITicketQrService
 
         decimal discount = ticket.Tipo switch
         {
-            TipoTicket.DescuentoPorcentual => normalizedPurchaseAmount * (ticket.DescuentoPorcentaje ?? ticket.Valor) / 100,
-            TipoTicket.DescuentoImporteFijo => ticket.DescuentoImporteFijo ?? ticket.Valor,
+            TipoTicket.Porcentual => normalizedPurchaseAmount * (ticket.DescuentoPorcentaje ?? ticket.Valor ?? 0) / 100,
+            TipoTicket.ValorFijo => ticket.DescuentoImporteFijo ?? ticket.Valor ?? 0,
             _ => 0
         };
 

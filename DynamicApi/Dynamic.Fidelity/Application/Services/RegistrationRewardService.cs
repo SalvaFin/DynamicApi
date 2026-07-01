@@ -236,7 +236,15 @@ public class RegistrationRewardService : IRegistrationRewardService
             template.NegocioId != negocioId ||
             !template.EsPlantilla ||
             template.UserId.HasValue ||
+            !template.Activo ||
             template.CategoriaEnvioEspecial != expectedCategory)
+        {
+            return false;
+        }
+
+        DateTime now = DateTime.UtcNow;
+        if ((template.AvailableFromUtc.HasValue && template.AvailableFromUtc.Value > now) ||
+            template.ExpiresAtUtc <= now)
         {
             return false;
         }
@@ -250,7 +258,6 @@ public class RegistrationRewardService : IRegistrationRewardService
             }
         }
 
-        DateTime now = DateTime.UtcNow;
         Ticket assignedTicket = BuildAssignedTicket(template, userId, null, visibleCodePrefix, now);
         await _ticketRepository.AddAsync(assignedTicket, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);

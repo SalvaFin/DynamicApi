@@ -57,6 +57,8 @@ public class TicketService : ITicketService
 
         IReadOnlyCollection<TicketResponse> tickets = (await _ticketRepository.GetTemplatesByNegocioAsync(negocioId, cancellationToken))
             .Where(IsPublicGeneralTemplateAvailable)
+            .OrderBy(ticket => ticket.PuntosCoste)
+            .ThenBy(ticket => ticket.Nombre)
             .Select(ticket => ticket.ToResponse())
             .ToArray();
 
@@ -81,6 +83,8 @@ public class TicketService : ITicketService
         Guid resolvedNegocioId = negocio!.Id;
         IReadOnlyCollection<TicketResponse> tickets = (await _ticketRepository.GetTemplatesByNegocioAsync(resolvedNegocioId, cancellationToken))
             .Where(IsPublicGeneralTemplateAvailable)
+            .OrderBy(ticket => ticket.PuntosCoste)
+            .ThenBy(ticket => ticket.Nombre)
             .Select(ticket => ticket.ToResponse())
             .ToArray();
 
@@ -162,6 +166,18 @@ public class TicketService : ITicketService
             return ServiceResult<TicketResponse>.Failure(
                 validation.ErrorCode ?? "validation_error",
                 validation.ErrorMessage ?? "Los datos del ticket no son válidos.");
+        }
+
+        if (request.Activo &&
+            request.CategoriaEnvioEspecial == CategoriaEnvioTicket.PrimerRegistro &&
+            await _ticketRepository.ExistsActiveTemplateByCategoryAsync(
+                negocioId,
+                CategoriaEnvioTicket.PrimerRegistro,
+                cancellationToken: cancellationToken))
+        {
+            return ServiceResult<TicketResponse>.Failure(
+                "conflict",
+                "El negocio ya tiene un ticket de bienvenida activo.");
         }
 
         DateTime now = DateTime.UtcNow;
@@ -265,6 +281,19 @@ public class TicketService : ITicketService
         if (ticket is null)
         {
             return ServiceResult<TicketResponse>.Failure("not_found", "El ticket no existe o no pertenece al negocio.");
+        }
+
+        if (request.Activo &&
+            request.CategoriaEnvioEspecial == CategoriaEnvioTicket.PrimerRegistro &&
+            await _ticketRepository.ExistsActiveTemplateByCategoryAsync(
+                negocioId,
+                CategoriaEnvioTicket.PrimerRegistro,
+                ticket.Id,
+                cancellationToken))
+        {
+            return ServiceResult<TicketResponse>.Failure(
+                "conflict",
+                "El negocio ya tiene otro ticket de bienvenida activo.");
         }
 
         ticket.Nombre = request.Nombre.Trim();
@@ -491,7 +520,7 @@ public class TicketService : ITicketService
         string? nombre,
         TipoTicket tipo,
         CategoriaEnvioTicket categoriaEnvioEspecial,
-        decimal valor,
+        decimal? valor,
         int? puntosCoste,
         int? maxUsosPorCliente,
         int? validezDiasDesdeAsignacion,
@@ -503,12 +532,17 @@ public class TicketService : ITicketService
             return ServiceResult.Failure("validation_error", "El nombre del ticket es obligatorio.");
         }
 
+        if (!Enum.IsDefined(tipo))
+        {
+            return ServiceResult.Failure("validation_error", "El tipo de ticket debe ser Porcentual, ValorFijo o Libre.");
+        }
+
         if (availableFromUtc.HasValue && expiresAtUtc.HasValue && expiresAtUtc.Value < availableFromUtc.Value)
         {
             return ServiceResult.Failure("validation_error", "La fecha de expiración no puede ser anterior a la fecha de disponibilidad.");
         }
 
-        if (valor < 0)
+        if (valor.HasValue && valor.Value < 0)
         {
             return ServiceResult.Failure("validation_error", "El valor del ticket no puede ser negativo.");
         }
@@ -540,27 +574,31 @@ public class TicketService : ITicketService
             return ServiceResult.Failure("validation_error", "La validez en días desde la asignación debe ser mayor que 0.");
         }
 
-        if (tipo == TipoTicket.DescuentoPorcentual)
+        if (tipo == TipoTicket.Porcentual)
         {
-            if (valor <= 0 || valor > 100)
+            if (!valor.HasValue || valor.Value <= 0 || valor.Value > 100)
             {
                 return ServiceResult.Failure("validation_error", "Un ticket porcentual debe tener un valor entre 0 y 100.");
             }
         }
-        else if (tipo == TipoTicket.DescuentoImporteFijo && valor <= 0)
+        else if (tipo == TipoTicket.ValorFijo && (!valor.HasValue || valor.Value <= 0))
         {
             return ServiceResult.Failure("validation_error", "Un ticket de importe fijo debe tener un valor mayor que 0.");
+        }
+        else if (tipo == TipoTicket.Libre && valor.HasValue && valor.Value != 0)
+        {
+            return ServiceResult.Failure("validation_error", "Un ticket libre debe tener un valor igual a 0 o nulo.");
         }
 
         return ServiceResult.Success();
     }
 
-    private static void ApplyValorByTipo(Ticket ticket, TipoTicket tipo, decimal valor)
+    private static void ApplyValorByTipo(Ticket ticket, TipoTicket tipo, decimal? valor)
     {
-        ticket.DescuentoPorcentaje = tipo == TipoTicket.DescuentoPorcentual ? valor : null;
-        ticket.DescuentoImporteFijo = tipo == TipoTicket.DescuentoImporteFijo ? valor : null;
+        ticket.DescuentoPorcentaje = tipo == TipoTicket.Porcentual ? valor : null;
+        ticket.DescuentoImporteFijo = tipo == TipoTicket.ValorFijo ? valor : null;
 
-        if (tipo is TipoTicket.Regalo or TipoTicket.DosPorUno or TipoTicket.Especial)
+        if (tipo == TipoTicket.Libre)
         {
             ticket.BeneficioEspecialResumen = ticket.Nombre;
             ticket.BeneficioEspecialDetalle = ticket.Descripcion;
@@ -572,8 +610,10 @@ public class TicketService : ITicketService
         }
     }
 
-    private static decimal NormalizeValue(decimal value)
-        => decimal.Round(value, 2, MidpointRounding.AwayFromZero);
+    private static decimal? NormalizeValue(decimal? value)
+        => value.HasValue
+            ? decimal.Round(value.Value, 2, MidpointRounding.AwayFromZero)
+            : null;
 
     private static int? NormalizePointsCoste(int? puntosCoste)
         => puntosCoste.HasValue && puntosCoste.Value > 0 ? puntosCoste.Value : null;

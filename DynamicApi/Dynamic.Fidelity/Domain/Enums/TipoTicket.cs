@@ -2,9 +2,7 @@ namespace Dynamic.Fidelity.Domain.Enums;
 
 public enum TipoTicket
 {
-    DescuentoPorcentual = 1,
-    DescuentoImporteFijo = 2,
-    Regalo = 3,
-    DosPorUno = 4,
-    Especial = 5
+    Porcentual = 1,
+    ValorFijo = 2,
+    Libre = 3
 }
