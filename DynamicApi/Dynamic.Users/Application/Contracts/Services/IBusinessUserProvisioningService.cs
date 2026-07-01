@@ -26,4 +26,13 @@ public interface IBusinessUserProvisioningService
         bool isAdmin,
         CreateBusinessManagedUserRequest request,
         CancellationToken cancellationToken = default);
+
+    Task<ServiceResult<BusinessCustomerRegistrationResponse>> CreateCustomerByBusinessStaffAsync(
+        Guid negocioId,
+        Guid requesterUserId,
+        bool isAdmin,
+        CreateBusinessCustomerUserRequest request,
+        string? ipAddress,
+        string? userAgent,
+        CancellationToken cancellationToken = default);
 }

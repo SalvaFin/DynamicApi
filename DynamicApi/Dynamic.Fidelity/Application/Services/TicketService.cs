@@ -552,14 +552,9 @@ public class TicketService : ITicketService
             return ServiceResult.Failure("validation_error", "El precio en puntos del ticket no puede ser negativo.");
         }
 
-        if (categoriaEnvioEspecial == CategoriaEnvioTicket.General)
-        {
-            if (!puntosCoste.HasValue || puntosCoste.Value <= 0)
-            {
-                return ServiceResult.Failure("validation_error", "Los tickets generales deben tener un precio en puntos mayor que cero.");
-            }
-        }
-        else if (puntosCoste.HasValue && puntosCoste.Value > 0)
+        if (categoriaEnvioEspecial != CategoriaEnvioTicket.General &&
+            puntosCoste.HasValue &&
+            puntosCoste.Value > 0)
         {
             return ServiceResult.Failure("validation_error", "Los tickets especiales de registro o invitaci\u00f3n no deben configurarse con precio en puntos.");
         }

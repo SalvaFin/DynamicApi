@@ -82,6 +82,32 @@ public class BusinessUserAccountsController : ControllerBase
         return ToActionResult(result, data => StatusCode(StatusCodes.Status201Created, data));
     }
 
+    [Authorize(Policy = "BusinessStaffAuth")]
+    [HttpPost("my-businesses/{negocioId:guid}/customers")]
+    public async Task<IActionResult> CreateCustomerByBusinessStaff(
+        Guid negocioId,
+        [FromBody] CreateBusinessCustomerUserRequest request,
+        CancellationToken cancellationToken)
+    {
+        Guid? requesterUserId = GetClaimGuid(ClaimTypes.NameIdentifier, "sub");
+        if (!requesterUserId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        ServiceResult<BusinessCustomerRegistrationResponse> result =
+            await _businessUserProvisioningService.CreateCustomerByBusinessStaffAsync(
+                negocioId,
+                requesterUserId.Value,
+                User.IsInRole("Admin"),
+                request,
+                GetIpAddress(),
+                GetUserAgent(),
+                cancellationToken);
+
+        return ToActionResult(result, data => StatusCode(StatusCodes.Status201Created, data));
+    }
+
     private IActionResult ToActionResult<T>(ServiceResult<T> result, Func<T, IActionResult> onSuccess)
     {
         if (result.Succeeded && result.Data is not null)
@@ -112,4 +138,10 @@ public class BusinessUserAccountsController : ControllerBase
 
         return null;
     }
+
+    private string? GetIpAddress()
+        => HttpContext.Connection.RemoteIpAddress?.ToString();
+
+    private string? GetUserAgent()
+        => Request.Headers.UserAgent.FirstOrDefault();
 }

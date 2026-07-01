@@ -270,9 +270,13 @@ public class AuthService : IAuthService
             string.IsNullOrWhiteSpace(request.ValidationToken) ||
             string.IsNullOrWhiteSpace(request.Nombre) ||
             string.IsNullOrWhiteSpace(request.Apellidos) ||
-            string.IsNullOrWhiteSpace(request.PostalCode))
+            string.IsNullOrWhiteSpace(request.PostalCode) ||
+            !request.Province.HasValue ||
+            !Enum.IsDefined(request.Province.Value))
         {
-            return ServiceResult<CompleteRegistrationResponse>.Failure("validation_error", "Faltan datos para completar el registro.");
+            return ServiceResult<CompleteRegistrationResponse>.Failure(
+                "validation_error",
+                "Contacto, token, nombre, apellidos, codigo postal y provincia son obligatorios.");
         }
 
         ServiceResult<int> birthDateValidation = ValidateBirthDateForRegistration(request.BirthDate);
@@ -320,6 +324,7 @@ public class AuthService : IAuthService
         userByContact.BirthDate = request.BirthDate!.Value.Date;
         userByContact.Gender = request.Gender;
         userByContact.PostalCode = NormalizePostalCode(request.PostalCode);
+        userByContact.Province = request.Province.Value;
         userByContact.RegistrationCompleted = true;
         userByContact.RegistrationCompletedAtUtc = now;
         userByContact.RegistrationValidationToken = null;
@@ -993,11 +998,13 @@ public class AuthService : IAuthService
             string.IsNullOrWhiteSpace(request.IdToken) ||
             string.IsNullOrWhiteSpace(request.Nombre) ||
             string.IsNullOrWhiteSpace(request.Apellidos) ||
-            string.IsNullOrWhiteSpace(request.PostalCode))
+            string.IsNullOrWhiteSpace(request.PostalCode) ||
+            !request.Province.HasValue ||
+            !Enum.IsDefined(request.Province.Value))
         {
             return ServiceResult<AuthResponse>.Failure(
                 "validation_error",
-                "Proveedor, id_token, nombre, apellidos y codigo postal son obligatorios.");
+                "Proveedor, id_token, nombre, apellidos, codigo postal y provincia son obligatorios.");
         }
 
         ServiceResult<int> birthDateValidation = ValidateBirthDateForRegistration(request.BirthDate);
@@ -1096,6 +1103,7 @@ public class AuthService : IAuthService
             user.BirthDate = request.BirthDate!.Value.Date;
             user.Gender = request.Gender;
             user.PostalCode = NormalizePostalCode(request.PostalCode);
+            user.Province = request.Province.Value;
             user.RegistrationCompleted = true;
             user.RegistrationCompletedAtUtc = now;
             user.Status = UserStatus.Active;

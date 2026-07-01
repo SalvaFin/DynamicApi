@@ -4,6 +4,49 @@ La bandeja de promociones es la fuente de verdad. El push de Firebase es un cana
 
 ## Flujo del propietario
 
+### Previsualizar audiencia antes de enviar
+
+`POST /api/promotions/negocios/{negocioId}/campaigns/audience-preview`
+
+Requiere JWT con rol `PropietarioNegocio` (o `Admin`) y que el usuario sea realmente propietario del negocio indicado. No crea campaña, ticket, destinatarios ni outbox: solo calcula la audiencia potencial usando los mismos filtros y límites que el envío real.
+
+```json
+{
+  "filters": {
+    "genders": ["Mujer"],
+    "provinces": ["Madrid", "Barcelona"],
+    "minimumAge": 18,
+    "maximumAge": 45,
+    "minimumDaysSinceLastPointsEarned": 30,
+    "includeUsersWithoutPointEarnings": false
+  }
+}
+```
+
+Respuesta:
+
+```json
+{
+  "negocioId": "business-guid",
+  "audienceCount": 1240,
+  "pushEligibleCount": 810,
+  "businessPushEnabled": true,
+  "firebasePushEnabled": true,
+  "pushAvailable": true,
+  "calculatedAtUtc": "2026-07-01T10:30:00Z",
+  "filters": {
+    "genders": ["Mujer"],
+    "provinces": ["Madrid", "Barcelona"],
+    "minimumAge": 18,
+    "maximumAge": 45,
+    "minimumDaysSinceLastPointsEarned": 30,
+    "includeUsersWithoutPointEarnings": false
+  }
+}
+```
+
+El conteo puede variar ligeramente entre preview y envío si cambian usuarios, puntos, tickets o límites temporales entre ambas llamadas.
+
 ### Crear y enviar una campana
 
 `POST /api/promotions/negocios/{negocioId}/campaigns`
@@ -47,6 +90,7 @@ Todos son opcionales y se combinan con AND. Dentro de un campo de lista (`gender
 | Campo | Semantica |
 |---|---|
 | `genders` | `Hombre`, `Mujer`, `OtroPrefieroNoEspecificar`. Omitido o vacio significa todos |
+| `provinces` | Provincias de España segun el enum `SpanishProvince`. Omitido o vacio significa todas |
 | `minimumAge` / `maximumAge` | Edad actual calculada desde la fecha de nacimiento |
 | `minimumCurrentPoints` / `maximumCurrentPoints` | Saldo actual en el negocio |
 | `minimumTotalPointsEarned` / `maximumTotalPointsEarned` | Total historico acumulado en el negocio |

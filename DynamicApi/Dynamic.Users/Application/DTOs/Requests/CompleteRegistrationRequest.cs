@@ -32,6 +32,9 @@ public class CompleteRegistrationRequest
     [MaxLength(24)]
     public string PostalCode { get; set; } = string.Empty;
 
+    [Required]
+    public SpanishProvince? Province { get; set; }
+
     public bool TermsAccepted { get; set; }
 
     public bool PrivacyPolicyAccepted { get; set; }

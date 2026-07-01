@@ -5,6 +5,7 @@ namespace Dynamic.Promotions.Application.DTOs.Requests;
 public class PromotionAudienceFiltersRequest
 {
     public IReadOnlyCollection<UserGender>? Genders { get; set; }
+    public IReadOnlyCollection<SpanishProvince>? Provinces { get; set; }
     public int? MinimumAge { get; set; }
     public int? MaximumAge { get; set; }
     public int? MinimumCurrentPoints { get; set; }

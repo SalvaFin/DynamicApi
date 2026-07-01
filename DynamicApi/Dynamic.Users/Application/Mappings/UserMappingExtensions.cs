@@ -31,6 +31,7 @@ public static class UserMappingExtensions
             CountryCode = user.CountryCode,
             Region = user.Region,
             PostalCode = user.PostalCode,
+            Province = user.Province,
             AvatarUrl = user.AvatarUrl,
             CreatedAtUtc = user.CreatedAtUtc,
             LastLoginAtUtc = user.LastLoginAtUtc

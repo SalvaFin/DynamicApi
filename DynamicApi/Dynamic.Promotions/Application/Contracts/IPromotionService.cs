@@ -20,6 +20,13 @@ public interface IPromotionService
         bool requesterIsAdmin,
         CancellationToken cancellationToken = default);
 
+    Task<PromotionServiceResult<PromotionAudiencePreviewResponse>> PreviewAudienceAsync(
+        Guid negocioId,
+        Guid requesterUserId,
+        bool requesterIsAdmin,
+        PromotionAudiencePreviewRequest request,
+        CancellationToken cancellationToken = default);
+
     Task<ReceivedPromotionsPageResponse> GetReceivedPromotionsAsync(
         Guid userId,
         int page,

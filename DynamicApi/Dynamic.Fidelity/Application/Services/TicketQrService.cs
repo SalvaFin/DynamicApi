@@ -300,12 +300,16 @@ public class TicketQrService : ITicketQrService
                 availability.ErrorMessage ?? "El ticket no está disponible para canje.");
         }
 
-        ServiceResult minimumSpendValidation = EnsureMinimumSpendIsMet(ticket, request.PurchaseAmount);
-        if (!minimumSpendValidation.Succeeded)
+        decimal? calculablePurchaseAmount = ResolveCalculablePurchaseAmount(request.PurchaseAmount);
+        if (calculablePurchaseAmount.HasValue)
         {
-            return ServiceResult<ValidateTicketQrResponse>.Failure(
-                minimumSpendValidation.ErrorCode ?? "conflict",
-                minimumSpendValidation.ErrorMessage ?? "No se cumple el importe minimo del ticket.");
+            ServiceResult minimumSpendValidation = EnsureMinimumSpendIsMet(ticket, calculablePurchaseAmount);
+            if (!minimumSpendValidation.Succeeded)
+            {
+                return ServiceResult<ValidateTicketQrResponse>.Failure(
+                    minimumSpendValidation.ErrorCode ?? "conflict",
+                    minimumSpendValidation.ErrorMessage ?? "No se cumple el importe minimo del ticket.");
+            }
         }
 
         DateTime now = DateTime.UtcNow;
@@ -334,10 +338,10 @@ public class TicketQrService : ITicketQrService
             Used = ticket.Usado,
             UsosConsumidos = ticket.UsosConsumidos,
             UsedAtUtc = ticket.UsedAtUtc,
-            PurchaseAmount = NormalizeAmount(request.PurchaseAmount),
-            DiscountAmount = CalculateDiscountAmount(ticket, request.PurchaseAmount),
-            FinalAmount = CalculateFinalAmount(ticket, request.PurchaseAmount),
-            MinimumSpendSatisfied = ResolveMinimumSpendSatisfied(ticket, request.PurchaseAmount),
+            PurchaseAmount = calculablePurchaseAmount,
+            DiscountAmount = CalculateDiscountAmount(ticket, calculablePurchaseAmount),
+            FinalAmount = CalculateFinalAmount(ticket, calculablePurchaseAmount),
+            MinimumSpendSatisfied = ResolveMinimumSpendSatisfied(ticket, calculablePurchaseAmount),
             Message = ticket.Usado
                 ? "El ticket se ha validado y marcado como usado."
                 : "El uso del ticket se ha validado correctamente.",
@@ -604,7 +608,7 @@ public class TicketQrService : ITicketQrService
         decimal normalizedPurchaseAmount = NormalizeAmount(purchaseAmount).GetValueOrDefault();
         if (normalizedPurchaseAmount <= 0)
         {
-            return 0;
+            return null;
         }
 
         decimal discount = ticket.Tipo switch
@@ -626,8 +630,21 @@ public class TicketQrService : ITicketQrService
         }
 
         decimal normalizedPurchaseAmount = NormalizeAmount(purchaseAmount).GetValueOrDefault();
+        if (normalizedPurchaseAmount <= 0)
+        {
+            return null;
+        }
+
         decimal discountAmount = CalculateDiscountAmount(ticket, normalizedPurchaseAmount).GetValueOrDefault();
         return NormalizeAmount(normalizedPurchaseAmount - discountAmount);
+    }
+
+    private static decimal? ResolveCalculablePurchaseAmount(decimal? purchaseAmount)
+    {
+        decimal? normalizedPurchaseAmount = NormalizeAmount(purchaseAmount);
+        return normalizedPurchaseAmount.HasValue && normalizedPurchaseAmount.Value > 0
+            ? normalizedPurchaseAmount.Value
+            : null;
     }
 
     private static decimal? NormalizeAmount(decimal? amount)

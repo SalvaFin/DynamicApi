@@ -10,7 +10,6 @@ public class ValidateTicketQrRequest
     [MaxLength(64)]
     public string? TicketCode { get; set; }
 
-    [Range(typeof(decimal), "0", "999999999")]
     public decimal? PurchaseAmount { get; set; }
 
     [MaxLength(128)]

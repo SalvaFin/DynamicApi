@@ -30,17 +30,20 @@ public class PromotionService : IPromotionService
     private readonly DynamicNegociosDbContext _negociosDbContext;
     private readonly DynamicFidelityDbContext _fidelityDbContext;
     private readonly ITicketService _ticketService;
+    private readonly IPromotionAudienceBuilder _audienceBuilder;
 
     public PromotionService(
         DynamicPromotionsDbContext promotionsDbContext,
         DynamicNegociosDbContext negociosDbContext,
         DynamicFidelityDbContext fidelityDbContext,
-        ITicketService ticketService)
+        ITicketService ticketService,
+        IPromotionAudienceBuilder audienceBuilder)
     {
         _promotionsDbContext = promotionsDbContext;
         _negociosDbContext = negociosDbContext;
         _fidelityDbContext = fidelityDbContext;
         _ticketService = ticketService;
+        _audienceBuilder = audienceBuilder;
     }
 
     public async Task<PromotionServiceResult<PromotionCampaignResponse>> CreateCampaignAsync(
@@ -195,6 +198,55 @@ public class PromotionService : IPromotionService
             : PromotionServiceResult<PromotionCampaignResponse>.Success(ToResponse(campaign));
     }
 
+    public async Task<PromotionServiceResult<PromotionAudiencePreviewResponse>> PreviewAudienceAsync(
+        Guid negocioId,
+        Guid requesterUserId,
+        bool requesterIsAdmin,
+        PromotionAudiencePreviewRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        PromotionAudienceFiltersRequest filters = request.Filters ?? new();
+        string? validationError = ValidateAudienceFilters(filters);
+        if (validationError is not null)
+        {
+            return PromotionServiceResult<PromotionAudiencePreviewResponse>.Failure("validation_error", validationError);
+        }
+
+        var negocio = await _negociosDbContext.Negocios
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == negocioId && !item.IsDeleted, cancellationToken);
+
+        if (negocio is null)
+        {
+            return PromotionServiceResult<PromotionAudiencePreviewResponse>.Failure("not_found", "Negocio no encontrado.");
+        }
+
+        bool isOwner = negocio.OwnerUserId == requesterUserId || await _negociosDbContext.NegociosUsuariosVinculaciones
+            .AsNoTracking()
+            .AnyAsync(link =>
+                link.NegocioId == negocioId &&
+                link.UserId == requesterUserId &&
+                link.Activa &&
+                !link.RevokedAtUtc.HasValue &&
+                link.TipoVinculacion == TipoVinculacionNegocioUsuario.Propietario,
+                cancellationToken);
+
+        if (!requesterIsAdmin && !isOwner)
+        {
+            return PromotionServiceResult<PromotionAudiencePreviewResponse>.Failure(
+                "forbidden",
+                "Solo el propietario del negocio puede previsualizar la audiencia de promociones.");
+        }
+
+        PromotionAudiencePreviewResponse preview = await _audienceBuilder.PreviewAsync(
+            negocioId,
+            filters,
+            negocio.PermiteNotificacionesPush,
+            cancellationToken);
+
+        return PromotionServiceResult<PromotionAudiencePreviewResponse>.Success(preview);
+    }
+
     public async Task<ReceivedPromotionsPageResponse> GetReceivedPromotionsAsync(
         Guid userId,
         int page,
@@ -298,7 +350,12 @@ public class PromotionService : IPromotionService
             return "La fecha de expiracion debe ser futura y posterior al inicio y al envio.";
         }
 
-        PromotionAudienceFiltersRequest filters = request.Filters ?? new();
+        return ValidateAudienceFilters(request.Filters);
+    }
+
+    private static string? ValidateAudienceFilters(PromotionAudienceFiltersRequest? filtersRequest)
+    {
+        PromotionAudienceFiltersRequest filters = filtersRequest ?? new();
         if (filters.MinimumAge is < 0 or > 130 || filters.MaximumAge is < 0 or > 130 ||
             filters.MinimumAge.HasValue && filters.MaximumAge.HasValue && filters.MinimumAge > filters.MaximumAge)
         {
@@ -365,7 +422,7 @@ public class PromotionService : IPromotionService
             return "Los rangos de tickets no son validos.";
         }
 
-        if (filters.PostalCodes?.Count > 100 || filters.Regions?.Count > 100 ||
+        if (filters.PostalCodes?.Count > 100 || filters.Provinces?.Count > 100 || filters.Regions?.Count > 100 ||
             filters.CountryCodes?.Count > 100 || filters.Languages?.Count > 100)
         {
             return "Cada filtro geografico o de idioma admite un maximo de 100 valores.";

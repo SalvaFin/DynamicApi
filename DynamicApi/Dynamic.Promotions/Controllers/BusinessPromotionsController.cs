@@ -45,6 +45,28 @@ public class BusinessPromotionsController : ControllerBase
             : MapFailure(result);
     }
 
+    [HttpPost("audience-preview")]
+    public async Task<IActionResult> PreviewAudience(
+        Guid negocioId,
+        [FromBody] PromotionAudiencePreviewRequest request,
+        CancellationToken cancellationToken)
+    {
+        Guid? userId = GetCurrentUserId();
+        if (!userId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        PromotionServiceResult<PromotionAudiencePreviewResponse> result = await _promotionService.PreviewAudienceAsync(
+            negocioId,
+            userId.Value,
+            User.IsInRole("Admin"),
+            request,
+            cancellationToken);
+
+        return result.Succeeded && result.Data is not null ? Ok(result.Data) : MapFailure(result);
+    }
+
     [HttpGet("{campaignId:guid}")]
     public async Task<IActionResult> GetById(
         Guid negocioId,

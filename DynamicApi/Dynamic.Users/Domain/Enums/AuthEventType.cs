@@ -14,5 +14,6 @@ public enum AuthEventType
     PasswordResetRequested = 10,
     PasswordResetCompleted = 11,
     ExternalLoginSucceeded = 12,
-    ExternalLoginFailed = 13
+    ExternalLoginFailed = 13,
+    BackofficeCustomerRegistered = 14
 }

@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Dynamic.Promotions.Application.Contracts;
 using Dynamic.Promotions.Application.DTOs.Requests;
+using Dynamic.Promotions.Application.DTOs.Responses;
 using Dynamic.Promotions.Application.Options;
 using Dynamic.Promotions.Domain.Entities;
 using Dynamic.Promotions.Domain.Enums;
@@ -88,19 +89,89 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
         }
     }
 
+    public async Task<PromotionAudiencePreviewResponse> PreviewAsync(
+        Guid negocioId,
+        PromotionAudienceFiltersRequest filters,
+        bool businessPushEnabled,
+        CancellationToken cancellationToken = default)
+    {
+        DateTime now = DateTime.UtcNow;
+        AudienceSql audienceSql = BuildAudienceSql(negocioId, filters, now);
+
+        long audienceCount = await ExecuteScalarLongAsync(
+            $"SELECT COUNT(*) {audienceSql.FromWhereSql}",
+            audienceSql.Parameters,
+            cancellationToken);
+
+        long pushEligibleCount = 0;
+        bool pushAvailable = businessPushEnabled && _firebaseOptions.Enabled;
+        if (pushAvailable)
+        {
+            pushEligibleCount = await ExecuteScalarLongAsync(
+                $"""
+                SELECT COUNT(*)
+                {audienceSql.FromWhereSql}
+                  AND EXISTS (
+                      SELECT 1
+                      FROM `user_devices` preview_device
+                      WHERE preview_device.`UserId` = candidates.`UserId`
+                        AND preview_device.`NotificationsEnabled` = 1
+                        AND preview_device.`PushToken` IS NOT NULL
+                        AND preview_device.`PushToken` <> ''
+                        AND preview_device.`PushProvider` = 'Firebase'
+                  )
+                """,
+                audienceSql.Parameters,
+                cancellationToken);
+        }
+
+        return new PromotionAudiencePreviewResponse
+        {
+            NegocioId = negocioId,
+            AudienceCount = ToInt32Count(audienceCount),
+            PushEligibleCount = ToInt32Count(pushEligibleCount),
+            BusinessPushEnabled = businessPushEnabled,
+            FirebasePushEnabled = _firebaseOptions.Enabled,
+            PushAvailable = pushAvailable,
+            CalculatedAtUtc = now,
+            Filters = filters
+        };
+    }
+
     private async Task InsertRecipientsAsync(
         PromotionCampaign campaign,
         PromotionAudienceFiltersRequest filters,
         DateTime now,
         CancellationToken cancellationToken)
     {
-        StringBuilder where = new();
+        AudienceSql audienceSql = BuildAudienceSql(campaign.NegocioId, filters, now);
         List<(string Name, object? Value)> parameters =
         [
             ("@campaignId", campaign.Id.ToString()),
-            ("@negocioId", campaign.NegocioId.ToString()),
-            ("@now", now),
             ("@expiresAt", campaign.ExpiresAtUtc),
+            .. audienceSql.Parameters
+        ];
+
+        string sql = $"""
+            INSERT IGNORE INTO `promotion_recipients`
+                (`Id`, `CampaignId`, `UserId`, `Status`, `ReceivedAtUtc`, `ExpiresAtUtc`, `CreatedAtUtc`, `UpdatedAtUtc`)
+            SELECT UUID(), @campaignId, candidates.`UserId`, 'Received', @now, @expiresAt, @now, @now
+            {audienceSql.FromWhereSql}
+            """;
+
+        await ExecuteCommandAsync(sql, parameters, cancellationToken);
+    }
+
+    private AudienceSql BuildAudienceSql(
+        Guid negocioId,
+        PromotionAudienceFiltersRequest filters,
+        DateTime now)
+    {
+        StringBuilder where = new();
+        List<(string Name, object? Value)> parameters =
+        [
+            ("@negocioId", negocioId.ToString()),
+            ("@now", now),
             ("@businessCutoff", now.AddDays(-_dispatchOptions.MinimumDaysBetweenBusinessPromotions)),
             ("@globalCutoff", now.AddDays(-_dispatchOptions.GlobalPromotionWindowDays)),
             ("@globalLimit", _dispatchOptions.GlobalPromotionLimitPerWindow)
@@ -108,10 +179,7 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
 
         AppendFilters(where, parameters, filters, now);
 
-        string sql = $"""
-            INSERT IGNORE INTO `promotion_recipients`
-                (`Id`, `CampaignId`, `UserId`, `Status`, `ReceivedAtUtc`, `ExpiresAtUtc`, `CreatedAtUtc`, `UpdatedAtUtc`)
-            SELECT UUID(), @campaignId, candidates.`UserId`, 'Received', @now, @expiresAt, @now, @now
+        string fromWhereSql = $"""
             FROM (
                 SELECT points_source.`UserId`
                 FROM `fidelity_points` points_source
@@ -172,7 +240,7 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
               {where}
             """;
 
-        await ExecuteCommandAsync(sql, parameters, cancellationToken);
+        return new AudienceSql(fromWhereSql, parameters);
     }
 
     private async Task InsertPushDeliveriesAsync(
@@ -266,6 +334,20 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
                 })
                 .ToArray();
             where.Append($" AND user_account.`Gender` IN ({string.Join(", ", parameterNames)})");
+        }
+
+        if (filters.Provinces is { Count: > 0 })
+        {
+            string[] parameterNames = filters.Provinces
+                .Distinct()
+                .Select((province, index) =>
+                {
+                    string name = $"@province{index}";
+                    parameters.Add((name, province.ToString()));
+                    return name;
+                })
+                .ToArray();
+            where.Append($" AND user_account.`Province` IN ({string.Join(", ", parameterNames)})");
         }
 
         AppendComparison(where, parameters, AgeExpression, ">=", "@minimumAge", filters.MinimumAge);
@@ -482,6 +564,36 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    private async Task<long> ExecuteScalarLongAsync(
+        string sql,
+        IReadOnlyCollection<(string Name, object? Value)> parameters,
+        CancellationToken cancellationToken)
+    {
+        DbConnection connection = _dbContext.Database.GetDbConnection();
+        if (connection.State != System.Data.ConnectionState.Open)
+        {
+            await connection.OpenAsync(cancellationToken);
+        }
+
+        await using DbCommand command = connection.CreateCommand();
+        command.CommandText = sql;
+        command.Transaction = _dbContext.Database.CurrentTransaction?.GetDbTransaction();
+
+        foreach ((string name, object? value) in parameters)
+        {
+            DbParameter parameter = command.CreateParameter();
+            parameter.ParameterName = name;
+            parameter.Value = value ?? DBNull.Value;
+            command.Parameters.Add(parameter);
+        }
+
+        object? result = await command.ExecuteScalarAsync(cancellationToken);
+        return Convert.ToInt64(result);
+    }
+
+    private static int ToInt32Count(long count)
+        => count > int.MaxValue ? int.MaxValue : (int)count;
+
     private const string LastActivityExpression =
         "GREATEST(COALESCE(points_data.`LastMovementAtUtc`, points_data.`UpdatedAtUtc`, '1000-01-01'), COALESCE(ticket_stats.`LastTicketAtUtc`, '1000-01-01'))";
 
@@ -500,4 +612,8 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
 
     private static string Truncate(string value, int maxLength)
         => value.Length <= maxLength ? value : value[..maxLength];
+
+    private sealed record AudienceSql(
+        string FromWhereSql,
+        IReadOnlyCollection<(string Name, object? Value)> Parameters);
 }

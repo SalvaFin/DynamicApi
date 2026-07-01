@@ -26,6 +26,7 @@ public class UserSummaryResponse
     public string? CountryCode { get; set; }
     public string? Region { get; set; }
     public string? PostalCode { get; set; }
+    public SpanishProvince? Province { get; set; }
     public string? AvatarUrl { get; set; }
     public DateTime CreatedAtUtc { get; set; }
     public DateTime? LastLoginAtUtc { get; set; }

@@ -12,12 +12,14 @@ using Dynamic.Users.Application.Contracts.Services;
 using Dynamic.Users.Application.DTOs.Requests;
 using Dynamic.Users.Application.DTOs.Responses;
 using Dynamic.Users.Application.Mappings;
+using Dynamic.Users.Application.Options;
 using Dynamic.Users.Domain.Entities;
 using Dynamic.Users.Domain.Enums;
 using Dynamic.Users.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Dynamic.Users.Application.Services;
 
@@ -31,6 +33,8 @@ public class BusinessUserProvisioningService : IBusinessUserProvisioningService
     private readonly IUserCodeDirectoryService _userCodeDirectoryService;
     private readonly INegocioRepository _negocioRepository;
     private readonly INegocioUsuarioVinculacionRepository _negocioUsuarioVinculacionRepository;
+    private readonly IRegistrationRewardService _registrationRewardService;
+    private readonly UserRegistrationOptions _userRegistrationOptions;
     private readonly ILogger<BusinessUserProvisioningService> _logger;
 
     public BusinessUserProvisioningService(
@@ -42,6 +46,8 @@ public class BusinessUserProvisioningService : IBusinessUserProvisioningService
         IUserCodeDirectoryService userCodeDirectoryService,
         INegocioRepository negocioRepository,
         INegocioUsuarioVinculacionRepository negocioUsuarioVinculacionRepository,
+        IRegistrationRewardService registrationRewardService,
+        IOptions<UserRegistrationOptions> userRegistrationOptions,
         ILogger<BusinessUserProvisioningService> logger)
     {
         _usersDbContext = usersDbContext;
@@ -52,6 +58,8 @@ public class BusinessUserProvisioningService : IBusinessUserProvisioningService
         _userCodeDirectoryService = userCodeDirectoryService;
         _negocioRepository = negocioRepository;
         _negocioUsuarioVinculacionRepository = negocioUsuarioVinculacionRepository;
+        _registrationRewardService = registrationRewardService;
+        _userRegistrationOptions = userRegistrationOptions.Value;
         _logger = logger;
     }
 
@@ -154,6 +162,120 @@ public class BusinessUserProvisioningService : IBusinessUserProvisioningService
             ownerRoute: false,
             cancellationToken);
 
+    public async Task<ServiceResult<BusinessCustomerRegistrationResponse>> CreateCustomerByBusinessStaffAsync(
+        Guid negocioId,
+        Guid requesterUserId,
+        bool isAdmin,
+        CreateBusinessCustomerUserRequest request,
+        string? ipAddress,
+        string? userAgent,
+        CancellationToken cancellationToken = default)
+    {
+        Negocio? negocio = await _negocioRepository.GetByIdAsync(negocioId, cancellationToken);
+        if (negocio is null || negocio.IsDeleted)
+        {
+            return ServiceResult<BusinessCustomerRegistrationResponse>.Failure("not_found", "El negocio no existe.");
+        }
+
+        ServiceResult authorization = await EnsureCanRegisterCustomersAsync(negocio, requesterUserId, isAdmin, cancellationToken);
+        if (!authorization.Succeeded)
+        {
+            return ServiceResult<BusinessCustomerRegistrationResponse>.Failure(
+                authorization.ErrorCode ?? "forbidden",
+                authorization.ErrorMessage ?? "Sin permisos.");
+        }
+
+        ServiceResult<ValidatedCustomerRegistration> validation = await ValidateCustomerRegistrationRequestAsync(request, cancellationToken);
+        if (!validation.Succeeded || validation.Data is null)
+        {
+            return ServiceResult<BusinessCustomerRegistrationResponse>.Failure(
+                validation.ErrorCode ?? "validation_error",
+                validation.ErrorMessage ?? "Los datos del cliente no son vÃ¡lidos.");
+        }
+
+        DateTime now = DateTime.UtcNow;
+        bool created = false;
+        bool completedPendingUser = false;
+        UserAccount user;
+
+        if (validation.Data.ExistingUser is null)
+        {
+            user = await BuildCustomerUserAsync(request, validation.Data.Contact, now, cancellationToken);
+            await _userRepository.AddAsync(user, cancellationToken);
+            created = true;
+        }
+        else
+        {
+            user = validation.Data.ExistingUser;
+            if (user.Role != UserRole.User)
+            {
+                return ServiceResult<BusinessCustomerRegistrationResponse>.Failure(
+                    "conflict",
+                    "El contacto pertenece a una cuenta de backoffice y no puede darse de alta como cliente.");
+            }
+
+            if (!user.RegistrationCompleted)
+            {
+                ApplyCustomerRegistrationData(user, request, validation.Data.Contact, now);
+                completedPendingUser = true;
+                _userRepository.Update(user);
+            }
+        }
+
+        await _usersDbContext.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            CustomerLinkResult linkResult = await UpsertCustomerLinkAsync(
+                negocio,
+                user.Id,
+                requesterUserId,
+                now,
+                cancellationToken);
+
+            await PersistBackofficeCustomerEventAsync(user, validation.Data.Contact.OriginalValue, ipAddress, userAgent, cancellationToken);
+            string? userCode = await EnsureUserCodeSafeAsync(user.Id, cancellationToken);
+
+            bool receivedWelcomeTicket = false;
+            if (linkResult.LinkedNow)
+            {
+                receivedWelcomeTicket =
+                    await _registrationRewardService.AssignBusinessWelcomeTicketAsync(negocio.Id, user.Id, cancellationToken);
+            }
+
+            string message = created
+                ? "Cliente dado de alta y vinculado al negocio correctamente."
+                : linkResult.LinkedNow
+                    ? "El cliente ya existÃ­a y se ha vinculado al negocio correctamente."
+                    : completedPendingUser
+                        ? "El registro pendiente del cliente se ha completado y ya estaba vinculado al negocio."
+                        : "El cliente ya existÃ­a y ya estaba vinculado al negocio.";
+
+            return ServiceResult<BusinessCustomerRegistrationResponse>.Success(new BusinessCustomerRegistrationResponse
+            {
+                NegocioId = negocio.Id,
+                Created = created,
+                ExistingUser = !created,
+                LinkedNow = linkResult.LinkedNow,
+                ReceivedWelcomeTicket = receivedWelcomeTicket,
+                Message = message,
+                User = user.ToResponse(userCode),
+                Vinculacion = linkResult.Vinculacion.ToResponse()
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error dando de alta cliente {Contact} para negocio {NegocioId}", request.Contact, negocioId);
+
+            if (created)
+            {
+                await TryRollbackUserAsync(user, cancellationToken);
+            }
+
+            return ServiceResult<BusinessCustomerRegistrationResponse>.Failure("server_error", "No se pudo dar de alta el cliente.");
+        }
+    }
+
     private async Task<ServiceResult<ProvisionedBusinessUserResponse>> CreateBusinessUserAsync(
         Guid negocioId,
         CreateBusinessManagedUserRequest request,
@@ -226,6 +348,258 @@ public class BusinessUserProvisioningService : IBusinessUserProvisioningService
             await TryRollbackUserAsync(user, cancellationToken);
             return ServiceResult<ProvisionedBusinessUserResponse>.Failure("server_error", "No se pudo crear la cuenta del negocio.");
         }
+    }
+
+    private async Task<ServiceResult> EnsureCanRegisterCustomersAsync(
+        Negocio negocio,
+        Guid requesterUserId,
+        bool isAdmin,
+        CancellationToken cancellationToken)
+    {
+        if (isAdmin || negocio.OwnerUserId == requesterUserId)
+        {
+            return ServiceResult.Success();
+        }
+
+        NegocioUsuarioVinculacion? link =
+            await _negocioUsuarioVinculacionRepository.GetByNegocioAndUserAsync(negocio.Id, requesterUserId, cancellationToken);
+
+        if (!IsActiveLink(link))
+        {
+            return ServiceResult.Failure("forbidden", "El usuario no estÃ¡ vinculado al negocio.");
+        }
+
+        bool isBusinessStaff = link!.TipoVinculacion is
+            TipoVinculacionNegocioUsuario.Propietario or
+            TipoVinculacionNegocioUsuario.Gerente or
+            TipoVinculacionNegocioUsuario.Trabajador or
+            TipoVinculacionNegocioUsuario.Colaborador or
+            TipoVinculacionNegocioUsuario.Soporte;
+
+        if (!isBusinessStaff || !link.PuedeAccederBackoffice)
+        {
+            return ServiceResult.Failure("forbidden", "El usuario vinculado al negocio no puede dar de alta clientes.");
+        }
+
+        return ServiceResult.Success();
+    }
+
+    private async Task<ServiceResult<ValidatedCustomerRegistration>> ValidateCustomerRegistrationRequestAsync(
+        CreateBusinessCustomerUserRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!request.TermsAccepted || !request.PrivacyPolicyAccepted)
+        {
+            return ServiceResult<ValidatedCustomerRegistration>.Failure(
+                "validation_error",
+                "Debes confirmar que el cliente acepta los terminos y la politica de privacidad.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Contact) ||
+            string.IsNullOrWhiteSpace(request.Nombre) ||
+            string.IsNullOrWhiteSpace(request.Apellidos) ||
+            string.IsNullOrWhiteSpace(request.PostalCode) ||
+            !request.Province.HasValue ||
+            !Enum.IsDefined(request.Province.Value))
+        {
+            return ServiceResult<ValidatedCustomerRegistration>.Failure(
+                "validation_error",
+                "Contacto, nombre, apellidos, codigo postal y provincia son obligatorios.");
+        }
+
+        ServiceResult<int> birthDateValidation = ValidateBirthDateForRegistration(request.BirthDate);
+        if (!birthDateValidation.Succeeded)
+        {
+            return ServiceResult<ValidatedCustomerRegistration>.Failure(
+                birthDateValidation.ErrorCode ?? "validation_error",
+                birthDateValidation.ErrorMessage ?? $"La fecha de nacimiento debe indicar al menos {_userRegistrationOptions.MinimumAge} aÃ±os.");
+        }
+
+        ContactInfo? contact = ParseContact(request.Contact);
+        if (contact is null)
+        {
+            return ServiceResult<ValidatedCustomerRegistration>.Failure("validation_error", "El contacto indicado no es vÃ¡lido.");
+        }
+
+        UserAccount? existingUser = contact.Type switch
+        {
+            ContactType.Email => await _userRepository.GetByEmailAsync(contact.NormalizedValue, cancellationToken),
+            ContactType.Phone => await _userRepository.GetByPhoneAsync(contact.NormalizedValue, cancellationToken),
+            _ => null
+        };
+
+        return ServiceResult<ValidatedCustomerRegistration>.Success(new ValidatedCustomerRegistration(contact, existingUser));
+    }
+
+    private async Task<UserAccount> BuildCustomerUserAsync(
+        CreateBusinessCustomerUserRequest request,
+        ContactInfo contact,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        string userName = await GenerateUniqueCustomerUserNameAsync(cancellationToken);
+        UserAccount user = new()
+        {
+            Id = Guid.NewGuid(),
+            UserName = userName,
+            NormalizedUserName = userName.ToUpperInvariant(),
+            Role = UserRole.User,
+            Status = UserStatus.Active,
+            RegistrationInitiatedAtUtc = now,
+            RegistrationCompletedAtUtc = now,
+            RegistrationCompleted = true,
+            CreatedAtUtc = now
+        };
+
+        ApplyCustomerRegistrationData(user, request, contact, now);
+        user.PasswordHash = _passwordHasher.HashPassword(user, $"{Guid.NewGuid():N}aA1!");
+        user.PasswordIsTemporary = true;
+
+        return user;
+    }
+
+    private void ApplyCustomerRegistrationData(
+        UserAccount user,
+        CreateBusinessCustomerUserRequest request,
+        ContactInfo contact,
+        DateTime now)
+    {
+        if (contact.Type == ContactType.Email)
+        {
+            user.Email = contact.OriginalValue;
+            user.NormalizedEmail = contact.NormalizedValue;
+            user.EmailConfirmed = true;
+        }
+        else
+        {
+            user.PhoneNumber = contact.OriginalValue;
+            user.NormalizedPhoneNumber = contact.NormalizedValue;
+            user.PhoneNumberConfirmed = true;
+        }
+
+        user.FirstName = request.Nombre.Trim();
+        user.LastName = request.Apellidos.Trim();
+        user.DisplayName = $"{request.Nombre} {request.Apellidos}".Trim();
+        user.AgeAtRegistration = null;
+        user.BirthDate = request.BirthDate!.Value.Date;
+        user.Gender = request.Gender;
+        user.PostalCode = Normalize(request.PostalCode)?.ToUpperInvariant();
+        user.Province = request.Province!.Value;
+        user.RegistrationCompleted = true;
+        user.RegistrationCompletedAtUtc = now;
+        user.RegistrationValidationToken = null;
+        user.RegistrationValidationTokenExpiresAtUtc = null;
+        user.Status = UserStatus.Active;
+        user.LastSeenAtUtc = now;
+        user.UpdatedAtUtc = now;
+        user.TermsAccepted = request.TermsAccepted;
+        user.TermsAcceptedAtUtc = request.TermsAccepted ? now : null;
+        user.PrivacyPolicyAccepted = request.PrivacyPolicyAccepted;
+        user.PrivacyPolicyAcceptedAtUtc = request.PrivacyPolicyAccepted ? now : null;
+        user.MarketingAccepted = request.MarketingAccepted;
+        user.MarketingAcceptedAtUtc = request.MarketingAccepted ? now : null;
+    }
+
+    private async Task<CustomerLinkResult> UpsertCustomerLinkAsync(
+        Negocio negocio,
+        Guid userId,
+        Guid linkedByUserId,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        NegocioUsuarioVinculacion? existing =
+            await _negocioUsuarioVinculacionRepository.GetByNegocioAndUserAsync(negocio.Id, userId, cancellationToken);
+
+        if (IsActiveLink(existing) && existing!.TipoVinculacion == TipoVinculacionNegocioUsuario.Cliente)
+        {
+            return new CustomerLinkResult(existing, LinkedNow: false);
+        }
+
+        NegocioUsuarioVinculacion vinculacion = existing ?? new NegocioUsuarioVinculacion
+        {
+            Id = Guid.NewGuid(),
+            NegocioId = negocio.Id,
+            UserId = userId,
+            CreatedAtUtc = now,
+            FechaInvitacionUtc = now
+        };
+
+        vinculacion.TipoVinculacion = TipoVinculacionNegocioUsuario.Cliente;
+        vinculacion.TituloRelacion = "Cliente";
+        vinculacion.Activa = true;
+        vinculacion.EsPrincipal = false;
+        vinculacion.PuedeAccederBackoffice = false;
+        vinculacion.PuedeGestionarNegocio = false;
+        vinculacion.PuedeGestionarClientes = false;
+        vinculacion.PuedeGestionarCampanas = false;
+        vinculacion.PuedeGestionarPuntos = false;
+        vinculacion.PuedeValidarTickets = false;
+        vinculacion.PuedeVerReportes = false;
+        vinculacion.OrigenVinculacion = "business_staff_customer_register";
+        vinculacion.LinkedByUserId ??= linkedByUserId;
+        vinculacion.UnlinkedByUserId = null;
+        vinculacion.FechaAceptacionUtc ??= now;
+        vinculacion.FechaInicioUtc ??= now;
+        vinculacion.FechaFinUtc = null;
+        vinculacion.RevokedAtUtc = null;
+        vinculacion.UpdatedAtUtc = now;
+
+        if (existing is null)
+        {
+            await _negocioUsuarioVinculacionRepository.AddAsync(vinculacion, cancellationToken);
+        }
+        else
+        {
+            _negocioUsuarioVinculacionRepository.Update(vinculacion);
+        }
+
+        await _negociosDbContext.SaveChangesAsync(cancellationToken);
+        return new CustomerLinkResult(vinculacion, LinkedNow: true);
+    }
+
+    private async Task PersistBackofficeCustomerEventAsync(
+        UserAccount user,
+        string contact,
+        string? ipAddress,
+        string? userAgent,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _userAuthEventRepository.AddAsync(
+                new UserAuthEvent
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = user.Id,
+                    EventType = AuthEventType.BackofficeCustomerRegistered,
+                    Identity = contact,
+                    Succeeded = true,
+                    IpAddress = ipAddress,
+                    UserAgent = userAgent,
+                    CreatedAtUtc = DateTime.UtcNow
+                },
+                cancellationToken);
+
+            await _usersDbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "No se pudo registrar el evento de alta backoffice para el usuario {UserId}", user.Id);
+        }
+    }
+
+    private async Task<string> GenerateUniqueCustomerUserNameAsync(CancellationToken cancellationToken)
+    {
+        for (int attempt = 0; attempt < 5; attempt++)
+        {
+            string userName = $"user{Guid.NewGuid():N}"[..16];
+            if (await _userRepository.GetByUserNameAsync(userName.ToUpperInvariant(), cancellationToken) is null)
+            {
+                return userName;
+            }
+        }
+
+        return $"user{Guid.NewGuid():N}"[..16];
     }
 
     private async Task<ServiceResult> EnsureCanProvisionWorkersAsync(Negocio negocio, Guid requesterUserId, CancellationToken cancellationToken)
@@ -485,6 +859,60 @@ public class BusinessUserProvisioningService : IBusinessUserProvisioningService
         }
     }
 
+    private ServiceResult<int> ValidateBirthDateForRegistration(DateTime? birthDate)
+    {
+        if (!birthDate.HasValue)
+        {
+            return ServiceResult<int>.Failure("validation_error", "La fecha de nacimiento es obligatoria.");
+        }
+
+        DateTime birthDateValue = birthDate.Value.Date;
+        DateTime today = DateTime.UtcNow.Date;
+
+        if (birthDateValue > today)
+        {
+            return ServiceResult<int>.Failure("validation_error", "La fecha de nacimiento no puede ser futura.");
+        }
+
+        int age = CalculateAge(birthDateValue, today);
+        if (age < _userRegistrationOptions.MinimumAge)
+        {
+            return ServiceResult<int>.Failure(
+                "validation_error",
+                $"La edad mÃ­nima para registrarse es de {_userRegistrationOptions.MinimumAge} aÃ±os.");
+        }
+
+        if (age > 130)
+        {
+            return ServiceResult<int>.Failure("validation_error", "La fecha de nacimiento no es vÃ¡lida.");
+        }
+
+        return ServiceResult<int>.Success(age);
+    }
+
+    private static int CalculateAge(DateTime birthDate, DateTime today)
+    {
+        int age = today.Year - birthDate.Year;
+        if (birthDate.Date > today.AddYears(-age))
+        {
+            age--;
+        }
+
+        return age;
+    }
+
+    private static bool IsActiveLink(NegocioUsuarioVinculacion? link)
+    {
+        if (link is null || !link.Activa || link.RevokedAtUtc.HasValue)
+        {
+            return false;
+        }
+
+        DateTime now = DateTime.UtcNow;
+        return (!link.FechaInicioUtc.HasValue || link.FechaInicioUtc.Value <= now) &&
+               (!link.FechaFinUtc.HasValue || link.FechaFinUtc.Value >= now);
+    }
+
     private static string BuildDisplayName(string? firstName, string? lastName, string userName)
     {
         string displayName = $"{firstName} {lastName}".Trim();
@@ -536,4 +964,8 @@ public class BusinessUserProvisioningService : IBusinessUserProvisioningService
     }
 
     private sealed record ContactInfo(ContactType Type, string OriginalValue, string NormalizedValue);
+
+    private sealed record ValidatedCustomerRegistration(ContactInfo Contact, UserAccount? ExistingUser);
+
+    private sealed record CustomerLinkResult(NegocioUsuarioVinculacion Vinculacion, bool LinkedNow);
 }
