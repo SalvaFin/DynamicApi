@@ -470,6 +470,65 @@ namespace DynamicApi.Migrations.Negocios
                     b.ToTable("negocios", (string)null);
                 });
 
+            modelBuilder.Entity("Dynamic.Negocios.Domain.Entities.NegocioAudiencia", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<bool>("Activa")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("EsFavorito")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime>("FechaAltaUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("FechaBajaUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("NegocioId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("OrigenAlta")
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<string>("UltimaActividadOrigen")
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<DateTime>("UltimaActividadUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Activa");
+
+                    b.HasIndex("EsFavorito");
+
+                    b.HasIndex("UltimaActividadUtc");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("NegocioId", "UserId")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "Activa", "UltimaActividadUtc");
+
+                    b.ToTable("negocio_audience_memberships", (string)null);
+                });
+
             modelBuilder.Entity("Dynamic.Negocios.Domain.Entities.NegocioUsuarioVinculacion", b =>
                 {
                     b.Property<Guid>("Id")
@@ -565,6 +624,17 @@ namespace DynamicApi.Migrations.Negocios
                         .IsUnique();
 
                     b.ToTable("negocio_user_links", (string)null);
+                });
+
+            modelBuilder.Entity("Dynamic.Negocios.Domain.Entities.NegocioAudiencia", b =>
+                {
+                    b.HasOne("Dynamic.Negocios.Domain.Entities.Negocio", "Negocio")
+                        .WithMany()
+                        .HasForeignKey("NegocioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Negocio");
                 });
 
             modelBuilder.Entity("Dynamic.Negocios.Domain.Entities.NegocioUsuarioVinculacion", b =>

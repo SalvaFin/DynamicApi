@@ -13,7 +13,7 @@ public class FidelityQrOptions
     public string BusinessLandingPathTemplate { get; set; } = "/portal/tickets";
 
     [Required]
-    public string BusinessPagePathTemplate { get; set; } = "/negocios/{slug}";
+    public string BusinessPagePathTemplate { get; set; } = "/negocio/{slug}";
 
     [Required]
     public string QrQueryParameterName { get; set; } = "qr";

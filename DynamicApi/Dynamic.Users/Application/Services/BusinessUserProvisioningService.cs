@@ -33,6 +33,7 @@ public class BusinessUserProvisioningService : IBusinessUserProvisioningService
     private readonly IUserCodeDirectoryService _userCodeDirectoryService;
     private readonly INegocioRepository _negocioRepository;
     private readonly INegocioUsuarioVinculacionRepository _negocioUsuarioVinculacionRepository;
+    private readonly INegocioAudienciaService _negocioAudienciaService;
     private readonly IRegistrationRewardService _registrationRewardService;
     private readonly UserRegistrationOptions _userRegistrationOptions;
     private readonly ILogger<BusinessUserProvisioningService> _logger;
@@ -46,6 +47,7 @@ public class BusinessUserProvisioningService : IBusinessUserProvisioningService
         IUserCodeDirectoryService userCodeDirectoryService,
         INegocioRepository negocioRepository,
         INegocioUsuarioVinculacionRepository negocioUsuarioVinculacionRepository,
+        INegocioAudienciaService negocioAudienciaService,
         IRegistrationRewardService registrationRewardService,
         IOptions<UserRegistrationOptions> userRegistrationOptions,
         ILogger<BusinessUserProvisioningService> logger)
@@ -58,6 +60,7 @@ public class BusinessUserProvisioningService : IBusinessUserProvisioningService
         _userCodeDirectoryService = userCodeDirectoryService;
         _negocioRepository = negocioRepository;
         _negocioUsuarioVinculacionRepository = negocioUsuarioVinculacionRepository;
+        _negocioAudienciaService = negocioAudienciaService;
         _registrationRewardService = registrationRewardService;
         _userRegistrationOptions = userRegistrationOptions.Value;
         _logger = logger;
@@ -226,7 +229,7 @@ public class BusinessUserProvisioningService : IBusinessUserProvisioningService
 
         try
         {
-            CustomerLinkResult linkResult = await UpsertCustomerLinkAsync(
+            CustomerLinkResult linkResult = await UpsertCustomerAudienceAsync(
                 negocio,
                 user.Id,
                 requesterUserId,
@@ -257,10 +260,11 @@ public class BusinessUserProvisioningService : IBusinessUserProvisioningService
                 Created = created,
                 ExistingUser = !created,
                 LinkedNow = linkResult.LinkedNow,
+                AudienciaId = linkResult.Audiencia.Id,
+                FormaParteAudiencia = true,
                 ReceivedWelcomeTicket = receivedWelcomeTicket,
                 Message = message,
-                User = user.ToResponse(userCode),
-                Vinculacion = linkResult.Vinculacion.ToResponse()
+                User = user.ToResponse(userCode)
             });
         }
         catch (Exception ex)
@@ -500,61 +504,35 @@ public class BusinessUserProvisioningService : IBusinessUserProvisioningService
         user.MarketingAcceptedAtUtc = request.MarketingAccepted ? now : null;
     }
 
-    private async Task<CustomerLinkResult> UpsertCustomerLinkAsync(
+    private async Task<CustomerLinkResult> UpsertCustomerAudienceAsync(
         Negocio negocio,
         Guid userId,
         Guid linkedByUserId,
         DateTime now,
         CancellationToken cancellationToken)
     {
-        NegocioUsuarioVinculacion? existing =
-            await _negocioUsuarioVinculacionRepository.GetByNegocioAndUserAsync(negocio.Id, userId, cancellationToken);
+        NegocioAudiencia? existing =
+            await _negociosDbContext.NegociosAudiencias
+                .FirstOrDefaultAsync(audience => audience.NegocioId == negocio.Id && audience.UserId == userId, cancellationToken);
 
-        if (IsActiveLink(existing) && existing!.TipoVinculacion == TipoVinculacionNegocioUsuario.Cliente)
+        if (IsActiveAudience(existing))
         {
-            return new CustomerLinkResult(existing, LinkedNow: false);
+            return new CustomerLinkResult(existing!, LinkedNow: false);
         }
 
-        NegocioUsuarioVinculacion vinculacion = existing ?? new NegocioUsuarioVinculacion
-        {
-            Id = Guid.NewGuid(),
-            NegocioId = negocio.Id,
-            UserId = userId,
-            CreatedAtUtc = now,
-            FechaInvitacionUtc = now
-        };
+        Dynamic.Fidelity.Application.Common.ServiceResult<NegocioAudiencia> result =
+            await _negocioAudienciaService.EnsureAudienceAsync(
+                negocio.Id,
+                userId,
+                "business_staff_customer_register",
+                cancellationToken);
 
-        vinculacion.TipoVinculacion = TipoVinculacionNegocioUsuario.Cliente;
-        vinculacion.TituloRelacion = "Cliente";
-        vinculacion.Activa = true;
-        vinculacion.EsPrincipal = false;
-        vinculacion.PuedeAccederBackoffice = false;
-        vinculacion.PuedeGestionarNegocio = false;
-        vinculacion.PuedeGestionarClientes = false;
-        vinculacion.PuedeGestionarCampanas = false;
-        vinculacion.PuedeGestionarPuntos = false;
-        vinculacion.PuedeValidarTickets = false;
-        vinculacion.PuedeVerReportes = false;
-        vinculacion.OrigenVinculacion = "business_staff_customer_register";
-        vinculacion.LinkedByUserId ??= linkedByUserId;
-        vinculacion.UnlinkedByUserId = null;
-        vinculacion.FechaAceptacionUtc ??= now;
-        vinculacion.FechaInicioUtc ??= now;
-        vinculacion.FechaFinUtc = null;
-        vinculacion.RevokedAtUtc = null;
-        vinculacion.UpdatedAtUtc = now;
-
-        if (existing is null)
+        if (!result.Succeeded || result.Data is null)
         {
-            await _negocioUsuarioVinculacionRepository.AddAsync(vinculacion, cancellationToken);
-        }
-        else
-        {
-            _negocioUsuarioVinculacionRepository.Update(vinculacion);
+            throw new InvalidOperationException(result.ErrorMessage ?? "No se pudo crear la audiencia del cliente.");
         }
 
-        await _negociosDbContext.SaveChangesAsync(cancellationToken);
-        return new CustomerLinkResult(vinculacion, LinkedNow: true);
+        return new CustomerLinkResult(result.Data, LinkedNow: true);
     }
 
     private async Task PersistBackofficeCustomerEventAsync(
@@ -913,6 +891,9 @@ public class BusinessUserProvisioningService : IBusinessUserProvisioningService
                (!link.FechaFinUtc.HasValue || link.FechaFinUtc.Value >= now);
     }
 
+    private static bool IsActiveAudience(NegocioAudiencia? audience)
+        => audience is not null && audience.Activa && !audience.FechaBajaUtc.HasValue;
+
     private static string BuildDisplayName(string? firstName, string? lastName, string userName)
     {
         string displayName = $"{firstName} {lastName}".Trim();
@@ -967,5 +948,5 @@ public class BusinessUserProvisioningService : IBusinessUserProvisioningService
 
     private sealed record ValidatedCustomerRegistration(ContactInfo Contact, UserAccount? ExistingUser);
 
-    private sealed record CustomerLinkResult(NegocioUsuarioVinculacion Vinculacion, bool LinkedNow);
+    private sealed record CustomerLinkResult(NegocioAudiencia Audiencia, bool LinkedNow);
 }

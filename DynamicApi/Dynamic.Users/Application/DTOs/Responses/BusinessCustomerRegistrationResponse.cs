@@ -8,6 +8,8 @@ public class BusinessCustomerRegistrationResponse
     public bool Created { get; set; }
     public bool ExistingUser { get; set; }
     public bool LinkedNow { get; set; }
+    public Guid? AudienciaId { get; set; }
+    public bool FormaParteAudiencia { get; set; }
     public bool ReceivedWelcomeTicket { get; set; }
     public string Message { get; set; } = string.Empty;
     public UserSummaryResponse User { get; set; } = new();

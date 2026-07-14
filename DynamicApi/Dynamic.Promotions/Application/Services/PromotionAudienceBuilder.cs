@@ -9,9 +9,13 @@ using Dynamic.Promotions.Application.Options;
 using Dynamic.Promotions.Domain.Entities;
 using Dynamic.Promotions.Domain.Enums;
 using Dynamic.Promotions.Infrastructure.Persistence;
+using Dynamic.Fidelity.Application.Contracts.Services;
+using Dynamic.Fidelity.Domain.Entities;
+using Dynamic.Fidelity.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
 
 namespace Dynamic.Promotions.Application.Services;
 
@@ -21,15 +25,21 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
     private readonly DynamicPromotionsDbContext _dbContext;
     private readonly PromotionDispatchOptions _dispatchOptions;
     private readonly FirebasePushOptions _firebaseOptions;
+    private readonly ITicketEventPublisher _ticketEventPublisher;
+    private readonly ILogger<PromotionAudienceBuilder> _logger;
 
     public PromotionAudienceBuilder(
         DynamicPromotionsDbContext dbContext,
         IOptions<PromotionDispatchOptions> dispatchOptions,
-        IOptions<FirebasePushOptions> firebaseOptions)
+        IOptions<FirebasePushOptions> firebaseOptions,
+        ITicketEventPublisher ticketEventPublisher,
+        ILogger<PromotionAudienceBuilder> logger)
     {
         _dbContext = dbContext;
         _dispatchOptions = dispatchOptions.Value;
         _firebaseOptions = firebaseOptions.Value;
+        _ticketEventPublisher = ticketEventPublisher;
+        _logger = logger;
     }
 
     public async Task BuildAsync(Guid campaignId, CancellationToken cancellationToken = default)
@@ -77,6 +87,24 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
 
             await _dbContext.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
+
+            try
+            {
+                IReadOnlyCollection<Ticket> assignedTickets = await LoadAssignedTicketsAsync(campaign.Id, cancellationToken);
+                foreach (Ticket assignedTicket in assignedTickets)
+                {
+                    await _ticketEventPublisher.PublishReceivedAsync(assignedTicket, "promotion", cancellationToken);
+                }
+            }
+            catch (Exception notificationException)
+            {
+                // La campaña y sus tickets ya están confirmados. Un fallo del canal efímero
+                // no debe revertir ni marcar como fallida la operación de negocio.
+                _logger.LogWarning(
+                    notificationException,
+                    "No se pudieron publicar todos los tickets de la campaña {CampaignId} por SignalR.",
+                    campaign.Id);
+            }
         }
         catch (Exception ex)
         {
@@ -181,14 +209,13 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
 
         string fromWhereSql = $"""
             FROM (
-                SELECT points_source.`UserId`
-                FROM `fidelity_points` points_source
-                WHERE points_source.`NegocioId` = @negocioId
-                UNION
-                SELECT ticket_source.`UserId`
-                FROM `fidelity_tickets` ticket_source
-                WHERE ticket_source.`NegocioId` = @negocioId
-                  AND ticket_source.`UserId` IS NOT NULL
+                SELECT audience_source.`UserId`,
+                       audience_source.`FechaAltaUtc`,
+                       audience_source.`UltimaActividadUtc`
+                FROM `negocio_audience_memberships` audience_source
+                WHERE audience_source.`NegocioId` = @negocioId
+                  AND audience_source.`Activa` = 1
+                  AND audience_source.`FechaBajaUtc` IS NULL
             ) candidates
             INNER JOIN `users` user_account ON user_account.`Id` = candidates.`UserId`
             LEFT JOIN `fidelity_points` points_data
@@ -213,15 +240,6 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
             WHERE user_account.`RegistrationCompleted` = 1
               AND user_account.`Status` = 'Active'
               AND user_account.`MarketingAccepted` = 1
-              AND NOT EXISTS (
-                  SELECT 1
-                  FROM `negocio_user_links` staff_link
-                  WHERE staff_link.`NegocioId` = @negocioId
-                    AND staff_link.`UserId` = candidates.`UserId`
-                    AND staff_link.`Activa` = 1
-                    AND staff_link.`RevokedAtUtc` IS NULL
-                    AND staff_link.`TipoVinculacion` <> 'Cliente'
-              )
               AND NOT EXISTS (
                   SELECT 1
                   FROM `promotion_recipients` previous_recipient
@@ -564,6 +582,50 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    private async Task<IReadOnlyCollection<Ticket>> LoadAssignedTicketsAsync(
+        Guid campaignId,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT `Id`, `NegocioId`, `UserId`, `ParentTicketId`, `SourcePromotionCampaignId`,
+                   `SourcePromotionRecipientId`, `Nombre`, `CategoriaEnvioEspecial`, `CreatedAtUtc`
+            FROM `fidelity_tickets`
+            WHERE `SourcePromotionCampaignId` = @campaignId
+            """;
+
+        await using DbCommand command = _dbContext.Database.GetDbConnection().CreateCommand();
+        command.CommandText = sql;
+        DbParameter parameter = command.CreateParameter();
+        parameter.ParameterName = "@campaignId";
+        parameter.Value = campaignId.ToString();
+        command.Parameters.Add(parameter);
+
+        if (command.Connection!.State != System.Data.ConnectionState.Open)
+        {
+            await command.Connection.OpenAsync(cancellationToken);
+        }
+
+        List<Ticket> tickets = [];
+        await using DbDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            tickets.Add(new Ticket
+            {
+                Id = reader.GetGuid(0),
+                NegocioId = reader.GetGuid(1),
+                UserId = reader.GetGuid(2),
+                ParentTicketId = reader.GetGuid(3),
+                SourcePromotionCampaignId = reader.GetGuid(4),
+                SourcePromotionRecipientId = reader.GetGuid(5),
+                Nombre = reader.GetString(6),
+                CategoriaEnvioEspecial = Enum.Parse<CategoriaEnvioTicket>(reader.GetString(7)),
+                CreatedAtUtc = reader.GetDateTime(8)
+            });
+        }
+
+        return tickets;
+    }
+
     private async Task<long> ExecuteScalarLongAsync(
         string sql,
         IReadOnlyCollection<(string Name, object? Value)> parameters,
@@ -595,10 +657,10 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
         => count > int.MaxValue ? int.MaxValue : (int)count;
 
     private const string LastActivityExpression =
-        "GREATEST(COALESCE(points_data.`LastMovementAtUtc`, points_data.`UpdatedAtUtc`, '1000-01-01'), COALESCE(ticket_stats.`LastTicketAtUtc`, '1000-01-01'))";
+        "GREATEST(COALESCE(points_data.`LastMovementAtUtc`, points_data.`UpdatedAtUtc`, '1000-01-01'), COALESCE(ticket_stats.`LastTicketAtUtc`, '1000-01-01'), COALESCE(candidates.`UltimaActividadUtc`, '1000-01-01'))";
 
     private const string FirstActivityExpression =
-        "LEAST(COALESCE(points_data.`CreatedAtUtc`, '9999-12-31'), COALESCE(ticket_stats.`FirstTicketAtUtc`, '9999-12-31'))";
+        "LEAST(COALESCE(points_data.`CreatedAtUtc`, '9999-12-31'), COALESCE(ticket_stats.`FirstTicketAtUtc`, '9999-12-31'), COALESCE(candidates.`FechaAltaUtc`, '9999-12-31'))";
 
     private const string AgeExpression =
         "TIMESTAMPDIFF(YEAR, user_account.`BirthDate`, @now)";

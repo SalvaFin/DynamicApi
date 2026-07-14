@@ -115,7 +115,7 @@ Todos son opcionales y se combinan con AND. Dentro de un campo de lista (`gender
 | `hasActivePushNotifications` | Tiene al menos un dispositivo con push habilitado |
 | `hasConfirmedEmail` | Email confirmado |
 
-Aunque no se envien filtros, solo entran usuarios relacionados con ese negocio mediante puntos o tickets. Siempre se excluyen usuarios sin `MarketingAccepted`, cuentas inactivas y personal del propio negocio.
+Aunque no se envien filtros, solo entran usuarios que forman parte de la audiencia activa del negocio. Los puntos y tickets se usan como datos de segmentacion cuando existen, pero ya no son la fuente primaria de audiencia. Siempre se excluyen usuarios sin `MarketingAccepted` y cuentas inactivas.
 
 Dynamic aplica tambien limites no controlables por el negocio: por defecto, una promocion del mismo negocio cada 7 dias y un maximo global de 3 promociones por usuario cada 7 dias.
 

@@ -34,7 +34,8 @@ builder.Services.AddCors(options =>
     options.AddPolicy("OpenCors", policy =>
     {
         policy
-            .AllowAnyOrigin()
+            .SetIsOriginAllowed(_ => true)
+            .AllowCredentials()
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
@@ -110,10 +111,14 @@ negocioMediaContentTypes.Mappings[".heif"] = "image/heif";
 
 await using (AsyncServiceScope scope = app.Services.CreateAsyncScope())
 {
-    await scope.ServiceProvider.GetRequiredService<DynamicUsersDbContext>().Database.MigrateAsync();
-    await scope.ServiceProvider.GetRequiredService<DynamicNegociosDbContext>().Database.MigrateAsync();
-    await scope.ServiceProvider.GetRequiredService<DynamicFidelityDbContext>().Database.MigrateAsync();
-    await scope.ServiceProvider.GetRequiredService<DynamicPromotionsDbContext>().Database.MigrateAsync();
+    ILogger migrationLogger = scope.ServiceProvider
+        .GetRequiredService<ILoggerFactory>()
+        .CreateLogger("DatabaseMigrations");
+
+    await ApplyMigrationsAsync(scope.ServiceProvider.GetRequiredService<DynamicUsersDbContext>(), "users", migrationLogger);
+    await ApplyMigrationsAsync(scope.ServiceProvider.GetRequiredService<DynamicNegociosDbContext>(), "negocios", migrationLogger);
+    await ApplyMigrationsAsync(scope.ServiceProvider.GetRequiredService<DynamicFidelityDbContext>(), "fidelity", migrationLogger);
+    await ApplyMigrationsAsync(scope.ServiceProvider.GetRequiredService<DynamicPromotionsDbContext>(), "promotions", migrationLogger);
 }
 
 if (app.Environment.IsDevelopment())
@@ -142,3 +147,15 @@ app.MapControllers();
 app.MapDynamicNotifyEndpoints();
 
 app.Run();
+
+static async Task ApplyMigrationsAsync(DbContext dbContext, string contextName, ILogger logger)
+{
+    string[] pendingMigrations = (await dbContext.Database.GetPendingMigrationsAsync()).ToArray();
+    logger.LogInformation(
+        "Applying database migrations for {ContextName}. Pending count: {PendingCount}. Pending: {PendingMigrations}",
+        contextName,
+        pendingMigrations.Length,
+        pendingMigrations.Length == 0 ? "<none>" : string.Join(", ", pendingMigrations));
+
+    await dbContext.Database.MigrateAsync();
+}

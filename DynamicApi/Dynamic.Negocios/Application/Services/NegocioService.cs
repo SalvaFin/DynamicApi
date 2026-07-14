@@ -60,25 +60,25 @@ public class NegocioService : INegocioService
         int page = Math.Max(request.Page, DefaultPage);
         string[] searchTerms = NormalizeSearchTerms(request.Search ?? request.Q);
         bool hasLocation = request.Latitud.HasValue && request.Longitud.HasValue;
-        bool isNearbyDiscovery = hasLocation && searchTerms.Length == 0;
-        int defaultPageSize = isNearbyDiscovery ? DefaultNearbyPageSize : DefaultPageSize;
+        int defaultPageSize = hasLocation ? DefaultNearbyPageSize : DefaultPageSize;
         int pageSize = Math.Clamp(request.PageSize.GetValueOrDefault(defaultPageSize), 1, MaxPageSize);
 
         IReadOnlyCollection<Negocio> negocios = await _negocioRepository.ExploreAsync(searchTerms, cancellationToken);
         List<ExplorarNegocioResponse> mapped = negocios
+            .Where(negocio => !hasLocation || (negocio.Latitud.HasValue && negocio.Longitud.HasValue))
             .Select(negocio => negocio.ToExploreResponse(hasLocation
                 ? CalculateDistanceKm(request.Latitud!.Value, request.Longitud!.Value, negocio.Latitud, negocio.Longitud)
                 : null))
             .ToList();
 
-        IEnumerable<ExplorarNegocioResponse> ordered = hasLocation
+        List<ExplorarNegocioResponse> ordered = (hasLocation
             ? mapped
-                .OrderBy(negocio => negocio.DistanciaKm.HasValue ? 0 : 1)
-                .ThenBy(negocio => negocio.DistanciaKm)
+                .OrderBy(negocio => negocio.DistanciaKm)
                 .ThenBy(negocio => negocio.NombreComercial)
-            : mapped.OrderBy(negocio => negocio.NombreComercial);
+            : mapped.OrderBy(negocio => negocio.NombreComercial))
+            .ToList();
 
-        int totalItems = mapped.Count;
+        int totalItems = ordered.Count;
         ExplorarNegociosResponse response = new()
         {
             Page = page,

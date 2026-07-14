@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Data.Common;
 using Dynamic.Fidelity.Domain.Entities;
 using Dynamic.Fidelity.Domain.Enums;
 using Dynamic.Fidelity.Infrastructure.Persistence;
@@ -24,17 +25,20 @@ public class BusinessAnalyticsController : ControllerBase
     private readonly DynamicNegociosDbContext _negociosDbContext;
     private readonly DynamicPromotionsDbContext _promotionsDbContext;
     private readonly DynamicUsersDbContext _usersDbContext;
+    private readonly ILogger<BusinessAnalyticsController> _logger;
 
     public BusinessAnalyticsController(
         DynamicFidelityDbContext fidelityDbContext,
         DynamicNegociosDbContext negociosDbContext,
         DynamicPromotionsDbContext promotionsDbContext,
-        DynamicUsersDbContext usersDbContext)
+        DynamicUsersDbContext usersDbContext,
+        ILogger<BusinessAnalyticsController> logger)
     {
         _fidelityDbContext = fidelityDbContext;
         _negociosDbContext = negociosDbContext;
         _promotionsDbContext = promotionsDbContext;
         _usersDbContext = usersDbContext;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -55,14 +59,17 @@ public class BusinessAnalyticsController : ControllerBase
             return authorization;
         }
 
+        List<AnalyticsWarningResponse> warnings = [];
+
         return Ok(new BusinessAnalyticsResponse(
             range,
-            await BuildOverviewAsync(negocioId, range, cancellationToken),
-            await BuildAcquisitionAsync(negocioId, range, cancellationToken),
-            await BuildTicketsAsync(negocioId, range, cancellationToken),
-            await BuildMoneyAndPointsAsync(negocioId, range, cancellationToken),
-            await BuildPromotionsAsync(negocioId, range, cancellationToken),
-            await BuildOperationsAsync(negocioId, range, cancellationToken)));
+            await SafeBuildSectionAsync("overview", negocioId, range, BuildOverviewAsync, EmptyOverview, warnings, cancellationToken),
+            await SafeBuildSectionAsync("acquisition", negocioId, range, BuildAcquisitionAsync, EmptyAcquisition, warnings, cancellationToken),
+            await SafeBuildSectionAsync("tickets", negocioId, range, BuildTicketsAsync, EmptyTickets, warnings, cancellationToken),
+            await SafeBuildSectionAsync("moneyPoints", negocioId, range, BuildMoneyAndPointsAsync, EmptyMoneyAndPoints, warnings, cancellationToken),
+            await SafeBuildSectionAsync("promotions", negocioId, range, BuildPromotionsAsync, EmptyPromotions, warnings, cancellationToken),
+            await SafeBuildSectionAsync("operations", negocioId, range, BuildOperationsAsync, EmptyOperations, warnings, cancellationToken),
+            warnings));
     }
 
     [HttpGet("overview")]
@@ -107,7 +114,39 @@ public class BusinessAnalyticsController : ControllerBase
             return authorization;
         }
 
-        return Ok(await builder(negocioId, range, cancellationToken));
+        try
+        {
+            return Ok(await builder(negocioId, range, cancellationToken));
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _logger.LogError(exception, "Error building analytics section for negocio {NegocioId}.", negocioId);
+            return StatusCode(StatusCodes.Status500InternalServerError, new AnalyticsSectionErrorResponse(
+                Section: typeof(T).Name,
+                ExceptionType: exception.GetType().Name,
+                Message: exception.Message));
+        }
+    }
+
+    private async Task<T> SafeBuildSectionAsync<T>(
+        string section,
+        Guid negocioId,
+        AnalyticsDateRange range,
+        Func<Guid, AnalyticsDateRange, CancellationToken, Task<T>> builder,
+        Func<AnalyticsDateRange, T> fallback,
+        ICollection<AnalyticsWarningResponse> warnings,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await builder(negocioId, range, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _logger.LogError(exception, "Error building analytics section {Section} for negocio {NegocioId}.", section, negocioId);
+            warnings.Add(new AnalyticsWarningResponse(section, exception.GetType().Name, exception.Message));
+            return fallback(range);
+        }
     }
 
     private async Task<AnalyticsOverviewResponse> BuildOverviewAsync(
@@ -115,11 +154,8 @@ public class BusinessAnalyticsController : ControllerBase
         AnalyticsDateRange range,
         CancellationToken cancellationToken)
     {
-        int newCustomers = await CustomerLinks(negocioId)
-            .Where(link => link.CreatedAtUtc >= range.FromUtc && link.CreatedAtUtc < range.ToUtc)
-            .Select(link => link.UserId)
-            .Distinct()
-            .CountAsync(cancellationToken);
+        List<CustomerLinkProjection> customerLinks = await GetCustomerLinksAsync(negocioId, range, cancellationToken);
+        int newCustomers = customerLinks.Select(link => link.UserId).Distinct().Count();
 
         int activeCustomers = await GetActiveCustomerCountAsync(negocioId, range, cancellationToken);
         int returningCustomers = await GetReturningCustomerCountAsync(negocioId, range, cancellationToken);
@@ -137,17 +173,15 @@ public class BusinessAnalyticsController : ControllerBase
                 transaction.TransactionType == PointsTransactionType.TransferIn)
             .SumAsync(transaction => transaction.PointsAmount, cancellationToken);
 
-        decimal ticketPurchaseAmount = await TicketRedemptions(negocioId, range)
-            .SumAsync(redemption => redemption.PurchaseAmount ?? 0m, cancellationToken);
-
-        decimal ticketDiscountAmount = await TicketRedemptions(negocioId, range)
-            .SumAsync(redemption => redemption.DiscountAmount ?? 0m, cancellationToken);
+        List<TicketRedemption> ticketRedemptions = await GetTicketRedemptionsAsync(negocioId, range, cancellationToken);
+        decimal ticketPurchaseAmount = ticketRedemptions.Sum(redemption => redemption.PurchaseAmount ?? 0m);
+        decimal ticketDiscountAmount = ticketRedemptions.Sum(redemption => redemption.DiscountAmount ?? 0m);
 
         int assignedTickets = await AssignedTickets(negocioId)
             .Where(ticket => ticket.CreatedAtUtc >= range.FromUtc && ticket.CreatedAtUtc < range.ToUtc)
             .CountAsync(cancellationToken);
 
-        int redeemedTickets = await CountTicketRedemptionsIncludingLegacyAsync(negocioId, range, cancellationToken);
+        int redeemedTickets = await CountTicketRedemptionsIncludingLegacyAsync(negocioId, range, ticketRedemptions, cancellationToken);
         decimal redemptionRate = assignedTickets == 0 ? 0 : decimal.Round((decimal)redeemedTickets / assignedTickets * 100m, 2);
 
         int sentCampaigns = await _promotionsDbContext.Campaigns
@@ -180,15 +214,30 @@ public class BusinessAnalyticsController : ControllerBase
                 Note: "Los canjes nuevos guardan importe de compra, descuento e importe final. Los canjes historicos previos no tienen detalle economico."));
     }
 
+    private static AnalyticsOverviewResponse EmptyOverview(AnalyticsDateRange range)
+        => new(
+            range,
+            [
+                new("newCustomers", "Clientes captados", 0, "count", "No disponible temporalmente."),
+                new("activeCustomers", "Clientes activos", 0, "count", "No disponible temporalmente."),
+                new("returningCustomers", "Clientes recurrentes", 0, "count", "No disponible temporalmente."),
+                new("pointsTrackedRevenue", "Euros trazados por puntos", 0, "eur", "No disponible temporalmente."),
+                new("ticketPurchaseAmount", "Euros con ticket", 0, "eur", "No disponible temporalmente."),
+                new("ticketsRedeemed", "Tickets canjeados", 0, "count", "No disponible temporalmente."),
+                new("redemptionRate", "Ratio de canje", 0, "percent", "No disponible temporalmente."),
+                new("pointsIssued", "Puntos emitidos", 0, "points", "No disponible temporalmente."),
+                new("sentCampaigns", "Campanas enviadas", 0, "count", "No disponible temporalmente.")
+            ],
+            new(false, false, 0, 0, "La seccion overview no se pudo calcular."));
+
     private async Task<AcquisitionAnalyticsResponse> BuildAcquisitionAsync(
         Guid negocioId,
         AnalyticsDateRange range,
         CancellationToken cancellationToken)
     {
-        List<NegocioUsuarioVinculacion> links = await CustomerLinks(negocioId)
-            .Where(link => link.CreatedAtUtc >= range.FromUtc && link.CreatedAtUtc < range.ToUtc)
+        List<CustomerLinkProjection> links = (await GetCustomerLinksAsync(negocioId, range, cancellationToken))
             .OrderByDescending(link => link.CreatedAtUtc)
-            .ToListAsync(cancellationToken);
+            .ToList();
 
         List<PendingTicketAssignment> qrAssignments = await _fidelityDbContext.PendingTicketAssignments
             .AsNoTracking()
@@ -200,7 +249,7 @@ public class BusinessAnalyticsController : ControllerBase
             .ToListAsync(cancellationToken);
 
         List<AnalyticsBreakdownItemResponse> byOrigin = links
-            .GroupBy(link => NormalizeOrigin(link.OrigenVinculacion))
+            .GroupBy(link => NormalizeOrigin(link.Origin))
             .Select(group => new AnalyticsBreakdownItemResponse(group.Key, ResolveOriginLabel(group.Key), group.Select(link => link.UserId).Distinct().Count()))
             .OrderByDescending(item => item.Value)
             .ToList();
@@ -221,8 +270,8 @@ public class BusinessAnalyticsController : ControllerBase
             .Select(link => new CustomerAcquisitionItemResponse(
                 link.UserId,
                 ResolveUserDisplayName(users.GetValueOrDefault(link.UserId)),
-                NormalizeOrigin(link.OrigenVinculacion),
-                ResolveOriginLabel(NormalizeOrigin(link.OrigenVinculacion)),
+                NormalizeOrigin(link.Origin),
+                ResolveOriginLabel(NormalizeOrigin(link.Origin)),
                 link.CreatedAtUtc,
                 qrAssignments.Any(assignment => assignment.UserId == link.UserId)))
             .ToArray();
@@ -247,6 +296,9 @@ public class BusinessAnalyticsController : ControllerBase
             LatestCustomers: latestCustomers);
     }
 
+    private static AcquisitionAnalyticsResponse EmptyAcquisition(AnalyticsDateRange range)
+        => new(range, 0, 0, 0, [], []);
+
     private async Task<TicketsAnalyticsResponse> BuildTicketsAsync(
         Guid negocioId,
         AnalyticsDateRange range,
@@ -256,7 +308,8 @@ public class BusinessAnalyticsController : ControllerBase
             .Where(ticket => ticket.CreatedAtUtc >= range.FromUtc && ticket.CreatedAtUtc < range.ToUtc)
             .CountAsync(cancellationToken);
 
-        int redeemed = await CountTicketRedemptionsIncludingLegacyAsync(negocioId, range, cancellationToken);
+        List<TicketRedemption> redemptions = await GetTicketRedemptionsAsync(negocioId, range, cancellationToken);
+        int redeemed = await CountTicketRedemptionsIncludingLegacyAsync(negocioId, range, redemptions, cancellationToken);
 
         int active = await AssignedTickets(negocioId)
             .Where(ticket => ticket.Activo && !ticket.Usado && ticket.ExpiresAtUtc > range.ToUtc)
@@ -268,9 +321,6 @@ public class BusinessAnalyticsController : ControllerBase
 
         List<Ticket> assignedTickets = await AssignedTickets(negocioId)
             .Where(ticket => ticket.CreatedAtUtc >= range.FromUtc && ticket.CreatedAtUtc < range.ToUtc)
-            .ToListAsync(cancellationToken);
-
-        List<TicketRedemption> redemptions = await TicketRedemptions(negocioId, range)
             .ToListAsync(cancellationToken);
 
         AnalyticsBreakdownItemResponse[] byCategory = assignedTickets
@@ -330,6 +380,9 @@ public class BusinessAnalyticsController : ControllerBase
             TopTickets: topTickets);
     }
 
+    private static TicketsAnalyticsResponse EmptyTickets(AnalyticsDateRange range)
+        => new(range, 0, 0, 0, 0, 0, [], [], []);
+
     private async Task<MoneyAndPointsAnalyticsResponse> BuildMoneyAndPointsAsync(
         Guid negocioId,
         AnalyticsDateRange range,
@@ -338,8 +391,7 @@ public class BusinessAnalyticsController : ControllerBase
         List<PointsTransaction> transactions = await PointsTransactions(negocioId, range)
             .ToListAsync(cancellationToken);
 
-        List<TicketRedemption> redemptions = await TicketRedemptions(negocioId, range)
-            .ToListAsync(cancellationToken);
+        List<TicketRedemption> redemptions = await GetTicketRedemptionsAsync(negocioId, range, cancellationToken);
 
         decimal pointsTrackedRevenue = transactions
             .Where(transaction => transaction.TransactionType is PointsTransactionType.Earn or PointsTransactionType.BackofficeEarn)
@@ -390,6 +442,9 @@ public class BusinessAnalyticsController : ControllerBase
             TopCustomers: topCustomers);
     }
 
+    private static MoneyAndPointsAnalyticsResponse EmptyMoneyAndPoints(AnalyticsDateRange range)
+        => new(range, 0, 0, 0, 0, 0, 0, 0, 0, []);
+
     private async Task<PromotionsAnalyticsResponse> BuildPromotionsAsync(
         Guid negocioId,
         AnalyticsDateRange range,
@@ -410,13 +465,14 @@ public class BusinessAnalyticsController : ControllerBase
             .Where(ticket => ticket.SourcePromotionCampaignId.HasValue && campaignIds.Contains(ticket.SourcePromotionCampaignId.Value))
             .ToListAsync(cancellationToken);
 
-        List<TicketRedemption> campaignRedemptions = await _fidelityDbContext.TicketRedemptions
-            .AsNoTracking()
+        List<TicketRedemption> campaignRedemptions = (await GetTicketRedemptionsAsync(
+                negocioId,
+                range,
+                cancellationToken))
             .Where(redemption =>
-                redemption.NegocioId == negocioId &&
                 redemption.SourcePromotionCampaignId.HasValue &&
                 campaignIds.Contains(redemption.SourcePromotionCampaignId.Value))
-            .ToListAsync(cancellationToken);
+            .ToList();
 
         CampaignMetricResponse[] campaignMetrics = campaigns
             .Select(campaign =>
@@ -452,6 +508,9 @@ public class BusinessAnalyticsController : ControllerBase
             Campaigns: campaignMetrics);
     }
 
+    private static PromotionsAnalyticsResponse EmptyPromotions(AnalyticsDateRange range)
+        => new(range, 0, 0, 0, 0, 0, 0, 0, []);
+
     private async Task<OperationsAnalyticsResponse> BuildOperationsAsync(
         Guid negocioId,
         AnalyticsDateRange range,
@@ -484,8 +543,7 @@ public class BusinessAnalyticsController : ControllerBase
                 attempt.CreatedAtUtc < range.ToUtc)
             .CountAsync(cancellationToken);
 
-        List<TicketRedemption> redemptions = await TicketRedemptions(negocioId, range)
-            .ToListAsync(cancellationToken);
+        List<TicketRedemption> redemptions = await GetTicketRedemptionsAsync(negocioId, range, cancellationToken);
 
         ValidatorMetricResponse[] topValidators = redemptions
             .GroupBy(redemption => redemption.ValidatedByUserId)
@@ -508,23 +566,70 @@ public class BusinessAnalyticsController : ControllerBase
             TopValidators: topValidators);
     }
 
-    private IQueryable<NegocioUsuarioVinculacion> CustomerLinks(Guid negocioId)
-        => _negociosDbContext.NegociosUsuariosVinculaciones
-            .AsNoTracking()
-            .Where(link => link.NegocioId == negocioId && link.TipoVinculacion == TipoVinculacionNegocioUsuario.Cliente);
+    private static OperationsAnalyticsResponse EmptyOperations(AnalyticsDateRange range)
+        => new(range, 0, 0, 0, 0, []);
+
+    private async Task<List<CustomerLinkProjection>> GetCustomerLinksAsync(
+        Guid negocioId,
+        AnalyticsDateRange range,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _negociosDbContext.NegociosAudiencias
+                .AsNoTracking()
+                .Where(link =>
+                    link.NegocioId == negocioId &&
+                    link.CreatedAtUtc >= range.FromUtc &&
+                    link.CreatedAtUtc < range.ToUtc)
+                .Select(link => new CustomerLinkProjection(
+                    link.UserId,
+                    link.OrigenAlta,
+                    link.CreatedAtUtc))
+                .ToListAsync(cancellationToken);
+        }
+        catch (DbException)
+        {
+            return await _negociosDbContext.NegociosUsuariosVinculaciones
+                .AsNoTracking()
+                .Where(link =>
+                    link.NegocioId == negocioId &&
+                    link.TipoVinculacion == TipoVinculacionNegocioUsuario.Cliente &&
+                    link.CreatedAtUtc >= range.FromUtc &&
+                    link.CreatedAtUtc < range.ToUtc)
+                .Select(link => new CustomerLinkProjection(
+                    link.UserId,
+                    link.OrigenVinculacion,
+                    link.CreatedAtUtc))
+                .ToListAsync(cancellationToken);
+        }
+    }
 
     private IQueryable<Ticket> AssignedTickets(Guid negocioId)
         => _fidelityDbContext.Tickets
             .AsNoTracking()
             .Where(ticket => ticket.NegocioId == negocioId && !ticket.EsPlantilla && ticket.UserId.HasValue);
 
-    private IQueryable<TicketRedemption> TicketRedemptions(Guid negocioId, AnalyticsDateRange range)
-        => _fidelityDbContext.TicketRedemptions
-            .AsNoTracking()
-            .Where(redemption =>
-                redemption.NegocioId == negocioId &&
-                redemption.CreatedAtUtc >= range.FromUtc &&
-                redemption.CreatedAtUtc < range.ToUtc);
+    private async Task<List<TicketRedemption>> GetTicketRedemptionsAsync(
+        Guid negocioId,
+        AnalyticsDateRange range,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _fidelityDbContext.TicketRedemptions
+                .AsNoTracking()
+                .Where(redemption =>
+                    redemption.NegocioId == negocioId &&
+                    redemption.CreatedAtUtc >= range.FromUtc &&
+                    redemption.CreatedAtUtc < range.ToUtc)
+                .ToListAsync(cancellationToken);
+        }
+        catch (DbException)
+        {
+            return [];
+        }
+    }
 
     private IQueryable<PointsTransaction> PointsTransactions(Guid negocioId, AnalyticsDateRange range)
         => _fidelityDbContext.PointsTransactions
@@ -537,18 +642,22 @@ public class BusinessAnalyticsController : ControllerBase
     private async Task<int> CountTicketRedemptionsIncludingLegacyAsync(
         Guid negocioId,
         AnalyticsDateRange range,
+        IReadOnlyCollection<TicketRedemption> instrumentedRedemptions,
         CancellationToken cancellationToken)
     {
-        int instrumentedRedemptions = await TicketRedemptions(negocioId, range).CountAsync(cancellationToken);
+        Guid[] instrumentedTicketIds = instrumentedRedemptions
+            .Select(redemption => redemption.TicketId)
+            .Distinct()
+            .ToArray();
 
         int legacyRedemptions = await AssignedTickets(negocioId)
             .Where(ticket =>
                 ticket.UsedAtUtc >= range.FromUtc &&
                 ticket.UsedAtUtc < range.ToUtc &&
-                !_fidelityDbContext.TicketRedemptions.Any(redemption => redemption.TicketId == ticket.Id))
+                !instrumentedTicketIds.Contains(ticket.Id))
             .CountAsync(cancellationToken);
 
-        return instrumentedRedemptions + legacyRedemptions;
+        return instrumentedRedemptions.Count + legacyRedemptions;
     }
 
     private async Task<int> GetActiveCustomerCountAsync(
@@ -561,18 +670,31 @@ public class BusinessAnalyticsController : ControllerBase
             .Distinct()
             .ToArrayAsync(cancellationToken);
 
-        Guid[] ticketUsers = await TicketRedemptions(negocioId, range)
+        Guid[] ticketUsers = (await GetTicketRedemptionsAsync(negocioId, range, cancellationToken))
             .Select(redemption => redemption.UserId)
             .Distinct()
-            .ToArrayAsync(cancellationToken);
+            .ToArray();
 
-        Guid[] linkedUsers = await CustomerLinks(negocioId)
-            .Where(link => link.CreatedAtUtc >= range.FromUtc && link.CreatedAtUtc < range.ToUtc)
-            .Select(link => link.UserId)
+        Guid[] legacyTicketUsers = await AssignedTickets(negocioId)
+            .Where(ticket =>
+                (ticket.CreatedAtUtc >= range.FromUtc && ticket.CreatedAtUtc < range.ToUtc) ||
+                (ticket.UpdatedAtUtc >= range.FromUtc && ticket.UpdatedAtUtc < range.ToUtc) ||
+                (ticket.UsedAtUtc >= range.FromUtc && ticket.UsedAtUtc < range.ToUtc))
+            .Select(ticket => ticket.UserId!.Value)
             .Distinct()
             .ToArrayAsync(cancellationToken);
 
-        return pointsUsers.Concat(ticketUsers).Concat(linkedUsers).Distinct().Count();
+        Guid[] linkedUsers = (await GetCustomerLinksAsync(negocioId, range, cancellationToken))
+            .Select(link => link.UserId)
+            .Distinct()
+            .ToArray();
+
+        return pointsUsers
+            .Concat(ticketUsers)
+            .Concat(legacyTicketUsers)
+            .Concat(linkedUsers)
+            .Distinct()
+            .Count();
     }
 
     private async Task<int> GetReturningCustomerCountAsync(
@@ -586,22 +708,36 @@ public class BusinessAnalyticsController : ControllerBase
             .Select(group => group.Key)
             .ToArrayAsync(cancellationToken);
 
-        Guid[] recurringTicketUsers = await TicketRedemptions(negocioId, range)
+        Guid[] recurringTicketUsers = (await GetTicketRedemptionsAsync(negocioId, range, cancellationToken))
             .GroupBy(redemption => redemption.UserId)
+            .Where(group => group.Count() > 1)
+            .Select(group => group.Key)
+            .ToArray();
+
+        Guid[] recurringLegacyTicketUsers = await AssignedTickets(negocioId)
+            .Where(ticket =>
+                (ticket.CreatedAtUtc >= range.FromUtc && ticket.CreatedAtUtc < range.ToUtc) ||
+                (ticket.UpdatedAtUtc >= range.FromUtc && ticket.UpdatedAtUtc < range.ToUtc) ||
+                (ticket.UsedAtUtc >= range.FromUtc && ticket.UsedAtUtc < range.ToUtc))
+            .GroupBy(ticket => ticket.UserId!.Value)
             .Where(group => group.Count() > 1)
             .Select(group => group.Key)
             .ToArrayAsync(cancellationToken);
 
-        return recurringPointUsers.Concat(recurringTicketUsers).Distinct().Count();
+        return recurringPointUsers
+            .Concat(recurringTicketUsers)
+            .Concat(recurringLegacyTicketUsers)
+            .Distinct()
+            .Count();
     }
 
     private async Task<IActionResult?> AuthorizeAnalyticsAsync(Guid negocioId, CancellationToken cancellationToken)
     {
-        Negocio? negocio = await _negociosDbContext.Negocios
+        bool negocioExists = await _negociosDbContext.Negocios
             .AsNoTracking()
-            .FirstOrDefaultAsync(item => item.Id == negocioId && !item.IsDeleted, cancellationToken);
+            .AnyAsync(item => item.Id == negocioId && !item.IsDeleted, cancellationToken);
 
-        if (negocio is null)
+        if (!negocioExists)
         {
             return NotFound(new { message = "El negocio no existe." });
         }
@@ -617,9 +753,20 @@ public class BusinessAnalyticsController : ControllerBase
             return Unauthorized();
         }
 
-        NegocioUsuarioVinculacion? link = await _negociosDbContext.NegociosUsuariosVinculaciones
+        BusinessLinkProjection? link = await _negociosDbContext.NegociosUsuariosVinculaciones
             .AsNoTracking()
-            .FirstOrDefaultAsync(item => item.NegocioId == negocioId && item.UserId == userId.Value, cancellationToken);
+            .Where(item => item.NegocioId == negocioId && item.UserId == userId.Value)
+            .Select(item => new BusinessLinkProjection(
+                item.TipoVinculacion,
+                item.Activa,
+                item.PuedeGestionarNegocio,
+                item.PuedeGestionarCampanas,
+                item.PuedeGestionarPuntos,
+                item.PuedeVerReportes,
+                item.FechaInicioUtc,
+                item.FechaFinUtc,
+                item.RevokedAtUtc))
+            .FirstOrDefaultAsync(cancellationToken);
 
         if (!IsActiveLink(link))
         {
@@ -639,6 +786,18 @@ public class BusinessAnalyticsController : ControllerBase
     }
 
     private static bool IsActiveLink(NegocioUsuarioVinculacion? link)
+    {
+        if (link is null || !link.Activa || link.RevokedAtUtc.HasValue)
+        {
+            return false;
+        }
+
+        DateTime now = DateTime.UtcNow;
+        return (!link.FechaInicioUtc.HasValue || link.FechaInicioUtc.Value <= now) &&
+               (!link.FechaFinUtc.HasValue || link.FechaFinUtc.Value >= now);
+    }
+
+    private static bool IsActiveLink(BusinessLinkProjection? link)
     {
         if (link is null || !link.Activa || link.RevokedAtUtc.HasValue)
         {
@@ -691,9 +850,14 @@ public class BusinessAnalyticsController : ControllerBase
     private static string ResolveOriginLabel(string origin)
         => origin switch
         {
-            "business_follow" => "Seguir negocio",
+            "audience_join" => "Formar parte",
+            "business_follow" => "Formar parte",
+            "business_staff_customer_register" => "Alta cliente backoffice",
+            "welcome_ticket" => "Bono de bienvenida",
+            "welcome_ticket_qr" => "QR de bienvenida",
             "points_earn_validation" => "Compra con puntos",
             "points_backoffice_accrual" => "Backoffice puntos",
+            "points_backoffice_user_accrual" => "Backoffice puntos",
             "points_direct_add" => "Puntos directos",
             "points_gift" => "Regalo de puntos",
             "qr_ticket" => "QR de bienvenida",
@@ -734,6 +898,19 @@ public class BusinessAnalyticsController : ControllerBase
 
 public sealed record AnalyticsDateRange(DateTime FromUtc, DateTime ToUtc);
 
+internal sealed record CustomerLinkProjection(Guid UserId, string? Origin, DateTime CreatedAtUtc);
+
+internal sealed record BusinessLinkProjection(
+    TipoVinculacionNegocioUsuario TipoVinculacion,
+    bool Activa,
+    bool PuedeGestionarNegocio,
+    bool PuedeGestionarCampanas,
+    bool PuedeGestionarPuntos,
+    bool PuedeVerReportes,
+    DateTime? FechaInicioUtc,
+    DateTime? FechaFinUtc,
+    DateTime? RevokedAtUtc);
+
 public sealed record BusinessAnalyticsResponse(
     AnalyticsDateRange Range,
     AnalyticsOverviewResponse Overview,
@@ -741,7 +918,18 @@ public sealed record BusinessAnalyticsResponse(
     TicketsAnalyticsResponse Tickets,
     MoneyAndPointsAnalyticsResponse MoneyAndPoints,
     PromotionsAnalyticsResponse Promotions,
-    OperationsAnalyticsResponse Operations);
+    OperationsAnalyticsResponse Operations,
+    IReadOnlyCollection<AnalyticsWarningResponse> Warnings);
+
+public sealed record AnalyticsWarningResponse(
+    string Section,
+    string ExceptionType,
+    string Message);
+
+public sealed record AnalyticsSectionErrorResponse(
+    string Section,
+    string ExceptionType,
+    string Message);
 
 public sealed record AnalyticsOverviewResponse(
     AnalyticsDateRange Range,

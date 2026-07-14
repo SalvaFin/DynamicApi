@@ -11,18 +11,19 @@ using Dynamic.Fidelity.Domain.Entities;
 using Dynamic.Fidelity.Domain.Enums;
 using Dynamic.Fidelity.Infrastructure.Persistence;
 using Dynamic.Negocios.Application.Contracts.Repositories;
-using Dynamic.Negocios.Application.Contracts.Services;
-using Dynamic.Negocios.Application.DTOs.Requests;
 using Dynamic.Negocios.Domain.Entities;
 using Dynamic.Negocios.Domain.Enums;
+using Dynamic.Negocios.Infrastructure.Persistence;
 using Dynamic.Notify.Application.Contracts;
 using Dynamic.Notify.Application.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace Dynamic.Fidelity.Application.Services;
 
 public class PointsService : IPointsService
 {
     private readonly DynamicFidelityDbContext _dbContext;
+    private readonly DynamicNegociosDbContext _negociosDbContext;
     private readonly IPointsRepository _pointsRepository;
     private readonly IPointsTransactionRepository _pointsTransactionRepository;
     private readonly IPointsOperationRepository _pointsOperationRepository;
@@ -30,12 +31,13 @@ public class PointsService : IPointsService
     private readonly IUserCodeDirectoryService _userCodeDirectoryService;
     private readonly INegocioRepository _negocioRepository;
     private readonly INegocioUsuarioVinculacionRepository _negocioUsuarioVinculacionRepository;
-    private readonly INegocioUsuarioVinculacionService _negocioUsuarioVinculacionService;
+    private readonly INegocioAudienciaService _negocioAudienciaService;
     private readonly IRegistrationRewardService _registrationRewardService;
     private readonly IUserEventPublisher _userEventPublisher;
 
     public PointsService(
         DynamicFidelityDbContext dbContext,
+        DynamicNegociosDbContext negociosDbContext,
         IPointsRepository pointsRepository,
         IPointsTransactionRepository pointsTransactionRepository,
         IPointsOperationRepository pointsOperationRepository,
@@ -43,11 +45,12 @@ public class PointsService : IPointsService
         IUserCodeDirectoryService userCodeDirectoryService,
         INegocioRepository negocioRepository,
         INegocioUsuarioVinculacionRepository negocioUsuarioVinculacionRepository,
-        INegocioUsuarioVinculacionService negocioUsuarioVinculacionService,
+        INegocioAudienciaService negocioAudienciaService,
         IRegistrationRewardService registrationRewardService,
         IUserEventPublisher userEventPublisher)
     {
         _dbContext = dbContext;
+        _negociosDbContext = negociosDbContext;
         _pointsRepository = pointsRepository;
         _pointsTransactionRepository = pointsTransactionRepository;
         _pointsOperationRepository = pointsOperationRepository;
@@ -55,7 +58,7 @@ public class PointsService : IPointsService
         _userCodeDirectoryService = userCodeDirectoryService;
         _negocioRepository = negocioRepository;
         _negocioUsuarioVinculacionRepository = negocioUsuarioVinculacionRepository;
-        _negocioUsuarioVinculacionService = negocioUsuarioVinculacionService;
+        _negocioAudienciaService = negocioAudienciaService;
         _registrationRewardService = registrationRewardService;
         _userEventPublisher = userEventPublisher;
     }
@@ -439,6 +442,121 @@ public class PointsService : IPointsService
         });
     }
 
+    public async Task<ServiceResult<PointsEarnValidationResponse>> BackofficeAccrualByUserIdAsync(
+        Guid negocioId,
+        Guid validatorUserId,
+        bool isAdmin,
+        BackofficeAccrualByUserIdRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request.UserId == Guid.Empty)
+        {
+            return ServiceResult<PointsEarnValidationResponse>.Failure("validation_error", "El usuario es obligatorio.");
+        }
+
+        if (request.AmountEuros <= 0)
+        {
+            return ServiceResult<PointsEarnValidationResponse>.Failure("validation_error", "El importe debe ser mayor que 0.");
+        }
+
+        ServiceResult authorization = await EnsureCanManagePointsAsync(negocioId, validatorUserId, isAdmin, cancellationToken);
+        if (!authorization.Succeeded)
+        {
+            return ServiceResult<PointsEarnValidationResponse>.Failure(authorization.ErrorCode ?? "forbidden", authorization.ErrorMessage ?? "Sin permisos.");
+        }
+
+        Negocio? negocio = await _negocioRepository.GetByIdAsync(negocioId, cancellationToken);
+        if (negocio is null || negocio.RatioConversionEurosAPuntos is null || negocio.RatioConversionEurosAPuntos <= 0)
+        {
+            return ServiceResult<PointsEarnValidationResponse>.Failure("validation_error", "El negocio no tiene configurado un ratio de conversion de puntos valido.");
+        }
+
+        int pointsEarned = CalculatePoints(request.AmountEuros, negocio.RatioConversionEurosAPuntos.Value);
+        if (pointsEarned <= 0)
+        {
+            return ServiceResult<PointsEarnValidationResponse>.Failure("validation_error", "El importe indicado no genera puntos con el ratio actual del negocio.");
+        }
+
+        ServiceResult<CustomerPointsLinkResult> linkResult = await EnsureCustomerLinkForPointsAsync(
+            negocioId,
+            request.UserId,
+            validatorUserId,
+            "points_backoffice_user_accrual",
+            cancellationToken);
+        if (!linkResult.Succeeded)
+        {
+            return ServiceResult<PointsEarnValidationResponse>.Failure(
+                linkResult.ErrorCode ?? "validation_error",
+                linkResult.ErrorMessage ?? "No se ha podido vincular al usuario con el negocio.");
+        }
+
+        Points points = await GetOrCreateAsync(request.UserId, negocioId, cancellationToken);
+        DateTime now = DateTime.UtcNow;
+        int balanceBefore = points.CurrentBalance;
+        int balanceAfter = balanceBefore + pointsEarned;
+        string userCode = await _userCodeDirectoryService.EnsureUserCodeAsync(request.UserId, cancellationToken);
+        string reason = Normalize(request.Reason) ?? "Acreditacion directa de trabajador";
+        string reference = Normalize(request.Reference) ?? $"business-user-accrual:{Guid.NewGuid():N}";
+
+        points.CurrentBalance = balanceAfter;
+        points.TotalEarned += pointsEarned;
+        points.LastEarnedAtUtc = now;
+        points.LastMovementAtUtc = now;
+        points.LastReason = reason;
+        points.LastReference = reference;
+        points.UpdatedAtUtc = now;
+
+        await _pointsTransactionRepository.AddAsync(
+            new PointsTransaction
+            {
+                Id = Guid.NewGuid(),
+                UserId = request.UserId,
+                NegocioId = negocioId,
+                PointsId = points.Id,
+                ValidatorUserId = validatorUserId,
+                TransactionType = PointsTransactionType.BackofficeEarn,
+                AmountEuros = decimal.Round(request.AmountEuros, 2, MidpointRounding.AwayFromZero),
+                PointsAmount = pointsEarned,
+                BalanceBefore = balanceBefore,
+                BalanceAfter = balanceAfter,
+                UserCodeSnapshot = userCode,
+                Reason = reason,
+                Reference = reference,
+                CreatedAtUtc = now
+            },
+            cancellationToken);
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        await PublishPointsReceivedAsync(
+            request.UserId,
+            negocioId,
+            pointsEarned,
+            balanceBefore,
+            balanceAfter,
+            PointsTransactionType.BackofficeEarn,
+            reason,
+            reference,
+            transactionId: null,
+            operationId: null,
+            validatorUserId: validatorUserId,
+            counterpartyUserId: null,
+            createdAtUtc: now,
+            cancellationToken: cancellationToken);
+
+        return ServiceResult<PointsEarnValidationResponse>.Success(new PointsEarnValidationResponse
+        {
+            OperationId = Guid.Empty,
+            UserId = request.UserId,
+            NegocioId = negocioId,
+            PointsEarned = pointsEarned,
+            TotalBalance = balanceAfter,
+            RemainingAttempts = 0,
+            ValidatorUserId = validatorUserId,
+            Cancelled = false,
+            Message = $"Se han acreditado {pointsEarned} puntos al usuario {userCode}."
+        });
+    }
+
     public async Task<ServiceResult<PointsEarnValidationResponse>> BackofficeAccrualByWorkerAsync(
         Guid authenticatedUserId,
         bool isAdmin,
@@ -638,39 +756,27 @@ public class PointsService : IPointsService
             return ServiceResult<GiftPointsResponse>.Failure("validation_error", "No puedes regalarte puntos a ti mismo.");
         }
 
-        NegocioUsuarioVinculacion? senderLink = await GetActiveLinkAsync(negocioId, senderUserId, cancellationToken);
-        if (senderLink is null)
+        NegocioAudiencia? senderAudience = await GetActiveAudienceAsync(negocioId, senderUserId, cancellationToken);
+        if (senderAudience is null)
         {
-            return ServiceResult<GiftPointsResponse>.Failure("forbidden", "El usuario emisor no est\u00e1 vinculado activamente al negocio.");
+            return ServiceResult<GiftPointsResponse>.Failure("forbidden", "El usuario emisor no forma parte de la audiencia activa del negocio.");
         }
 
-        NegocioUsuarioVinculacion? existingRecipientLink =
-            await _negocioUsuarioVinculacionRepository.GetByNegocioAndUserAsync(negocioId, recipientUserId.Value, cancellationToken);
+        NegocioAudiencia? existingRecipientAudience =
+            await _negociosDbContext.NegociosAudiencias.FirstOrDefaultAsync(
+                audience => audience.NegocioId == negocioId && audience.UserId == recipientUserId.Value,
+                cancellationToken);
 
-        bool recipientWasFirstLink = existingRecipientLink is null;
-        bool recipientWasLinked = IsLinkActive(existingRecipientLink);
+        bool recipientWasFirstLink = existingRecipientAudience is null;
+        bool recipientWasLinked = IsAudienceActive(existingRecipientAudience);
 
         if (!recipientWasLinked)
         {
-            var linkResult = await _negocioUsuarioVinculacionService.LinkUserAsync(
-                    negocioId,
-                    recipientUserId.Value,
-                    new VincularUsuarioNegocioRequest
-                    {
-                        TipoVinculacion = TipoVinculacionNegocioUsuario.Cliente,
-                        TituloRelacion = "Cliente",
-                        EsPrincipal = false,
-                        PuedeAccederBackoffice = false,
-                        PuedeGestionarNegocio = false,
-                        PuedeGestionarClientes = false,
-                        PuedeGestionarCampanas = false,
-                        PuedeGestionarPuntos = false,
-                        PuedeValidarTickets = false,
-                        PuedeVerReportes = false,
-                        OrigenVinculacion = "points_gift"
-                    },
-                    linkedByUserId: senderUserId,
-                    cancellationToken: cancellationToken);
+            ServiceResult<NegocioAudiencia> linkResult = await _negocioAudienciaService.EnsureAudienceAsync(
+                negocioId,
+                recipientUserId.Value,
+                "points_gift",
+                cancellationToken);
 
             if (!linkResult.Succeeded)
             {
@@ -707,6 +813,11 @@ public class PointsService : IPointsService
             recipientUserId.Value,
             recipientUserCode,
             cancellationToken);
+        await _negocioAudienciaService.TouchAudienceActivityAsync(
+            negocioId,
+            senderUserId,
+            "points_gift_sent",
+            cancellationToken);
 
         await ApplyCreditAsync(
             recipientPoints,
@@ -718,6 +829,11 @@ public class PointsService : IPointsService
             recipientUserCode,
             senderUserId,
             senderUserCode,
+            cancellationToken);
+        await _negocioAudienciaService.TouchAudienceActivityAsync(
+            negocioId,
+            recipientUserId.Value,
+            "points_gift_received",
             cancellationToken);
 
         bool recipientReceivedWelcomeTicket = false;
@@ -865,6 +981,11 @@ public class PointsService : IPointsService
             null,
             null,
             cancellationToken);
+        await _negocioAudienciaService.TouchAudienceActivityAsync(
+            negocioId,
+            userId,
+            "points_spend",
+            cancellationToken);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
         return ServiceResult<PointsSummary>.Success(points.ToSummary());
@@ -904,36 +1025,25 @@ public class PointsService : IPointsService
         string origin,
         CancellationToken cancellationToken)
     {
-        NegocioUsuarioVinculacion? existingLink =
-            await _negocioUsuarioVinculacionRepository.GetByNegocioAndUserAsync(negocioId, userId, cancellationToken);
+        NegocioAudiencia? existingAudience =
+            await _negociosDbContext.NegociosAudiencias.FirstOrDefaultAsync(
+                audience => audience.NegocioId == negocioId && audience.UserId == userId,
+                cancellationToken);
 
-        bool wasFirstLink = existingLink is null;
-        if (IsLinkActive(existingLink))
+        bool wasFirstLink = existingAudience is null;
+        if (IsAudienceActive(existingAudience))
         {
+            await _negocioAudienciaService.TouchAudienceActivityAsync(negocioId, userId, origin, cancellationToken);
             return ServiceResult<CustomerPointsLinkResult>.Success(new CustomerPointsLinkResult(
                 WasFirstLink: false,
                 WasLinkedNow: false,
                 ReceivedWelcomeTicket: false));
         }
 
-        var linkResult = await _negocioUsuarioVinculacionService.LinkUserAsync(
+        ServiceResult<NegocioAudiencia> linkResult = await _negocioAudienciaService.EnsureAudienceAsync(
             negocioId,
             userId,
-            new VincularUsuarioNegocioRequest
-            {
-                TipoVinculacion = TipoVinculacionNegocioUsuario.Cliente,
-                TituloRelacion = "Cliente",
-                EsPrincipal = false,
-                PuedeAccederBackoffice = false,
-                PuedeGestionarNegocio = false,
-                PuedeGestionarClientes = false,
-                PuedeGestionarCampanas = false,
-                PuedeGestionarPuntos = false,
-                PuedeValidarTickets = false,
-                PuedeVerReportes = false,
-                OrigenVinculacion = origin
-            },
-            linkedByUserId,
+            origin,
             cancellationToken);
 
         if (!linkResult.Succeeded)
@@ -977,6 +1087,14 @@ public class PointsService : IPointsService
         return IsLinkActive(link) ? link : null;
     }
 
+    private async Task<NegocioAudiencia?> GetActiveAudienceAsync(Guid negocioId, Guid userId, CancellationToken cancellationToken)
+    {
+        NegocioAudiencia? audience = await _negociosDbContext.NegociosAudiencias
+            .FirstOrDefaultAsync(item => item.NegocioId == negocioId && item.UserId == userId, cancellationToken);
+
+        return IsAudienceActive(audience) ? audience : null;
+    }
+
     private static bool IsLinkActive(NegocioUsuarioVinculacion? link)
     {
         if (link is null || !link.Activa || link.RevokedAtUtc.HasValue)
@@ -988,6 +1106,9 @@ public class PointsService : IPointsService
         return (!link.FechaInicioUtc.HasValue || link.FechaInicioUtc.Value <= now) &&
                (!link.FechaFinUtc.HasValue || link.FechaFinUtc.Value >= now);
     }
+
+    private static bool IsAudienceActive(NegocioAudiencia? audience)
+        => audience is not null && audience.Activa && !audience.FechaBajaUtc.HasValue;
 
     private async Task ApplyCreditAsync(
         Points points,

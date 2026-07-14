@@ -23,20 +23,26 @@ public class TicketsController : ControllerBase
 
     [AllowAnonymous]
     [HttpGet("public/general")]
-    public async Task<IActionResult> GetPublicGeneral(Guid negocioId, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetPublicGeneral(
+        Guid negocioId,
+        [FromQuery] bool includeWelcomeTicket = false,
+        CancellationToken cancellationToken = default)
     {
         ServiceResult<IReadOnlyCollection<TicketResponse>> result =
-            await _ticketService.GetPublicGeneralTicketsAsync(negocioId, cancellationToken);
+            await _ticketService.GetPublicGeneralTicketsAsync(negocioId, includeWelcomeTicket, cancellationToken);
 
         return ToActionResult(result, Ok);
     }
 
     [AllowAnonymous]
     [HttpGet("/api/fidelity/negocios/slug/{slugPortal}/tickets/public/general")]
-    public async Task<IActionResult> GetPublicGeneralBySlug(string slugPortal, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetPublicGeneralBySlug(
+        string slugPortal,
+        [FromQuery] bool includeWelcomeTicket = false,
+        CancellationToken cancellationToken = default)
     {
         ServiceResult<IReadOnlyCollection<TicketResponse>> result =
-            await _ticketService.GetPublicGeneralTicketsBySlugAsync(slugPortal, cancellationToken);
+            await _ticketService.GetPublicGeneralTicketsBySlugAsync(slugPortal, includeWelcomeTicket, cancellationToken);
 
         return ToActionResult(result, Ok);
     }

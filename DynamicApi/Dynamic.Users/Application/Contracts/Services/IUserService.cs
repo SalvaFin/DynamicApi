@@ -7,6 +7,16 @@ namespace Dynamic.Users.Application.Contracts.Services;
 public interface IUserService
 {
     Task<ServiceResult<UserSummaryResponse>> GetCurrentUserAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task<ServiceResult<BusinessCustomerLookupResponse>> SearchBusinessCustomerByContactAsync(
+        Guid requesterUserId,
+        bool isAdmin,
+        BusinessCustomerSearchRequest request,
+        CancellationToken cancellationToken = default);
+    Task<ServiceResult<BusinessCustomerLookupResponse>> GetBusinessCustomerByIdAsync(
+        Guid requesterUserId,
+        bool isAdmin,
+        Guid customerUserId,
+        CancellationToken cancellationToken = default);
     Task<ServiceResult<UserSummaryResponse>> UpdateProfileAsync(
         Guid userId,
         UpdateProfileRequest request,

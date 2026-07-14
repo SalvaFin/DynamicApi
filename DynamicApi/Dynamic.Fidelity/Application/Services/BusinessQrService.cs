@@ -122,7 +122,7 @@ public class BusinessQrService : IBusinessQrService
     {
         string baseUrl = _options.PublicBaseUrl.TrimEnd('/');
         string pathTemplate = string.IsNullOrWhiteSpace(_options.BusinessPagePathTemplate)
-            ? "/negocios/{slug}"
+            ? "/negocio/{slug}"
             : _options.BusinessPagePathTemplate.Trim();
 
         string encodedSlug = Uri.EscapeDataString(slugPortal);

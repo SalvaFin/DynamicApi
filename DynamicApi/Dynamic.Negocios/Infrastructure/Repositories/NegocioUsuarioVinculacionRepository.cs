@@ -1,5 +1,6 @@
 using Dynamic.Negocios.Application.Contracts.Repositories;
 using Dynamic.Negocios.Domain.Entities;
+using Dynamic.Negocios.Domain.Enums;
 using Dynamic.Negocios.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -27,6 +28,7 @@ public class NegocioUsuarioVinculacionRepository : INegocioUsuarioVinculacionRep
             .Where(vinculacion =>
                 vinculacion.UserId == userId &&
                 vinculacion.Activa &&
+                vinculacion.TipoVinculacion != TipoVinculacionNegocioUsuario.Cliente &&
                 vinculacion.Negocio != null &&
                 !vinculacion.Negocio.IsDeleted)
             .OrderByDescending(vinculacion => vinculacion.EsPrincipal)

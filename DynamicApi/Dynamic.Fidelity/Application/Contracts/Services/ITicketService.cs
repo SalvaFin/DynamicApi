@@ -8,10 +8,12 @@ public interface ITicketService
 {
     Task<ServiceResult<IReadOnlyCollection<TicketResponse>>> GetPublicGeneralTicketsAsync(
         Guid negocioId,
+        bool includeWelcomeTicket = false,
         CancellationToken cancellationToken = default);
 
     Task<ServiceResult<IReadOnlyCollection<TicketResponse>>> GetPublicGeneralTicketsBySlugAsync(
         string slugPortal,
+        bool includeWelcomeTicket = false,
         CancellationToken cancellationToken = default);
 
     Task<ServiceResult<IReadOnlyCollection<TicketResponse>>> GetAllAsync(

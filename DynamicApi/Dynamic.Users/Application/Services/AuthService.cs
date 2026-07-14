@@ -270,13 +270,12 @@ public class AuthService : IAuthService
             string.IsNullOrWhiteSpace(request.ValidationToken) ||
             string.IsNullOrWhiteSpace(request.Nombre) ||
             string.IsNullOrWhiteSpace(request.Apellidos) ||
-            string.IsNullOrWhiteSpace(request.PostalCode) ||
             !request.Province.HasValue ||
             !Enum.IsDefined(request.Province.Value))
         {
             return ServiceResult<CompleteRegistrationResponse>.Failure(
                 "validation_error",
-                "Contacto, token, nombre, apellidos, codigo postal y provincia son obligatorios.");
+                "Contacto, token, nombre, apellidos y provincia son obligatorios.");
         }
 
         ServiceResult<int> birthDateValidation = ValidateBirthDateForRegistration(request.BirthDate);

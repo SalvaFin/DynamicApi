@@ -5,6 +5,7 @@ using Dynamic.Negocios.Application.DTOs.Requests;
 using Dynamic.Negocios.Application.DTOs.Responses;
 using Dynamic.Negocios.Application.Mappings;
 using Dynamic.Negocios.Domain.Entities;
+using Dynamic.Negocios.Domain.Enums;
 using Dynamic.Negocios.Infrastructure.Persistence;
 using Microsoft.Extensions.Logging;
 
@@ -61,6 +62,13 @@ public class NegocioUsuarioVinculacionService : INegocioUsuarioVinculacionServic
         if (userId == Guid.Empty || negocioId == Guid.Empty)
         {
             return ServiceResult<NegocioUsuarioVinculacionResponse>.Failure("validation_error", "Negocio y usuario son obligatorios.");
+        }
+
+        if (request.TipoVinculacion == TipoVinculacionNegocioUsuario.Cliente)
+        {
+            return ServiceResult<NegocioUsuarioVinculacionResponse>.Failure(
+                "validation_error",
+                "La vinculacion Cliente se ha sustituido por la audiencia del negocio.");
         }
 
         Negocio? negocio = await _negocioRepository.GetByIdAsync(negocioId, cancellationToken);

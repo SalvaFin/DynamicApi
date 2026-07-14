@@ -25,6 +25,10 @@ string[] allowedHosts = builder.Configuration
     .GetSection("ProxySecurity:AllowedHosts")
     .Get<string[]>() ?? [];
 
+string permissionsPolicy = builder.Configuration.GetValue(
+    "ProxySecurity:PermissionsPolicy",
+    "camera=(self), microphone=(self), geolocation=(self)")!;
+
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -84,7 +88,7 @@ app.Use(async (context, next) =>
         headers["X-Content-Type-Options"] = "nosniff";
         headers["X-Frame-Options"] = "DENY";
         headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
-        headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
+        headers["Permissions-Policy"] = permissionsPolicy;
 
         if (context.Request.IsHttps)
         {

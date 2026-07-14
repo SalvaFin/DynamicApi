@@ -30,6 +30,8 @@ public class TicketQrService : ITicketQrService
     private readonly IRegistrationRewardService _registrationRewardService;
     private readonly INegocioRepository _negocioRepository;
     private readonly INegocioUsuarioVinculacionRepository _negocioUsuarioVinculacionRepository;
+    private readonly INegocioAudienciaService _negocioAudienciaService;
+    private readonly ITicketEventPublisher _ticketEventPublisher;
 
     public TicketQrService(
         DynamicFidelityDbContext dbContext,
@@ -39,6 +41,8 @@ public class TicketQrService : ITicketQrService
         IRegistrationRewardService registrationRewardService,
         INegocioRepository negocioRepository,
         INegocioUsuarioVinculacionRepository negocioUsuarioVinculacionRepository,
+        INegocioAudienciaService negocioAudienciaService,
+        ITicketEventPublisher ticketEventPublisher,
         IOptions<FidelityQrOptions> fidelityQrOptions)
     {
         _dbContext = dbContext;
@@ -48,6 +52,8 @@ public class TicketQrService : ITicketQrService
         _registrationRewardService = registrationRewardService;
         _negocioRepository = negocioRepository;
         _negocioUsuarioVinculacionRepository = negocioUsuarioVinculacionRepository;
+        _negocioAudienciaService = negocioAudienciaService;
+        _ticketEventPublisher = ticketEventPublisher;
         _fidelityQrOptions = fidelityQrOptions.Value;
     }
 
@@ -356,6 +362,12 @@ public class TicketQrService : ITicketQrService
 
         _ticketRepository.Update(ticket);
         await _dbContext.SaveChangesAsync(cancellationToken);
+        await _negocioAudienciaService.TouchAudienceActivityAsync(
+            negocioId,
+            ticket.UserId!.Value,
+            "ticket_redeemed",
+            cancellationToken);
+        await _ticketEventPublisher.PublishUsedAsync(ticket, employeeUserId, now, cancellationToken);
 
         return ServiceResult<ValidateTicketQrResponse>.Success(new ValidateTicketQrResponse
         {

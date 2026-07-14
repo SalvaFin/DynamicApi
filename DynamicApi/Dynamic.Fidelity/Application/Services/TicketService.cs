@@ -26,6 +26,7 @@ public class TicketService : ITicketService
     private readonly INegocioRepository _negocioRepository;
     private readonly INegocioUsuarioVinculacionRepository _negocioUsuarioVinculacionRepository;
     private readonly IPointsService _pointsService;
+    private readonly ITicketEventPublisher _ticketEventPublisher;
 
     public TicketService(
         DynamicFidelityDbContext dbContext,
@@ -34,7 +35,8 @@ public class TicketService : ITicketService
         IPointsRepository pointsRepository,
         INegocioRepository negocioRepository,
         INegocioUsuarioVinculacionRepository negocioUsuarioVinculacionRepository,
-        IPointsService pointsService)
+        IPointsService pointsService,
+        ITicketEventPublisher ticketEventPublisher)
     {
         _dbContext = dbContext;
         _negociosDbContext = negociosDbContext;
@@ -43,10 +45,12 @@ public class TicketService : ITicketService
         _negocioRepository = negocioRepository;
         _negocioUsuarioVinculacionRepository = negocioUsuarioVinculacionRepository;
         _pointsService = pointsService;
+        _ticketEventPublisher = ticketEventPublisher;
     }
 
     public async Task<ServiceResult<IReadOnlyCollection<TicketResponse>>> GetPublicGeneralTicketsAsync(
         Guid negocioId,
+        bool includeWelcomeTicket = false,
         CancellationToken cancellationToken = default)
     {
         Negocio? negocio = await _negocioRepository.GetByIdAsync(negocioId, cancellationToken);
@@ -56,7 +60,8 @@ public class TicketService : ITicketService
         }
 
         IReadOnlyCollection<TicketResponse> tickets = (await _ticketRepository.GetTemplatesByNegocioAsync(negocioId, cancellationToken))
-            .Where(IsPublicGeneralTemplateAvailable)
+            .Where(ticket => IsPublicGeneralTemplateAvailable(ticket) ||
+                includeWelcomeTicket && IsPublicWelcomeTemplateAvailable(ticket, negocio!.BonoBienvenidaTicketId))
             .OrderBy(ticket => ticket.PuntosCoste)
             .ThenBy(ticket => ticket.Nombre)
             .Select(ticket => ticket.ToResponse())
@@ -67,6 +72,7 @@ public class TicketService : ITicketService
 
     public async Task<ServiceResult<IReadOnlyCollection<TicketResponse>>> GetPublicGeneralTicketsBySlugAsync(
         string slugPortal,
+        bool includeWelcomeTicket = false,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(slugPortal))
@@ -82,7 +88,8 @@ public class TicketService : ITicketService
 
         Guid resolvedNegocioId = negocio!.Id;
         IReadOnlyCollection<TicketResponse> tickets = (await _ticketRepository.GetTemplatesByNegocioAsync(resolvedNegocioId, cancellationToken))
-            .Where(IsPublicGeneralTemplateAvailable)
+            .Where(ticket => IsPublicGeneralTemplateAvailable(ticket) ||
+                includeWelcomeTicket && IsPublicWelcomeTemplateAvailable(ticket, negocio!.BonoBienvenidaTicketId))
             .OrderBy(ticket => ticket.PuntosCoste)
             .ThenBy(ticket => ticket.Nombre)
             .Select(ticket => ticket.ToResponse())
@@ -429,6 +436,7 @@ public class TicketService : ITicketService
 
         await _ticketRepository.AddAsync(assignedTicket, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
+        await _ticketEventPublisher.PublishReceivedAsync(assignedTicket, "points_unlock", cancellationToken);
 
         return ServiceResult<TicketResponse>.Success(assignedTicket.ToResponse());
     }
@@ -658,6 +666,30 @@ public class TicketService : ITicketService
             ticket.CategoriaEnvioEspecial != CategoriaEnvioTicket.General ||
             !ticket.PuntosCoste.HasValue ||
             ticket.PuntosCoste.Value <= 0)
+        {
+            return false;
+        }
+
+        if (ticket.AvailableFromUtc.HasValue && ticket.AvailableFromUtc.Value > now)
+        {
+            return false;
+        }
+
+        return ticket.ExpiresAtUtc > now;
+    }
+
+    private static bool IsPublicWelcomeTemplateAvailable(Ticket ticket, Guid? configuredWelcomeTicketId)
+    {
+        DateTime now = DateTime.UtcNow;
+
+        if (!configuredWelcomeTicketId.HasValue ||
+            ticket.Id != configuredWelcomeTicketId.Value ||
+            !ticket.EsPlantilla ||
+            ticket.UserId.HasValue ||
+            !ticket.Activo ||
+            !ticket.Publicado ||
+            ticket.CategoriaEnvioEspecial != CategoriaEnvioTicket.PrimerRegistro ||
+            ticket.PuntosCoste.GetValueOrDefault() > 0)
         {
             return false;
         }

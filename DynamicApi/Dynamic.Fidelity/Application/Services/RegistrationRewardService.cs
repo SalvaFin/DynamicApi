@@ -5,6 +5,8 @@ using Dynamic.Fidelity.Domain.Enums;
 using Dynamic.Fidelity.Infrastructure.Persistence;
 using Dynamic.Negocios.Application.Contracts.Repositories;
 using Dynamic.Negocios.Domain.Entities;
+using Dynamic.Negocios.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 
 namespace Dynamic.Fidelity.Application.Services;
 
@@ -15,19 +17,25 @@ public class RegistrationRewardService : IRegistrationRewardService
     private readonly IPendingTicketAssignmentRepository _pendingTicketAssignmentRepository;
     private readonly ITicketRepository _ticketRepository;
     private readonly INegocioRepository _negocioRepository;
+    private readonly DynamicNegociosDbContext _negociosDbContext;
+    private readonly ITicketEventPublisher _ticketEventPublisher;
 
     public RegistrationRewardService(
         DynamicFidelityDbContext dbContext,
         IQrCampaignRepository qrCampaignRepository,
         IPendingTicketAssignmentRepository pendingTicketAssignmentRepository,
         ITicketRepository ticketRepository,
-        INegocioRepository negocioRepository)
+        INegocioRepository negocioRepository,
+        DynamicNegociosDbContext negociosDbContext,
+        ITicketEventPublisher ticketEventPublisher)
     {
         _dbContext = dbContext;
         _qrCampaignRepository = qrCampaignRepository;
         _pendingTicketAssignmentRepository = pendingTicketAssignmentRepository;
         _ticketRepository = ticketRepository;
         _negocioRepository = negocioRepository;
+        _negociosDbContext = negociosDbContext;
+        _ticketEventPublisher = ticketEventPublisher;
     }
 
     public async Task<bool> ValidateQrTokenAsync(string qrToken, CancellationToken cancellationToken = default)
@@ -87,6 +95,7 @@ public class RegistrationRewardService : IRegistrationRewardService
         }
 
         DateTime now = DateTime.UtcNow;
+        List<Ticket> assignedTickets = [];
 
         foreach (PendingTicketAssignment assignment in pendingAssignments)
         {
@@ -97,8 +106,15 @@ public class RegistrationRewardService : IRegistrationRewardService
             }
 
             Ticket assignedTicket = BuildAssignedTicket(template, userId, assignment.QrCampaignId, "WELCOME", now);
+            assignedTickets.Add(assignedTicket);
 
             await _ticketRepository.AddAsync(assignedTicket, cancellationToken);
+            await EnsureAudienceAsync(
+                assignment.NegocioId,
+                userId,
+                "welcome_ticket_qr",
+                now,
+                cancellationToken);
 
             assignment.AssignedTicketId = assignedTicket.Id;
             assignment.Activated = true;
@@ -107,6 +123,11 @@ public class RegistrationRewardService : IRegistrationRewardService
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+        await _negociosDbContext.SaveChangesAsync(cancellationToken);
+        foreach (Ticket assignedTicket in assignedTickets)
+        {
+            await _ticketEventPublisher.PublishReceivedAsync(assignedTicket, "qr", cancellationToken);
+        }
     }
 
     public async Task<Ticket?> ClaimTicketFromQrAsync(Guid userId, string qrToken, CancellationToken cancellationToken = default)
@@ -158,6 +179,7 @@ public class RegistrationRewardService : IRegistrationRewardService
         Ticket assignedTicket = BuildAssignedTicket(template, userId, campaign.Id, "TICKET", now);
 
         await _ticketRepository.AddAsync(assignedTicket, cancellationToken);
+        await EnsureAudienceAsync(campaign.NegocioId, userId, "welcome_ticket_qr", now, cancellationToken);
 
         existingAssignment.AssignedTicketId = assignedTicket.Id;
         existingAssignment.Activated = true;
@@ -165,6 +187,8 @@ public class RegistrationRewardService : IRegistrationRewardService
         _pendingTicketAssignmentRepository.Update(existingAssignment);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+        await _negociosDbContext.SaveChangesAsync(cancellationToken);
+        await _ticketEventPublisher.PublishReceivedAsync(assignedTicket, "qr", cancellationToken);
         return assignedTicket;
     }
 
@@ -260,8 +284,54 @@ public class RegistrationRewardService : IRegistrationRewardService
 
         Ticket assignedTicket = BuildAssignedTicket(template, userId, null, visibleCodePrefix, now);
         await _ticketRepository.AddAsync(assignedTicket, cancellationToken);
+        if (expectedCategory == CategoriaEnvioTicket.PrimerRegistro)
+        {
+            await EnsureAudienceAsync(negocioId, userId, "welcome_ticket", now, cancellationToken);
+        }
+
         await _dbContext.SaveChangesAsync(cancellationToken);
+        await _negociosDbContext.SaveChangesAsync(cancellationToken);
+        await _ticketEventPublisher.PublishReceivedAsync(
+            assignedTicket,
+            expectedCategory == CategoriaEnvioTicket.PrimerRegistro ? "welcome" : "referral",
+            cancellationToken);
         return true;
+    }
+
+    private async Task EnsureAudienceAsync(
+        Guid negocioId,
+        Guid userId,
+        string origin,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        NegocioAudiencia? audience = await _negociosDbContext.NegociosAudiencias
+            .FirstOrDefaultAsync(item => item.NegocioId == negocioId && item.UserId == userId, cancellationToken);
+
+        if (audience is null)
+        {
+            await _negociosDbContext.NegociosAudiencias.AddAsync(new NegocioAudiencia
+            {
+                Id = Guid.NewGuid(),
+                NegocioId = negocioId,
+                UserId = userId,
+                Activa = true,
+                OrigenAlta = origin,
+                UltimaActividadOrigen = origin,
+                FechaAltaUtc = now,
+                UltimaActividadUtc = now,
+                CreatedAtUtc = now,
+                UpdatedAtUtc = now
+            }, cancellationToken);
+            return;
+        }
+
+        audience.Activa = true;
+        audience.FechaBajaUtc = null;
+        audience.OrigenAlta ??= origin;
+        audience.UltimaActividadOrigen = origin;
+        audience.UltimaActividadUtc = now;
+        audience.UpdatedAtUtc = now;
     }
 
     private static Ticket BuildAssignedTicket(

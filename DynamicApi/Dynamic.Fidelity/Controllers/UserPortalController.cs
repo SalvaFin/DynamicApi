@@ -28,17 +28,20 @@ public class UserPortalController : ControllerBase
     private readonly DynamicNegociosDbContext _negociosDbContext;
     private readonly ITicketQrService _ticketQrService;
     private readonly IUserCodeDirectoryService _userCodeDirectoryService;
+    private readonly INegocioAudienciaService _negocioAudienciaService;
 
     public UserPortalController(
         DynamicFidelityDbContext fidelityDbContext,
         DynamicNegociosDbContext negociosDbContext,
         ITicketQrService ticketQrService,
-        IUserCodeDirectoryService userCodeDirectoryService)
+        IUserCodeDirectoryService userCodeDirectoryService,
+        INegocioAudienciaService negocioAudienciaService)
     {
         _fidelityDbContext = fidelityDbContext;
         _negociosDbContext = negociosDbContext;
         _ticketQrService = ticketQrService;
         _userCodeDirectoryService = userCodeDirectoryService;
+        _negocioAudienciaService = negocioAudienciaService;
     }
 
     [HttpGet("qr")]
@@ -67,7 +70,11 @@ public class UserPortalController : ControllerBase
     }
 
     [HttpGet("businesses")]
-    public async Task<IActionResult> GetMyBusinesses(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetMyBusinesses(
+        [FromQuery] bool soloFavoritos = false,
+        [FromQuery] string? tags = null,
+        [FromQuery] int pageSize = 10,
+        CancellationToken cancellationToken = default)
     {
         Guid? userId = GetCurrentUserId();
         if (!userId.HasValue)
@@ -75,116 +82,30 @@ public class UserPortalController : ControllerBase
             return Unauthorized();
         }
 
-        DateTime now = DateTime.UtcNow;
+        ServiceResult<IReadOnlyCollection<UserPortalBusinessResponse>> result =
+            await _negocioAudienciaService.GetMyBusinessesAsync(
+                userId.Value,
+                soloFavoritos,
+                SplitQueryTags(tags),
+                pageSize,
+                cancellationToken);
 
-        var ticketStats = await _fidelityDbContext.Tickets
-            .AsNoTracking()
-            .Where(ticket => ticket.UserId == userId.Value)
-            .GroupBy(ticket => ticket.NegocioId)
-            .Select(group => new
-            {
-                NegocioId = group.Key,
-                TicketsTotales = group.Count(),
-                TicketsActivos = group.Count(ticket => ticket.Activo && !ticket.Usado && ticket.ExpiresAtUtc > now),
-                LastTicketActivityUtc = group.Max(ticket => ticket.UpdatedAtUtc)
-            })
-            .ToListAsync(cancellationToken);
+        return ToActionResult(result, Ok);
+    }
 
-        var pointStats = await _fidelityDbContext.Points
-            .AsNoTracking()
-            .Where(points => points.UserId == userId.Value)
-            .Select(points => new
-            {
-                points.NegocioId,
-                PuntosActuales = points.CurrentBalance,
-                LastPointsActivityUtc = points.LastMovementAtUtc ?? points.UpdatedAtUtc
-            })
-            .ToListAsync(cancellationToken);
-
-        var activeLinks = await _negociosDbContext.NegociosUsuariosVinculaciones
-            .AsNoTracking()
-            .Where(link =>
-                link.UserId == userId.Value &&
-                link.Activa &&
-                !link.RevokedAtUtc.HasValue &&
-                (!link.FechaFinUtc.HasValue || link.FechaFinUtc.Value > now))
-            .Select(link => new
-            {
-                link.NegocioId,
-                link.TipoVinculacion,
-                LinkActivityUtc = link.UpdatedAtUtc
-            })
-            .ToListAsync(cancellationToken);
-
-        Guid[] explicitlyUnlinkedNegocioIds = await _negociosDbContext.NegociosUsuariosVinculaciones
-            .AsNoTracking()
-            .Where(link =>
-                link.UserId == userId.Value &&
-                link.TipoVinculacion == Dynamic.Negocios.Domain.Enums.TipoVinculacionNegocioUsuario.Cliente &&
-                (!link.Activa || link.RevokedAtUtc.HasValue ||
-                 (link.FechaFinUtc.HasValue && link.FechaFinUtc.Value <= now)))
-            .Select(link => link.NegocioId)
-            .ToArrayAsync(cancellationToken);
-
-        HashSet<Guid> explicitlyUnlinkedNegocioIdSet = explicitlyUnlinkedNegocioIds.ToHashSet();
-
-        Guid[] negocioIds = ticketStats.Select(ticket => ticket.NegocioId)
-            .Concat(pointStats.Select(points => points.NegocioId))
-            .Concat(activeLinks.Select(link => link.NegocioId))
-            .Distinct()
-            .Where(negocioId => !explicitlyUnlinkedNegocioIdSet.Contains(negocioId))
-            .ToArray();
-
-        if (negocioIds.Length == 0)
+    [HttpGet("businesses/tags")]
+    public async Task<IActionResult> GetMyBusinessTags(CancellationToken cancellationToken)
+    {
+        Guid? userId = GetCurrentUserId();
+        if (!userId.HasValue)
         {
-            return Ok(Array.Empty<UserPortalBusinessResponse>());
+            return Unauthorized();
         }
 
-        HashSet<Guid> negocioIdSet = negocioIds.ToHashSet();
-        Dictionary<Guid, Negocio> negocios = (await _negociosDbContext.Negocios
-                .AsNoTracking()
-                .Where(negocio => !negocio.IsDeleted)
-                .ToListAsync(cancellationToken))
-            .Where(negocio => negocioIdSet.Contains(negocio.Id))
-            .ToDictionary(negocio => negocio.Id);
+        ServiceResult<IReadOnlyCollection<string>> result =
+            await _negocioAudienciaService.GetMyBusinessTagsAsync(userId.Value, cancellationToken);
 
-        IReadOnlyCollection<UserPortalBusinessResponse> response = negocioIds
-            .Where(negocios.ContainsKey)
-            .Select(negocioId =>
-            {
-                Negocio negocio = negocios[negocioId];
-                var ticket = ticketStats.FirstOrDefault(item => item.NegocioId == negocioId);
-                var points = pointStats.FirstOrDefault(item => item.NegocioId == negocioId);
-                var link = activeLinks.FirstOrDefault(item => item.NegocioId == negocioId);
-
-                return new UserPortalBusinessResponse
-                {
-                    Id = negocio.Id,
-                    Nombre = negocio.NombreComercial,
-                    Slug = negocio.SlugPortal,
-                    LogoUrl = negocio.LogoPrincipalUrl,
-                    IconoUrl = negocio.IconoUrl,
-                    ImagenCoverUrl = negocio.ImagenCoverUrl,
-                    Categoria = negocio.CategoriaPrincipal,
-                    Ciudad = negocio.Ciudad,
-                    Provincia = negocio.Provincia,
-                    Activo = negocio.Activo,
-                    PublicadoPortal = negocio.PublicadoPortal,
-                    PuntosActuales = points?.PuntosActuales ?? 0,
-                    TicketsActivos = ticket?.TicketsActivos ?? 0,
-                    TicketsTotales = ticket?.TicketsTotales ?? 0,
-                    LinkedFromTickets = ticket is not null,
-                    LinkedFromPoints = points is not null,
-                    LinkedFromVinculacion = link is not null,
-                    TipoVinculacion = link?.TipoVinculacion.ToString(),
-                    FechaUltimaActividadUtc = MaxDate(ticket?.LastTicketActivityUtc, points?.LastPointsActivityUtc, link?.LinkActivityUtc)
-                };
-            })
-            .OrderByDescending(negocio => negocio.FechaUltimaActividadUtc)
-            .ThenBy(negocio => negocio.Nombre)
-            .ToArray();
-
-        return Ok(response);
+        return ToActionResult(result, Ok);
     }
 
     [HttpPost("tickets/claim")]
@@ -408,6 +329,8 @@ public class UserPortalController : ControllerBase
         return Guid.TryParse(value, out Guid userId) ? userId : null;
     }
 
-    private static DateTime? MaxDate(params DateTime?[] values)
-        => values.Where(value => value.HasValue).Select(value => value!.Value).DefaultIfEmpty().Max();
+    private static IReadOnlyCollection<string> SplitQueryTags(string? tags)
+        => string.IsNullOrWhiteSpace(tags)
+            ? []
+            : tags.Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 }
