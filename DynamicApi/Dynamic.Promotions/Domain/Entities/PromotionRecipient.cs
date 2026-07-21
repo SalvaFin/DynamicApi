@@ -17,4 +17,5 @@ public class PromotionRecipient
 
     public PromotionCampaign Campaign { get; set; } = null!;
     public ICollection<PromotionDelivery> Deliveries { get; set; } = [];
+    public ICollection<PromotionEmailDelivery> EmailDeliveries { get; set; } = [];
 }

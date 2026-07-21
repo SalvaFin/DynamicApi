@@ -12,6 +12,7 @@ using Dynamic.Promotions.Infrastructure.Persistence;
 using Dynamic.Fidelity.Application.Contracts.Services;
 using Dynamic.Fidelity.Domain.Entities;
 using Dynamic.Fidelity.Domain.Enums;
+using Dynamic.Notify.Application.Options;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Options;
@@ -25,6 +26,7 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
     private readonly DynamicPromotionsDbContext _dbContext;
     private readonly PromotionDispatchOptions _dispatchOptions;
     private readonly FirebasePushOptions _firebaseOptions;
+    private readonly SmtpOptions _smtpOptions;
     private readonly ITicketEventPublisher _ticketEventPublisher;
     private readonly ILogger<PromotionAudienceBuilder> _logger;
 
@@ -32,12 +34,14 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
         DynamicPromotionsDbContext dbContext,
         IOptions<PromotionDispatchOptions> dispatchOptions,
         IOptions<FirebasePushOptions> firebaseOptions,
+        IOptions<SmtpOptions> smtpOptions,
         ITicketEventPublisher ticketEventPublisher,
         ILogger<PromotionAudienceBuilder> logger)
     {
         _dbContext = dbContext;
         _dispatchOptions = dispatchOptions.Value;
         _firebaseOptions = firebaseOptions.Value;
+        _smtpOptions = smtpOptions.Value;
         _ticketEventPublisher = ticketEventPublisher;
         _logger = logger;
     }
@@ -71,6 +75,10 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
             {
                 await InsertPushDeliveriesAsync(campaign.Id, campaign.StartsAtUtc, now, cancellationToken);
             }
+            if (campaign.EmailEnabled)
+            {
+                await InsertEmailDeliveriesAsync(campaign.Id, campaign.StartsAtUtc, now, cancellationToken);
+            }
 
             campaign.AudienceCount = await _dbContext.Recipients
                 .CountAsync(recipient => recipient.CampaignId == campaign.Id, cancellationToken);
@@ -80,6 +88,8 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
                 .Select(delivery => delivery.RecipientId)
                 .Distinct()
                 .CountAsync(cancellationToken);
+            campaign.EmailEligibleCount = await _dbContext.EmailDeliveries
+                .CountAsync(delivery => delivery.CampaignId == campaign.Id, cancellationToken);
             campaign.Status = PromotionCampaignStatus.Sent;
             campaign.AudienceProcessedAtUtc = now;
             campaign.UpdatedAtUtc = now;
@@ -121,6 +131,7 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
         Guid negocioId,
         PromotionAudienceFiltersRequest filters,
         bool businessPushEnabled,
+        bool businessEmailEnabled,
         CancellationToken cancellationToken = default)
     {
         DateTime now = DateTime.UtcNow;
@@ -153,6 +164,16 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
                 cancellationToken);
         }
 
+        bool emailAvailable = businessEmailEnabled && _smtpOptions.Enabled;
+        long emailEligibleCount = 0;
+        if (businessEmailEnabled)
+        {
+            emailEligibleCount = await ExecuteScalarLongAsync(
+                $"SELECT COUNT(*) {audienceSql.FromWhereSql} AND user_account.`EmailConfirmed` = 1 AND user_account.`Email` IS NOT NULL AND user_account.`Email` <> ''",
+                audienceSql.Parameters,
+                cancellationToken);
+        }
+
         return new PromotionAudiencePreviewResponse
         {
             NegocioId = negocioId,
@@ -161,6 +182,10 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
             BusinessPushEnabled = businessPushEnabled,
             FirebasePushEnabled = _firebaseOptions.Enabled,
             PushAvailable = pushAvailable,
+            EmailEligibleCount = ToInt32Count(emailEligibleCount),
+            BusinessEmailEnabled = businessEmailEnabled,
+            SmtpEmailEnabled = _smtpOptions.Enabled,
+            EmailAvailable = emailAvailable,
             CalculatedAtUtc = now,
             Filters = filters
         };
@@ -280,6 +305,34 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
               AND device.`PushToken` IS NOT NULL
               AND device.`PushToken` <> ''
               AND device.`PushProvider` = 'Firebase'
+            """;
+
+        await ExecuteCommandAsync(
+            sql,
+            [("@campaignId", campaignId.ToString()), ("@now", now), ("@nextAttemptAt", startsAtUtc > now ? startsAtUtc : now)],
+            cancellationToken);
+    }
+
+    private async Task InsertEmailDeliveriesAsync(
+        Guid campaignId,
+        DateTime startsAtUtc,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            INSERT IGNORE INTO `promotion_email_deliveries`
+                (`Id`, `CampaignId`, `RecipientId`, `UserId`, `Email`, `RecipientName`, `UnsubscribeToken`,
+                 `Status`, `AttemptCount`, `NextAttemptAtUtc`, `CreatedAtUtc`, `UpdatedAtUtc`)
+            SELECT UUID(), recipient.`CampaignId`, recipient.`Id`, recipient.`UserId`, user_account.`Email`,
+                   COALESCE(NULLIF(user_account.`DisplayName`, ''), NULLIF(user_account.`FirstName`, ''), user_account.`UserName`),
+                   UUID(), 'Pending', 0, @nextAttemptAt, @now, @now
+            FROM `promotion_recipients` recipient
+            INNER JOIN `users` user_account ON user_account.`Id` = recipient.`UserId`
+            WHERE recipient.`CampaignId` = @campaignId
+              AND user_account.`MarketingAccepted` = 1
+              AND user_account.`EmailConfirmed` = 1
+              AND user_account.`Email` IS NOT NULL
+              AND user_account.`Email` <> ''
             """;
 
         await ExecuteCommandAsync(

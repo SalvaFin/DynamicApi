@@ -63,6 +63,7 @@ public class BusinessAnalyticsController : ControllerBase
 
         return Ok(new BusinessAnalyticsResponse(
             range,
+            await BuildSourceDataAsync(negocioId, range, cancellationToken),
             await SafeBuildSectionAsync("overview", negocioId, range, BuildOverviewAsync, EmptyOverview, warnings, cancellationToken),
             await SafeBuildSectionAsync("acquisition", negocioId, range, BuildAcquisitionAsync, EmptyAcquisition, warnings, cancellationToken),
             await SafeBuildSectionAsync("tickets", negocioId, range, BuildTicketsAsync, EmptyTickets, warnings, cancellationToken),
@@ -124,7 +125,10 @@ public class BusinessAnalyticsController : ControllerBase
             return StatusCode(StatusCodes.Status500InternalServerError, new AnalyticsSectionErrorResponse(
                 Section: typeof(T).Name,
                 ExceptionType: exception.GetType().Name,
-                Message: exception.Message));
+                Message: exception.Message,
+                InnerExceptionType: exception.InnerException?.GetType().Name,
+                InnerMessage: exception.InnerException?.Message,
+                TraceId: HttpContext.TraceIdentifier));
         }
     }
 
@@ -144,7 +148,12 @@ public class BusinessAnalyticsController : ControllerBase
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             _logger.LogError(exception, "Error building analytics section {Section} for negocio {NegocioId}.", section, negocioId);
-            warnings.Add(new AnalyticsWarningResponse(section, exception.GetType().Name, exception.Message));
+            warnings.Add(new AnalyticsWarningResponse(
+                section,
+                exception.GetType().Name,
+                exception.Message,
+                exception.InnerException?.GetType().Name,
+                exception.InnerException?.Message));
             return fallback(range);
         }
     }
@@ -259,7 +268,7 @@ public class BusinessAnalyticsController : ControllerBase
             byOrigin.Add(new AnalyticsBreakdownItemResponse("qr_ticket", "QR de bienvenida", qrAssignments.Select(assignment => assignment.UserId).Distinct().Count()));
         }
 
-        Guid[] latestUserIds = links.Take(20).Select(link => link.UserId).Distinct().ToArray();
+        List<Guid> latestUserIds = links.Take(20).Select(link => link.UserId).Distinct().ToList();
         Dictionary<Guid, UserAccount> users = await _usersDbContext.Users
             .AsNoTracking()
             .Where(user => latestUserIds.Contains(user.Id))
@@ -459,10 +468,10 @@ public class BusinessAnalyticsController : ControllerBase
             .OrderByDescending(campaign => campaign.CreatedAtUtc)
             .ToListAsync(cancellationToken);
 
-        Guid[] campaignIds = campaigns.Select(campaign => campaign.Id).ToArray();
+        List<Guid> campaignIds = campaigns.Select(campaign => campaign.Id).ToList();
 
         List<Ticket> campaignTickets = await AssignedTickets(negocioId)
-            .Where(ticket => ticket.SourcePromotionCampaignId.HasValue && campaignIds.Contains(ticket.SourcePromotionCampaignId.Value))
+            .Where(ticket => ticket.SourcePromotionCampaignId.HasValue && campaignIds.Contains(ticket.SourcePromotionCampaignId ?? Guid.Empty))
             .ToListAsync(cancellationToken);
 
         List<TicketRedemption> campaignRedemptions = (await GetTicketRedemptionsAsync(
@@ -471,7 +480,7 @@ public class BusinessAnalyticsController : ControllerBase
                 cancellationToken))
             .Where(redemption =>
                 redemption.SourcePromotionCampaignId.HasValue &&
-                campaignIds.Contains(redemption.SourcePromotionCampaignId.Value))
+                campaignIds.Contains(redemption.SourcePromotionCampaignId ?? Guid.Empty))
             .ToList();
 
         CampaignMetricResponse[] campaignMetrics = campaigns
@@ -569,6 +578,85 @@ public class BusinessAnalyticsController : ControllerBase
     private static OperationsAnalyticsResponse EmptyOperations(AnalyticsDateRange range)
         => new(range, 0, 0, 0, 0, []);
 
+    private async Task<AnalyticsSourceDataResponse> BuildSourceDataAsync(
+        Guid negocioId,
+        AnalyticsDateRange range,
+        CancellationToken cancellationToken)
+    {
+        int audienceMembershipsInRange = await SafeCountAsync(async () =>
+            await _negociosDbContext.NegociosAudiencias
+                .AsNoTracking()
+                .Where(link =>
+                    link.NegocioId == negocioId &&
+                    link.FechaAltaUtc >= range.FromUtc &&
+                    link.FechaAltaUtc < range.ToUtc)
+                .CountAsync(cancellationToken));
+
+        int legacyCustomerLinksInRange = await SafeCountAsync(async () =>
+            await _negociosDbContext.NegociosUsuariosVinculaciones
+                .AsNoTracking()
+                .Where(link =>
+                    link.NegocioId == negocioId &&
+                    link.TipoVinculacion == TipoVinculacionNegocioUsuario.Cliente &&
+                    (link.FechaAceptacionUtc ?? link.FechaInicioUtc ?? link.CreatedAtUtc) >= range.FromUtc &&
+                    (link.FechaAceptacionUtc ?? link.FechaInicioUtc ?? link.CreatedAtUtc) < range.ToUtc)
+                .CountAsync(cancellationToken));
+
+        int assignedTicketsInRange = await SafeCountAsync(async () =>
+            await AssignedTickets(negocioId)
+                .Where(ticket => ticket.CreatedAtUtc >= range.FromUtc && ticket.CreatedAtUtc < range.ToUtc)
+                .CountAsync(cancellationToken));
+
+        int redeemedTicketsInRange = await SafeCountAsync(async () =>
+            await AssignedTickets(negocioId)
+                .Where(ticket => ticket.UsedAtUtc >= range.FromUtc && ticket.UsedAtUtc < range.ToUtc)
+                .CountAsync(cancellationToken));
+
+        int ticketRedemptionsInRange = await SafeCountAsync(async () =>
+            await _fidelityDbContext.TicketRedemptions
+                .AsNoTracking()
+                .Where(redemption =>
+                    redemption.NegocioId == negocioId &&
+                    redemption.CreatedAtUtc >= range.FromUtc &&
+                    redemption.CreatedAtUtc < range.ToUtc)
+                .CountAsync(cancellationToken));
+
+        int pointsTransactionsInRange = await SafeCountAsync(async () =>
+            await PointsTransactions(negocioId, range)
+                .CountAsync(cancellationToken));
+
+        int promotionCampaignsInRange = await SafeCountAsync(async () =>
+            await _promotionsDbContext.Campaigns
+                .AsNoTracking()
+                .Where(campaign =>
+                    campaign.NegocioId == negocioId &&
+                    campaign.CreatedAtUtc >= range.FromUtc &&
+                    campaign.CreatedAtUtc < range.ToUtc)
+                .CountAsync(cancellationToken));
+
+        return new AnalyticsSourceDataResponse(
+            AudienceMembershipsInRange: audienceMembershipsInRange,
+            LegacyCustomerLinksInRange: legacyCustomerLinksInRange,
+            AssignedTicketsInRange: assignedTicketsInRange,
+            RedeemedTicketsInRange: redeemedTicketsInRange,
+            TicketRedemptionsInRange: ticketRedemptionsInRange,
+            PointsTransactionsInRange: pointsTransactionsInRange,
+            PromotionCampaignsInRange: promotionCampaignsInRange);
+    }
+
+    private async Task<int> SafeCountAsync(Func<Task<int>> count)
+    {
+        try
+        {
+            return await count();
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _logger.LogWarning(exception, "Could not calculate analytics source data count.");
+            return 0;
+        }
+    }
+
     private async Task<List<CustomerLinkProjection>> GetCustomerLinksAsync(
         Guid negocioId,
         AnalyticsDateRange range,
@@ -580,12 +668,12 @@ public class BusinessAnalyticsController : ControllerBase
                 .AsNoTracking()
                 .Where(link =>
                     link.NegocioId == negocioId &&
-                    link.CreatedAtUtc >= range.FromUtc &&
-                    link.CreatedAtUtc < range.ToUtc)
+                    link.FechaAltaUtc >= range.FromUtc &&
+                    link.FechaAltaUtc < range.ToUtc)
                 .Select(link => new CustomerLinkProjection(
                     link.UserId,
                     link.OrigenAlta,
-                    link.CreatedAtUtc))
+                    link.FechaAltaUtc))
                 .ToListAsync(cancellationToken);
         }
         catch (DbException)
@@ -595,12 +683,12 @@ public class BusinessAnalyticsController : ControllerBase
                 .Where(link =>
                     link.NegocioId == negocioId &&
                     link.TipoVinculacion == TipoVinculacionNegocioUsuario.Cliente &&
-                    link.CreatedAtUtc >= range.FromUtc &&
-                    link.CreatedAtUtc < range.ToUtc)
+                    (link.FechaAceptacionUtc ?? link.FechaInicioUtc ?? link.CreatedAtUtc) >= range.FromUtc &&
+                    (link.FechaAceptacionUtc ?? link.FechaInicioUtc ?? link.CreatedAtUtc) < range.ToUtc)
                 .Select(link => new CustomerLinkProjection(
                     link.UserId,
                     link.OrigenVinculacion,
-                    link.CreatedAtUtc))
+                    link.FechaAceptacionUtc ?? link.FechaInicioUtc ?? link.CreatedAtUtc))
                 .ToListAsync(cancellationToken);
         }
     }
@@ -645,10 +733,10 @@ public class BusinessAnalyticsController : ControllerBase
         IReadOnlyCollection<TicketRedemption> instrumentedRedemptions,
         CancellationToken cancellationToken)
     {
-        Guid[] instrumentedTicketIds = instrumentedRedemptions
+        List<Guid> instrumentedTicketIds = instrumentedRedemptions
             .Select(redemption => redemption.TicketId)
             .Distinct()
-            .ToArray();
+            .ToList();
 
         int legacyRedemptions = await AssignedTickets(negocioId)
             .Where(ticket =>
@@ -680,7 +768,7 @@ public class BusinessAnalyticsController : ControllerBase
                 (ticket.CreatedAtUtc >= range.FromUtc && ticket.CreatedAtUtc < range.ToUtc) ||
                 (ticket.UpdatedAtUtc >= range.FromUtc && ticket.UpdatedAtUtc < range.ToUtc) ||
                 (ticket.UsedAtUtc >= range.FromUtc && ticket.UsedAtUtc < range.ToUtc))
-            .Select(ticket => ticket.UserId!.Value)
+            .Select(ticket => ticket.UserId ?? Guid.Empty)
             .Distinct()
             .ToArrayAsync(cancellationToken);
 
@@ -719,7 +807,7 @@ public class BusinessAnalyticsController : ControllerBase
                 (ticket.CreatedAtUtc >= range.FromUtc && ticket.CreatedAtUtc < range.ToUtc) ||
                 (ticket.UpdatedAtUtc >= range.FromUtc && ticket.UpdatedAtUtc < range.ToUtc) ||
                 (ticket.UsedAtUtc >= range.FromUtc && ticket.UsedAtUtc < range.ToUtc))
-            .GroupBy(ticket => ticket.UserId!.Value)
+            .GroupBy(ticket => ticket.UserId ?? Guid.Empty)
             .Where(group => group.Count() > 1)
             .Select(group => group.Key)
             .ToArrayAsync(cancellationToken);
@@ -753,9 +841,10 @@ public class BusinessAnalyticsController : ControllerBase
             return Unauthorized();
         }
 
+        Guid requesterId = userId.Value;
         BusinessLinkProjection? link = await _negociosDbContext.NegociosUsuariosVinculaciones
             .AsNoTracking()
-            .Where(item => item.NegocioId == negocioId && item.UserId == userId.Value)
+            .Where(item => item.NegocioId == negocioId && item.UserId == requesterId)
             .Select(item => new BusinessLinkProjection(
                 item.TipoVinculacion,
                 item.Activa,
@@ -913,6 +1002,7 @@ internal sealed record BusinessLinkProjection(
 
 public sealed record BusinessAnalyticsResponse(
     AnalyticsDateRange Range,
+    AnalyticsSourceDataResponse SourceData,
     AnalyticsOverviewResponse Overview,
     AcquisitionAnalyticsResponse Acquisition,
     TicketsAnalyticsResponse Tickets,
@@ -921,15 +1011,29 @@ public sealed record BusinessAnalyticsResponse(
     OperationsAnalyticsResponse Operations,
     IReadOnlyCollection<AnalyticsWarningResponse> Warnings);
 
+public sealed record AnalyticsSourceDataResponse(
+    int AudienceMembershipsInRange,
+    int LegacyCustomerLinksInRange,
+    int AssignedTicketsInRange,
+    int RedeemedTicketsInRange,
+    int TicketRedemptionsInRange,
+    int PointsTransactionsInRange,
+    int PromotionCampaignsInRange);
+
 public sealed record AnalyticsWarningResponse(
     string Section,
     string ExceptionType,
-    string Message);
+    string Message,
+    string? InnerExceptionType = null,
+    string? InnerMessage = null);
 
 public sealed record AnalyticsSectionErrorResponse(
     string Section,
     string ExceptionType,
-    string Message);
+    string Message,
+    string? InnerExceptionType = null,
+    string? InnerMessage = null,
+    string? TraceId = null);
 
 public sealed record AnalyticsOverviewResponse(
     AnalyticsDateRange Range,

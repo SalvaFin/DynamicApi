@@ -17,6 +17,9 @@ public class ExplorarNegocioResponse
     public decimal? Latitud { get; set; }
     public decimal? Longitud { get; set; }
     public double? DistanciaKm { get; set; }
+    public int TicketsDados { get; set; }
+    public int TicketsUsados { get; set; }
+    public int ActividadDynamic { get; set; }
     public string? LogoPrincipalUrl { get; set; }
     public string? IconoUrl { get; set; }
     public string? ImagenCoverUrl { get; set; }

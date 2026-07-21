@@ -129,12 +129,20 @@ public class PromotionService : IPromotionService
             NegocioNombreSnapshot = negocio.NombreComercial,
             NegocioSlugSnapshot = negocio.SlugPortal,
             NegocioLogoUrlSnapshot = negocio.LogoPrincipalUrl ?? negocio.IconoUrl,
+            NegocioAddressSnapshot = BuildBusinessAddress(negocio),
+            NegocioLatitudeSnapshot = negocio.Latitud is >= -90 and <= 90 && negocio.Longitud is >= -180 and <= 180
+                ? negocio.Latitud
+                : null,
+            NegocioLongitudeSnapshot = negocio.Latitud is >= -90 and <= 90 && negocio.Longitud is >= -180 and <= 180
+                ? negocio.Longitud
+                : null,
             TicketNombreSnapshot = ticketTemplate.Nombre,
             TicketDescripcionSnapshot = ticketTemplate.Descripcion,
             TicketSnapshotJson = JsonSerializer.Serialize(ticketSnapshot, JsonOptions),
             FiltersJson = JsonSerializer.Serialize(request.Filters ?? new PromotionAudienceFiltersRequest(), JsonOptions),
             Status = PromotionCampaignStatus.Queued,
             PushEnabled = negocio.PermiteNotificacionesPush,
+            EmailEnabled = negocio.PermiteNotificacionesEmail,
             IdempotencyKey = idempotencyKey,
             StartsAtUtc = startsAt,
             ExpiresAtUtc = request.ExpiresAtUtc,
@@ -242,6 +250,7 @@ public class PromotionService : IPromotionService
             negocioId,
             filters,
             negocio.PermiteNotificacionesPush,
+            negocio.PermiteNotificacionesEmail,
             cancellationToken);
 
         return PromotionServiceResult<PromotionAudiencePreviewResponse>.Success(preview);
@@ -451,6 +460,10 @@ public class PromotionService : IPromotionService
             PushDeliveredCount = campaign.PushDeliveredCount,
             PushFailedCount = campaign.PushFailedCount,
             PushEnabled = campaign.PushEnabled,
+            EmailEnabled = campaign.EmailEnabled,
+            EmailEligibleCount = campaign.EmailEligibleCount,
+            EmailDeliveredCount = campaign.EmailDeliveredCount,
+            EmailFailedCount = campaign.EmailFailedCount,
             Filters = JsonSerializer.Deserialize<PromotionAudienceFiltersRequest>(campaign.FiltersJson, JsonOptions) ?? new(),
             StartsAtUtc = campaign.StartsAtUtc,
             ExpiresAtUtc = campaign.ExpiresAtUtc,
@@ -501,6 +514,21 @@ public class PromotionService : IPromotionService
 
     private static string? Normalize(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string? BuildBusinessAddress(Dynamic.Negocios.Domain.Entities.Negocio negocio)
+    {
+        string city = string.Join(" ", new[] { negocio.CodigoPostal, negocio.Ciudad }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+        string address = string.Join(", ", new[]
+        {
+            negocio.DireccionLinea1,
+            negocio.DireccionLinea2,
+            city,
+            negocio.Provincia,
+            negocio.PaisCodigoIso2
+        }.Where(part => !string.IsNullOrWhiteSpace(part)));
+        return string.IsNullOrWhiteSpace(address) ? null : address;
+    }
 
     private async Task<PromotionServiceResult<Ticket>> ResolveTicketTemplateAsync(
         Guid negocioId,

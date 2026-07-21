@@ -10,6 +10,10 @@ public class PromotionAudiencePreviewResponse
     public bool BusinessPushEnabled { get; set; }
     public bool FirebasePushEnabled { get; set; }
     public bool PushAvailable { get; set; }
+    public int EmailEligibleCount { get; set; }
+    public bool BusinessEmailEnabled { get; set; }
+    public bool SmtpEmailEnabled { get; set; }
+    public bool EmailAvailable { get; set; }
     public DateTime CalculatedAtUtc { get; set; }
     public PromotionAudienceFiltersRequest Filters { get; set; } = new();
 }

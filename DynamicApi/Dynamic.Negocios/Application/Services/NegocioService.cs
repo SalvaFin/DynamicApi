@@ -65,15 +65,15 @@ public class NegocioService : INegocioService
 
         IReadOnlyCollection<Negocio> negocios = await _negocioRepository.ExploreAsync(searchTerms, cancellationToken);
         List<ExplorarNegocioResponse> mapped = negocios
-            .Where(negocio => !hasLocation || (negocio.Latitud.HasValue && negocio.Longitud.HasValue))
-            .Select(negocio => negocio.ToExploreResponse(hasLocation
+            .Select(negocio => negocio.ToExploreResponse(hasLocation && negocio.HasValidCoordinates()
                 ? CalculateDistanceKm(request.Latitud!.Value, request.Longitud!.Value, negocio.Latitud, negocio.Longitud)
                 : null))
             .ToList();
 
         List<ExplorarNegocioResponse> ordered = (hasLocation
             ? mapped
-                .OrderBy(negocio => negocio.DistanciaKm)
+                .OrderBy(negocio => negocio.DistanciaKm.HasValue ? 0 : 1)
+                .ThenBy(negocio => negocio.DistanciaKm)
                 .ThenBy(negocio => negocio.NombreComercial)
             : mapped.OrderBy(negocio => negocio.NombreComercial))
             .ToList();
@@ -85,7 +85,8 @@ public class NegocioService : INegocioService
             PageSize = pageSize,
             TotalItems = totalItems,
             TotalPages = totalItems == 0 ? 0 : (int)Math.Ceiling(totalItems / (double)pageSize),
-            OrdenadoPorProximidad = hasLocation,
+            OrdenadoPorProximidad = hasLocation && mapped.Any(negocio => negocio.DistanciaKm.HasValue),
+            CoordenadasEntradaIntercambiadas = false,
             Items = ordered
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
@@ -229,6 +230,21 @@ public class NegocioService : INegocioService
             return "La clave maestra del local debe tener exactamente 4 dígitos.";
         }
 
+        if (request.Latitud.HasValue != request.Longitud.HasValue)
+        {
+            return "La latitud y la longitud del negocio deben enviarse juntas.";
+        }
+
+        if (request.Latitud is < -90 or > 90)
+        {
+            return "La latitud del negocio debe estar entre -90 y 90.";
+        }
+
+        if (request.Longitud is < -180 or > 180)
+        {
+            return "La longitud del negocio debe estar entre -180 y 180.";
+        }
+
         return request.SlugPortal.Any(char.IsWhiteSpace)
             ? "El slug del portal no puede contener espacios."
             : null;
@@ -281,6 +297,7 @@ public class NegocioService : INegocioService
             Math.Cos(destinationLatRadians) *
             Math.Pow(Math.Sin(deltaLonRadians / 2), 2);
 
+        a = Math.Clamp(a, 0d, 1d);
         double distance = earthRadiusKm * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
         return Math.Round(distance, 2);
     }

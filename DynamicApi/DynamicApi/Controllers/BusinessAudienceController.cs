@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Data.Common;
 using Dynamic.Fidelity.Application.DTOs.Responses;
 using Dynamic.Fidelity.Domain.Enums;
 using Dynamic.Fidelity.Infrastructure.Persistence;
@@ -42,138 +43,104 @@ public class BusinessAudienceController : ControllerBase
         [FromQuery] BusinessAudienceQueryRequest request,
         CancellationToken cancellationToken)
     {
-        IActionResult? authorization = await AuthorizeAudienceAsync(negocioId, cancellationToken);
-        if (authorization is not null)
+        try
         {
-            return authorization;
-        }
-
-        int page = Math.Max(request.Page.GetValueOrDefault(DefaultPage), DefaultPage);
-        int pageSize = Math.Clamp(request.PageSize.GetValueOrDefault(DefaultPageSize), 1, MaxPageSize);
-
-        IQueryable<NegocioAudiencia> query = _negociosDbContext.NegociosAudiencias
-            .AsNoTracking()
-            .Where(audience => audience.NegocioId == negocioId);
-
-        if (request.Active.HasValue)
-        {
-            query = request.Active.Value
-                ? query.Where(audience => audience.Activa && audience.FechaBajaUtc == null)
-                : query.Where(audience => !audience.Activa || audience.FechaBajaUtc != null);
-        }
-
-        if (request.Favorite.HasValue)
-        {
-            query = query.Where(audience => audience.EsFavorito == request.Favorite.Value);
-        }
-
-        if (!string.IsNullOrWhiteSpace(request.Origin))
-        {
-            string origin = request.Origin.Trim();
-            query = query.Where(audience => audience.OrigenAlta == origin || audience.UltimaActividadOrigen == origin);
-        }
-
-        if (request.JoinedFromUtc.HasValue)
-        {
-            DateTime joinedFrom = NormalizeUtc(request.JoinedFromUtc.Value);
-            query = query.Where(audience => audience.FechaAltaUtc >= joinedFrom);
-        }
-
-        if (request.JoinedToUtc.HasValue)
-        {
-            DateTime joinedTo = NormalizeUtc(request.JoinedToUtc.Value);
-            query = query.Where(audience => audience.FechaAltaUtc < joinedTo);
-        }
-
-        if (request.ActivityFromUtc.HasValue)
-        {
-            DateTime activityFrom = NormalizeUtc(request.ActivityFromUtc.Value);
-            query = query.Where(audience => audience.UltimaActividadUtc >= activityFrom);
-        }
-
-        if (request.ActivityToUtc.HasValue)
-        {
-            DateTime activityTo = NormalizeUtc(request.ActivityToUtc.Value);
-            query = query.Where(audience => audience.UltimaActividadUtc < activityTo);
-        }
-
-        List<NegocioAudiencia> audienceRows = await query.ToListAsync(cancellationToken);
-        Guid[] userIds = audienceRows.Select(audience => audience.UserId).Distinct().ToArray();
-
-        Dictionary<Guid, UserAccount> users = userIds.Length == 0
-            ? []
-            : await _usersDbContext.Users
-                .AsNoTracking()
-                .Where(user => userIds.Contains(user.Id))
-                .ToDictionaryAsync(user => user.Id, cancellationToken);
-
-        Dictionary<Guid, AudiencePointsStats> pointsStats = await GetPointsStatsAsync(negocioId, userIds, cancellationToken);
-        Dictionary<Guid, AudienceTicketStats> ticketStats = await GetTicketStatsAsync(negocioId, userIds, cancellationToken);
-        Dictionary<Guid, AudienceRevenueStats> revenueStats = await GetRevenueStatsAsync(negocioId, userIds, cancellationToken);
-
-        IEnumerable<BusinessAudienceMemberResponse> members = audienceRows.Select(audience =>
-        {
-            users.TryGetValue(audience.UserId, out UserAccount? user);
-            pointsStats.TryGetValue(audience.UserId, out AudiencePointsStats? points);
-            ticketStats.TryGetValue(audience.UserId, out AudienceTicketStats? tickets);
-            revenueStats.TryGetValue(audience.UserId, out AudienceRevenueStats? revenue);
-
-            return new BusinessAudienceMemberResponse
+            IActionResult? authorization = await AuthorizeAudienceAsync(negocioId, cancellationToken);
+            if (authorization is not null)
             {
-                AudienceId = audience.Id,
-                NegocioId = audience.NegocioId,
-                UserId = audience.UserId,
-                DisplayName = ResolveUserDisplayName(user),
-                Email = user?.Email,
-                PhoneNumber = user?.PhoneNumber,
-                AvatarUrl = user?.AvatarUrl,
-                PostalCode = user?.PostalCode,
-                Province = user?.Province?.ToString(),
-                Gender = user?.Gender.ToString(),
-                AgeAtRegistration = user?.AgeAtRegistration,
-                MarketingAccepted = user?.MarketingAccepted ?? false,
-                RegistrationCompleted = user?.RegistrationCompleted ?? false,
-                UserStatus = user?.Status.ToString(),
-                Active = audience.Activa && audience.FechaBajaUtc == null,
-                Favorite = audience.EsFavorito,
-                Origin = audience.OrigenAlta,
-                LastActivityOrigin = audience.UltimaActividadOrigen,
-                JoinedAtUtc = audience.FechaAltaUtc,
-                LeftAtUtc = audience.FechaBajaUtc,
-                LastActivityAtUtc = MaxDate(audience.UltimaActividadUtc, points?.LastPointsActivityUtc, tickets?.LastTicketActivityUtc),
-                CurrentPoints = points?.CurrentPoints ?? 0,
-                TotalPointsEarned = points?.TotalPointsEarned ?? 0,
-                TotalPointsSpent = points?.TotalPointsSpent ?? 0,
-                TicketsTotal = tickets?.TicketsTotal ?? 0,
-                TicketsActive = tickets?.TicketsActive ?? 0,
-                TicketsRedeemed = tickets?.TicketsRedeemed ?? 0,
-                TicketsExpired = tickets?.TicketsExpired ?? 0,
-                LastTicketActivityAtUtc = tickets?.LastTicketActivityUtc,
-                TrackedRevenue = revenue?.TrackedRevenue ?? 0,
-                TicketPurchaseAmount = revenue?.TicketPurchaseAmount ?? 0,
-                LastPurchaseAtUtc = MaxDate(revenue?.LastPointsPurchaseAtUtc, revenue?.LastTicketPurchaseAtUtc)
-            };
-        });
+                return authorization;
+            }
 
-        members = ApplyInMemoryFilters(members, request);
-        int totalItems = members.Count();
+            int page = Math.Max(request.Page.GetValueOrDefault(DefaultPage), DefaultPage);
+            int pageSize = Math.Clamp(request.PageSize.GetValueOrDefault(DefaultPageSize), 1, MaxPageSize);
 
-        BusinessAudienceSummaryResponse summary = BuildSummary(members);
+            List<AudienceRowProjection> audienceRows = await GetAudienceRowsAsync(negocioId, request, cancellationToken);
+            List<Guid> userIds = audienceRows.Select(audience => audience.UserId).Distinct().ToList();
 
-        BusinessAudienceMemberResponse[] items = ApplySort(members, request.SortBy, request.SortDirection)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToArray();
+            Dictionary<Guid, UserAccount> users = userIds.Count == 0
+                ? []
+                : await _usersDbContext.Users
+                    .AsNoTracking()
+                    .Where(user => userIds.Contains(user.Id))
+                    .ToDictionaryAsync(user => user.Id, cancellationToken);
 
-        return Ok(new BusinessAudiencePageResponse
+            Dictionary<Guid, AudiencePointsStats> pointsStats = await GetPointsStatsAsync(negocioId, userIds, cancellationToken);
+            Dictionary<Guid, AudienceTicketStats> ticketStats = await GetTicketStatsAsync(negocioId, userIds, cancellationToken);
+            Dictionary<Guid, AudienceRevenueStats> revenueStats = await GetRevenueStatsAsync(negocioId, userIds, cancellationToken);
+
+            IEnumerable<BusinessAudienceMemberResponse> members = audienceRows.Select(audience =>
+            {
+                users.TryGetValue(audience.UserId, out UserAccount? user);
+                pointsStats.TryGetValue(audience.UserId, out AudiencePointsStats? points);
+                ticketStats.TryGetValue(audience.UserId, out AudienceTicketStats? tickets);
+                revenueStats.TryGetValue(audience.UserId, out AudienceRevenueStats? revenue);
+
+                return new BusinessAudienceMemberResponse
+                {
+                    AudienceId = audience.Id,
+                    NegocioId = audience.NegocioId,
+                    UserId = audience.UserId,
+                    DisplayName = ResolveUserDisplayName(user),
+                    Email = user?.Email,
+                    PhoneNumber = user?.PhoneNumber,
+                    AvatarUrl = user?.AvatarUrl,
+                    PostalCode = user?.PostalCode,
+                    Province = user?.Province?.ToString(),
+                    Gender = user?.Gender.ToString(),
+                    AgeAtRegistration = user?.AgeAtRegistration,
+                    MarketingAccepted = user?.MarketingAccepted ?? false,
+                    RegistrationCompleted = user?.RegistrationCompleted ?? false,
+                    UserStatus = user?.Status.ToString(),
+                    Active = audience.Activa && audience.FechaBajaUtc == null,
+                    Favorite = audience.EsFavorito,
+                    Origin = audience.OrigenAlta,
+                    LastActivityOrigin = audience.UltimaActividadOrigen,
+                    JoinedAtUtc = audience.FechaAltaUtc,
+                    LeftAtUtc = audience.FechaBajaUtc,
+                    LastActivityAtUtc = MaxDate(audience.UltimaActividadUtc, points?.LastPointsActivityUtc, tickets?.LastTicketActivityUtc),
+                    CurrentPoints = points?.CurrentPoints ?? 0,
+                    TotalPointsEarned = points?.TotalPointsEarned ?? 0,
+                    TotalPointsSpent = points?.TotalPointsSpent ?? 0,
+                    TicketsTotal = tickets?.TicketsTotal ?? 0,
+                    TicketsActive = tickets?.TicketsActive ?? 0,
+                    TicketsRedeemed = tickets?.TicketsRedeemed ?? 0,
+                    TicketsExpired = tickets?.TicketsExpired ?? 0,
+                    LastTicketActivityAtUtc = tickets?.LastTicketActivityUtc,
+                    TrackedRevenue = revenue?.TrackedRevenue ?? 0,
+                    TicketPurchaseAmount = revenue?.TicketPurchaseAmount ?? 0,
+                    LastPurchaseAtUtc = MaxDate(revenue?.LastPointsPurchaseAtUtc, revenue?.LastTicketPurchaseAtUtc)
+                };
+            });
+
+            members = ApplyInMemoryFilters(members, request);
+            int totalItems = members.Count();
+
+            BusinessAudienceSummaryResponse summary = BuildSummary(members);
+
+            BusinessAudienceMemberResponse[] items = ApplySort(members, request.SortBy, request.SortDirection)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToArray();
+
+            return Ok(new BusinessAudiencePageResponse
+            {
+                Page = page,
+                PageSize = pageSize,
+                TotalItems = totalItems,
+                TotalPages = totalItems == 0 ? 0 : (int)Math.Ceiling(totalItems / (double)pageSize),
+                Items = items,
+                Summary = summary
+            });
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            Page = page,
-            PageSize = pageSize,
-            TotalItems = totalItems,
-            TotalPages = totalItems == 0 ? 0 : (int)Math.Ceiling(totalItems / (double)pageSize),
-            Items = items,
-            Summary = summary
-        });
+            return StatusCode(StatusCodes.Status500InternalServerError, new BusinessAudienceErrorResponse(
+                exception.GetType().Name,
+                exception.Message,
+                exception.InnerException?.GetType().Name,
+                exception.InnerException?.Message,
+                HttpContext.TraceIdentifier));
+        }
     }
 
     [HttpGet("origins")]
@@ -185,25 +152,162 @@ public class BusinessAudienceController : ControllerBase
             return authorization;
         }
 
-        string[] origins = await _negociosDbContext.NegociosAudiencias
-            .AsNoTracking()
-            .Where(audience => audience.NegocioId == negocioId)
+        string[] origins = (await GetAudienceRowsAsync(
+                negocioId,
+                new BusinessAudienceQueryRequest { Active = null },
+                cancellationToken))
             .Select(audience => audience.OrigenAlta)
-            .Where(origin => origin != null && origin != "")
-            .Distinct()
+            .Where(origin => !string.IsNullOrWhiteSpace(origin))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(origin => origin)
             .Select(origin => origin!)
-            .ToArrayAsync(cancellationToken);
+            .ToArray();
 
         return Ok(origins);
     }
 
-    private async Task<Dictionary<Guid, AudiencePointsStats>> GetPointsStatsAsync(
+    private async Task<List<AudienceRowProjection>> GetAudienceRowsAsync(
         Guid negocioId,
-        Guid[] userIds,
+        BusinessAudienceQueryRequest request,
         CancellationToken cancellationToken)
     {
-        if (userIds.Length == 0)
+        try
+        {
+            IQueryable<NegocioAudiencia> query = _negociosDbContext.NegociosAudiencias
+                .AsNoTracking()
+                .Where(audience => audience.NegocioId == negocioId);
+
+            if (request.Active.HasValue)
+            {
+                bool active = request.Active.Value;
+                query = active
+                    ? query.Where(audience => audience.Activa && audience.FechaBajaUtc == null)
+                    : query.Where(audience => !audience.Activa || audience.FechaBajaUtc != null);
+            }
+
+            if (request.Favorite.HasValue)
+            {
+                bool favorite = request.Favorite.Value;
+                query = query.Where(audience => audience.EsFavorito == favorite);
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.Origin))
+            {
+                string origin = request.Origin.Trim();
+                query = query.Where(audience => audience.OrigenAlta == origin || audience.UltimaActividadOrigen == origin);
+            }
+
+            if (request.JoinedFromUtc.HasValue)
+            {
+                DateTime joinedFrom = NormalizeUtc(request.JoinedFromUtc.Value);
+                query = query.Where(audience => audience.FechaAltaUtc >= joinedFrom);
+            }
+
+            if (request.JoinedToUtc.HasValue)
+            {
+                DateTime joinedTo = NormalizeUtc(request.JoinedToUtc.Value);
+                query = query.Where(audience => audience.FechaAltaUtc < joinedTo);
+            }
+
+            if (request.ActivityFromUtc.HasValue)
+            {
+                DateTime activityFrom = NormalizeUtc(request.ActivityFromUtc.Value);
+                query = query.Where(audience => audience.UltimaActividadUtc >= activityFrom);
+            }
+
+            if (request.ActivityToUtc.HasValue)
+            {
+                DateTime activityTo = NormalizeUtc(request.ActivityToUtc.Value);
+                query = query.Where(audience => audience.UltimaActividadUtc < activityTo);
+            }
+
+            return await query
+                .Select(audience => new AudienceRowProjection(
+                    audience.Id,
+                    audience.NegocioId,
+                    audience.UserId,
+                    audience.Activa,
+                    audience.EsFavorito,
+                    audience.OrigenAlta,
+                    audience.UltimaActividadOrigen,
+                    audience.FechaAltaUtc,
+                    audience.FechaBajaUtc,
+                    audience.UltimaActividadUtc))
+                .ToListAsync(cancellationToken);
+        }
+        catch (DbException)
+        {
+            IQueryable<NegocioUsuarioVinculacion> legacyQuery = _negociosDbContext.NegociosUsuariosVinculaciones
+                .AsNoTracking()
+                .Where(link =>
+                    link.NegocioId == negocioId &&
+                    link.TipoVinculacion == TipoVinculacionNegocioUsuario.Cliente);
+
+            if (request.Active.HasValue)
+            {
+                bool active = request.Active.Value;
+                legacyQuery = active
+                    ? legacyQuery.Where(link => link.Activa && link.RevokedAtUtc == null)
+                    : legacyQuery.Where(link => !link.Activa || link.RevokedAtUtc != null);
+            }
+
+            if (request.Favorite == true)
+            {
+                return [];
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.Origin))
+            {
+                string origin = request.Origin.Trim();
+                legacyQuery = legacyQuery.Where(link => link.OrigenVinculacion == origin);
+            }
+
+            if (request.JoinedFromUtc.HasValue)
+            {
+                DateTime joinedFrom = NormalizeUtc(request.JoinedFromUtc.Value);
+                legacyQuery = legacyQuery.Where(link => link.CreatedAtUtc >= joinedFrom);
+            }
+
+            if (request.JoinedToUtc.HasValue)
+            {
+                DateTime joinedTo = NormalizeUtc(request.JoinedToUtc.Value);
+                legacyQuery = legacyQuery.Where(link => link.CreatedAtUtc < joinedTo);
+            }
+
+            if (request.ActivityFromUtc.HasValue)
+            {
+                DateTime activityFrom = NormalizeUtc(request.ActivityFromUtc.Value);
+                legacyQuery = legacyQuery.Where(link => link.UpdatedAtUtc >= activityFrom);
+            }
+
+            if (request.ActivityToUtc.HasValue)
+            {
+                DateTime activityTo = NormalizeUtc(request.ActivityToUtc.Value);
+                legacyQuery = legacyQuery.Where(link => link.UpdatedAtUtc < activityTo);
+            }
+
+            return await legacyQuery
+                .Select(link => new AudienceRowProjection(
+                    link.Id,
+                    link.NegocioId,
+                    link.UserId,
+                    link.Activa,
+                    false,
+                    link.OrigenVinculacion,
+                    link.OrigenVinculacion,
+                    link.FechaAceptacionUtc ?? link.FechaInicioUtc ?? link.CreatedAtUtc,
+                    link.RevokedAtUtc ?? link.FechaFinUtc,
+                    link.UpdatedAtUtc))
+                .ToListAsync(cancellationToken);
+        }
+    }
+
+    private async Task<Dictionary<Guid, AudiencePointsStats>> GetPointsStatsAsync(
+        Guid negocioId,
+        List<Guid> userIds,
+        CancellationToken cancellationToken)
+    {
+        if (userIds.Count == 0)
         {
             return [];
         }
@@ -232,10 +336,10 @@ public class BusinessAudienceController : ControllerBase
 
     private async Task<Dictionary<Guid, AudienceTicketStats>> GetTicketStatsAsync(
         Guid negocioId,
-        Guid[] userIds,
+        List<Guid> userIds,
         CancellationToken cancellationToken)
     {
-        if (userIds.Length == 0)
+        if (userIds.Count == 0)
         {
             return [];
         }
@@ -246,11 +350,11 @@ public class BusinessAudienceController : ControllerBase
             .Where(ticket =>
                 ticket.NegocioId == negocioId &&
                 ticket.UserId.HasValue &&
-                userIds.Contains(ticket.UserId.Value) &&
+                userIds.Contains(ticket.UserId ?? Guid.Empty) &&
                 !ticket.EsPlantilla)
             .Select(ticket => new
             {
-                UserId = ticket.UserId!.Value,
+                UserId = ticket.UserId ?? Guid.Empty,
                 ticket.Activo,
                 ticket.Usado,
                 ticket.ExpiresAtUtc,
@@ -274,10 +378,10 @@ public class BusinessAudienceController : ControllerBase
 
     private async Task<Dictionary<Guid, AudienceRevenueStats>> GetRevenueStatsAsync(
         Guid negocioId,
-        Guid[] userIds,
+        List<Guid> userIds,
         CancellationToken cancellationToken)
     {
-        if (userIds.Length == 0)
+        if (userIds.Count == 0)
         {
             return [];
         }
@@ -297,16 +401,22 @@ public class BusinessAudienceController : ControllerBase
             })
             .ToListAsync(cancellationToken);
 
-        var redemptionRows = await _fidelityDbContext.TicketRedemptions
-            .AsNoTracking()
-            .Where(redemption => redemption.NegocioId == negocioId && userIds.Contains(redemption.UserId))
-            .Select(redemption => new
-            {
-                redemption.UserId,
-                PurchaseAmount = redemption.PurchaseAmount ?? 0,
-                redemption.CreatedAtUtc
-            })
-            .ToListAsync(cancellationToken);
+        List<TicketRedemptionProjection> redemptionRows;
+        try
+        {
+            redemptionRows = await _fidelityDbContext.TicketRedemptions
+                .AsNoTracking()
+                .Where(redemption => redemption.NegocioId == negocioId && userIds.Contains(redemption.UserId))
+                .Select(redemption => new TicketRedemptionProjection(
+                    redemption.UserId,
+                    redemption.PurchaseAmount ?? 0,
+                    redemption.CreatedAtUtc))
+                .ToListAsync(cancellationToken);
+        }
+        catch (DbException)
+        {
+            redemptionRows = [];
+        }
 
         Dictionary<Guid, AudienceRevenueStats> result = [];
 
@@ -353,9 +463,10 @@ public class BusinessAudienceController : ControllerBase
             return Unauthorized();
         }
 
+        Guid requesterId = requesterUserId.Value;
         BusinessAudienceAuthorizationProjection? link = await _negociosDbContext.NegociosUsuariosVinculaciones
             .AsNoTracking()
-            .Where(item => item.NegocioId == negocioId && item.UserId == requesterUserId.Value)
+            .Where(item => item.NegocioId == negocioId && item.UserId == requesterId)
             .Select(item => new BusinessAudienceAuthorizationProjection(
                 item.TipoVinculacion,
                 item.Activa,
@@ -565,6 +676,23 @@ public class BusinessAudienceController : ControllerBase
         DateTime? LastPointsPurchaseAtUtc,
         DateTime? LastTicketPurchaseAtUtc);
 
+    private sealed record TicketRedemptionProjection(
+        Guid UserId,
+        decimal PurchaseAmount,
+        DateTime CreatedAtUtc);
+
+    private sealed record AudienceRowProjection(
+        Guid Id,
+        Guid NegocioId,
+        Guid UserId,
+        bool Activa,
+        bool EsFavorito,
+        string? OrigenAlta,
+        string? UltimaActividadOrigen,
+        DateTime FechaAltaUtc,
+        DateTime? FechaBajaUtc,
+        DateTime UltimaActividadUtc);
+
     private sealed record BusinessAudienceAuthorizationProjection(
         TipoVinculacionNegocioUsuario TipoVinculacion,
         bool Activa,
@@ -652,3 +780,10 @@ public class BusinessAudienceSummaryResponse
     public decimal TotalTrackedRevenue { get; set; }
     public decimal TotalTicketPurchaseAmount { get; set; }
 }
+
+public sealed record BusinessAudienceErrorResponse(
+    string ExceptionType,
+    string Message,
+    string? InnerExceptionType = null,
+    string? InnerMessage = null,
+    string? TraceId = null);

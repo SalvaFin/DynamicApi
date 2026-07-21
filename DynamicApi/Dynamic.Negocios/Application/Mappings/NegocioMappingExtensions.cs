@@ -127,7 +127,10 @@ public static class NegocioMappingExtensions
         };
 
     public static ExplorarNegocioResponse ToExploreResponse(this Negocio negocio, double? distanciaKm)
-        => new()
+    {
+        bool hasValidCoordinates = negocio.HasValidCoordinates();
+
+        return new()
         {
             Id = negocio.Id,
             NombreComercial = negocio.NombreComercial,
@@ -141,9 +144,9 @@ public static class NegocioMappingExtensions
             Ciudad = negocio.Ciudad,
             Provincia = negocio.Provincia,
             PaisCodigoIso2 = negocio.PaisCodigoIso2,
-            Latitud = negocio.Latitud,
-            Longitud = negocio.Longitud,
-            DistanciaKm = distanciaKm,
+            Latitud = hasValidCoordinates ? negocio.Latitud : null,
+            Longitud = hasValidCoordinates ? negocio.Longitud : null,
+            DistanciaKm = hasValidCoordinates ? distanciaKm : null,
             LogoPrincipalUrl = negocio.LogoPrincipalUrl,
             IconoUrl = negocio.IconoUrl,
             ImagenCoverUrl = negocio.ImagenCoverUrl,
@@ -155,6 +158,7 @@ public static class NegocioMappingExtensions
             ValorMonetarioPunto = negocio.ValorMonetarioPunto,
             PermiteRegistroPublico = negocio.PermiteRegistroPublico
         };
+    }
 
     public static Negocio ToEntity(this CrearNegocioRequest request)
         => new();

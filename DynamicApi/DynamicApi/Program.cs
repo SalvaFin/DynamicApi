@@ -127,6 +127,49 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (Exception exception) when (exception is not OperationCanceledException)
+    {
+        ILogger logger = context.RequestServices
+            .GetRequiredService<ILoggerFactory>()
+            .CreateLogger("GlobalExceptionHandler");
+
+        logger.LogError(
+            exception,
+            "Unhandled exception processing {Method} {Path}",
+            context.Request.Method,
+            context.Request.Path);
+
+        if (context.Response.HasStarted)
+        {
+            throw;
+        }
+
+        context.Response.Clear();
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        context.Response.ContentType = "application/json";
+
+        await context.Response.WriteAsJsonAsync(new
+        {
+            statusCode = StatusCodes.Status500InternalServerError,
+            error = "UnhandledException",
+            exceptionType = exception.GetType().Name,
+            message = exception.Message,
+            innerExceptionType = exception.InnerException?.GetType().Name,
+            innerMessage = exception.InnerException?.Message,
+            traceId = context.TraceIdentifier,
+            method = context.Request.Method,
+            path = context.Request.Path.Value,
+            timestampUtc = DateTime.UtcNow
+        });
+    }
+});
+
 app.UseForwardedHeaders();
 app.UseStaticFiles(new StaticFileOptions
 {

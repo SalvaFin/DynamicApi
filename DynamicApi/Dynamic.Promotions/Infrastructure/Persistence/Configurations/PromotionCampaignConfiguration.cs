@@ -14,6 +14,9 @@ public class PromotionCampaignConfiguration : IEntityTypeConfiguration<Promotion
         builder.Property(campaign => campaign.NegocioNombreSnapshot).HasMaxLength(180).IsRequired();
         builder.Property(campaign => campaign.NegocioSlugSnapshot).HasMaxLength(180).IsRequired();
         builder.Property(campaign => campaign.NegocioLogoUrlSnapshot).HasMaxLength(1024);
+        builder.Property(campaign => campaign.NegocioAddressSnapshot).HasMaxLength(512);
+        builder.Property(campaign => campaign.NegocioLatitudeSnapshot).HasPrecision(10, 7);
+        builder.Property(campaign => campaign.NegocioLongitudeSnapshot).HasPrecision(10, 7);
         builder.Property(campaign => campaign.TicketNombreSnapshot).HasMaxLength(180).IsRequired();
         builder.Property(campaign => campaign.TicketDescripcionSnapshot).HasMaxLength(2000);
         builder.Property(campaign => campaign.TicketSnapshotJson).HasColumnType("longtext").IsRequired();

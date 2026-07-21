@@ -117,7 +117,10 @@ public class CrearNegocioRequest
     [MaxLength(8)]
     public string? PaisCodigoIso2 { get; set; }
 
+    [Range(typeof(decimal), "-90", "90", ErrorMessage = "La latitud debe estar entre -90 y 90.")]
     public decimal? Latitud { get; set; }
+
+    [Range(typeof(decimal), "-180", "180", ErrorMessage = "La longitud debe estar entre -180 y 180.")]
     public decimal? Longitud { get; set; }
 
     [MaxLength(64)]

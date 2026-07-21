@@ -34,6 +34,11 @@ public class SmtpEmailNotificationService : IEmailNotificationService
         mailMessage.From.Add(new MailboxAddress(_smtpOptions.FromName, _smtpOptions.FromEmail));
         mailMessage.To.Add(new MailboxAddress(message.ToName ?? message.ToEmail, message.ToEmail));
         mailMessage.Subject = message.Subject;
+        if (!string.IsNullOrWhiteSpace(message.ListUnsubscribeUrl))
+        {
+            mailMessage.Headers["List-Unsubscribe"] = $"<{message.ListUnsubscribeUrl}>";
+            mailMessage.Headers["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click";
+        }
 
         BodyBuilder bodyBuilder = new()
         {

@@ -13,6 +13,7 @@ public class DynamicPromotionsDbContext : DbContext
     public DbSet<PromotionCampaign> Campaigns => Set<PromotionCampaign>();
     public DbSet<PromotionRecipient> Recipients => Set<PromotionRecipient>();
     public DbSet<PromotionDelivery> Deliveries => Set<PromotionDelivery>();
+    public DbSet<PromotionEmailDelivery> EmailDeliveries => Set<PromotionEmailDelivery>();
     public DbSet<PromotionOutboxMessage> OutboxMessages => Set<PromotionOutboxMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

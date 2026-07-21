@@ -11,5 +11,6 @@ public interface IPromotionAudienceBuilder
         Guid negocioId,
         PromotionAudienceFiltersRequest filters,
         bool businessPushEnabled,
+        bool businessEmailEnabled,
         CancellationToken cancellationToken = default);
 }

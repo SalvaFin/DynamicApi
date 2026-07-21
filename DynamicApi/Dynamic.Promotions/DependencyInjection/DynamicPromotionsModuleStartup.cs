@@ -25,6 +25,10 @@ public class DynamicPromotionsModuleStartup
             .Bind(configuration.GetSection(PromotionDispatchOptions.SectionName))
             .ValidateDataAnnotations()
             .ValidateOnStart();
+        services.AddOptions<PromotionEmailOptions>()
+            .Bind(configuration.GetSection(PromotionEmailOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
         services.AddOptions<FirebasePushOptions>()
             .Bind(configuration.GetSection(FirebasePushOptions.SectionName))
             .Validate(options =>
@@ -53,6 +57,7 @@ public class DynamicPromotionsModuleStartup
 
         services.AddScoped<IPromotionService, PromotionService>();
         services.AddScoped<IPromotionAudienceBuilder, PromotionAudienceBuilder>();
+        services.AddSingleton<PromotionEmailQueueTelemetry>();
         services.AddHttpClient<IPromotionPushSender, FirebasePromotionPushSender>();
         services.AddHostedService<PromotionDispatchWorker>();
 

@@ -11,6 +11,9 @@ public class PromotionCampaign
     public string NegocioNombreSnapshot { get; set; } = string.Empty;
     public string NegocioSlugSnapshot { get; set; } = string.Empty;
     public string? NegocioLogoUrlSnapshot { get; set; }
+    public string? NegocioAddressSnapshot { get; set; }
+    public decimal? NegocioLatitudeSnapshot { get; set; }
+    public decimal? NegocioLongitudeSnapshot { get; set; }
     public string TicketNombreSnapshot { get; set; } = string.Empty;
     public string? TicketDescripcionSnapshot { get; set; }
     public string TicketSnapshotJson { get; set; } = "{}";
@@ -21,6 +24,10 @@ public class PromotionCampaign
     public int PushDeliveredCount { get; set; }
     public int PushFailedCount { get; set; }
     public bool PushEnabled { get; set; }
+    public bool EmailEnabled { get; set; }
+    public int EmailEligibleCount { get; set; }
+    public int EmailDeliveredCount { get; set; }
+    public int EmailFailedCount { get; set; }
     public string? IdempotencyKey { get; set; }
     public string? LastError { get; set; }
     public DateTime StartsAtUtc { get; set; }
@@ -32,4 +39,5 @@ public class PromotionCampaign
 
     public ICollection<PromotionRecipient> Recipients { get; set; } = [];
     public ICollection<PromotionDelivery> Deliveries { get; set; } = [];
+    public ICollection<PromotionEmailDelivery> EmailDeliveries { get; set; } = [];
 }

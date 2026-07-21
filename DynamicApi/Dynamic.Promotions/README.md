@@ -1,6 +1,6 @@
 # Dynamic Promotions
 
-La bandeja de promociones es la fuente de verdad. El push de Firebase es un canal adicional: si un usuario no tiene notificaciones activas, la promocion sigue apareciendo en `GET /api/users/me/promotions`.
+La bandeja de promociones es la fuente de verdad. Push y correo son canales adicionales: si un canal no está disponible, la promoción sigue apareciendo en `GET /api/users/me/promotions`.
 
 ## Flujo del propietario
 
@@ -82,6 +82,8 @@ Devuelve `202 Accepted`. La audiencia se construye de forma asincrona. El fronte
 Estados posibles: `Queued`, `ProcessingAudience`, `Sent`, `Failed`, `Cancelled`.
 
 `Sent` significa que la promocion ya esta en las bandejas. Los contadores push pueden seguir aumentando mientras los workers entregan notificaciones.
+
+La respuesta de preview incluye también `emailEligibleCount`, `businessEmailEnabled`, `smtpEmailEnabled` y `emailAvailable`. Una dirección solo es elegible si el usuario mantiene el consentimiento comercial, tiene el correo confirmado y el negocio permite notificaciones por email.
 
 ### Filtros disponibles
 
@@ -189,6 +191,31 @@ Configurar los secretos por entorno, sin guardarlos en Git:
 - `Promotions__Firebase__ServiceAccountJson=...`
 
 La app Android debe crear el canal de notificaciones `promotions`.
+
+## Correo promocional
+
+Cada destinatario elegible genera una entrega persistente e independiente del push. El worker comprueba de nuevo el consentimiento justo antes de enviar, limita el ritmo, reintenta errores temporales y registra los contadores `emailEligibleCount`, `emailDeliveredCount` y `emailFailedCount` en la campaña.
+
+La plantilla responsive usa la identidad visual oscura y violeta de Dynamic e incluye promoción, negocio, dirección, enlace a Google Maps (coordenadas si existen), acceso a `mis-tickets`, versión de texto y baja. La baja también se anuncia mediante las cabeceras estándar `List-Unsubscribe` y `List-Unsubscribe-Post`.
+
+Configuración recomendada por entorno:
+
+- `Notify__Smtp__Enabled=true` y credenciales SMTP de un proveedor transaccional/marketing.
+- `Promotions__Email__AppBaseUrl=https://appdynamic.es`
+- `Promotions__Email__PublicApiBaseUrl=https://appdynamic.es`
+- `Promotions__Email__CompanyName=Dynamic`
+- `Promotions__Email__CompanyAddress=...` (domicilio identificativo que aparecerá en el pie legal).
+- `Promotions__Dispatch__EmailsPerMinute=60` y `EmailBatchSize=20`; ajústalos a los límites contratados con el proveedor.
+
+Antes de activar producción hay que autenticar el dominio remitente con SPF, DKIM y DMARC. No se deben usar cuentas SMTP personales para campañas masivas.
+
+### Monitor de cola para administradores
+
+`GET /api/admin/promotions/email-queue`
+
+Requiere JWT con rol `Admin`. El endpoint no consulta la base de datos: devuelve la última instantánea en memoria recopilada por el worker cada `Promotions:Dispatch:EmailTelemetryRefreshSeconds` segundos. Incluye salud (`Idle`, `Running`, `Degraded`, `Stalled`, `Disabled` o `Unavailable`), profundidad de cola, entregas bloqueadas, rendimiento desde el arranque, entrega actual, hasta 20 campañas activas y los últimos 20 errores saneados. No expone destinatarios ni tokens y responde con `Cache-Control: no-store`.
+
+La telemetría tiene alcance `process-instance`: se reinicia con el proceso y, si existen varias réplicas, cada una muestra únicamente su propio worker. Para una visión agregada futura habrá que publicar estas métricas en un sistema compartido de observabilidad.
 
 ## Registro y genero
 

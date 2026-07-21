@@ -15,6 +15,18 @@ public class PromotionDispatchOptions
     [Range(1, 20)]
     public int MaxPushAttempts { get; set; } = 5;
 
+    [Range(1, 500)]
+    public int EmailBatchSize { get; set; } = 20;
+
+    [Range(1, 3600)]
+    public int EmailsPerMinute { get; set; } = 60;
+
+    [Range(1, 20)]
+    public int MaxEmailAttempts { get; set; } = 5;
+
+    [Range(2, 300)]
+    public int EmailTelemetryRefreshSeconds { get; set; } = 10;
+
     [Range(0, 365)]
     public int MinimumDaysBetweenBusinessPromotions { get; set; } = 7;
 

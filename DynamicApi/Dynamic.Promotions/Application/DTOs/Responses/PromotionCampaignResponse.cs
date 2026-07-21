@@ -17,6 +17,10 @@ public class PromotionCampaignResponse
     public int PushDeliveredCount { get; set; }
     public int PushFailedCount { get; set; }
     public bool PushEnabled { get; set; }
+    public bool EmailEnabled { get; set; }
+    public int EmailEligibleCount { get; set; }
+    public int EmailDeliveredCount { get; set; }
+    public int EmailFailedCount { get; set; }
     public PromotionAudienceFiltersRequest Filters { get; set; } = new();
     public DateTime StartsAtUtc { get; set; }
     public DateTime ExpiresAtUtc { get; set; }
