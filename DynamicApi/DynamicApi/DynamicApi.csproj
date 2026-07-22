@@ -22,6 +22,7 @@
     <ProjectReference Include="..\Dynamic.Fidelity\Dynamic.Fidelity.csproj" />
     <ProjectReference Include="..\Dynamic.Notify\Dynamic.Notify.csproj" />
     <ProjectReference Include="..\Dynamic.Promotions\Dynamic.Promotions.csproj" />
+    <ProjectReference Include="..\Dynamic.Reports\Dynamic.Reports.csproj" />
   </ItemGroup>
 
   <ProjectExtensions><VisualStudio><UserProperties appsettings_1development_1json__JsonSchema="https://www.schemastore.org/architectfx.json" /></VisualStudio></ProjectExtensions>

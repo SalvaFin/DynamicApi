@@ -3,6 +3,7 @@ using Dynamic.Fidelity.Infrastructure.Persistence;
 using Dynamic.Negocios.Application.Options;
 using Dynamic.Negocios.Infrastructure.Persistence;
 using Dynamic.Promotions.Infrastructure.Persistence;
+using Dynamic.Reports.Infrastructure.Persistence;
 using Dynamic.Notify.Endpoints;
 using Dynamic.Users.Application.Options;
 using Dynamic.Users.Infrastructure.Persistence;
@@ -119,6 +120,7 @@ await using (AsyncServiceScope scope = app.Services.CreateAsyncScope())
     await ApplyMigrationsAsync(scope.ServiceProvider.GetRequiredService<DynamicNegociosDbContext>(), "negocios", migrationLogger);
     await ApplyMigrationsAsync(scope.ServiceProvider.GetRequiredService<DynamicFidelityDbContext>(), "fidelity", migrationLogger);
     await ApplyMigrationsAsync(scope.ServiceProvider.GetRequiredService<DynamicPromotionsDbContext>(), "promotions", migrationLogger);
+    await ApplyMigrationsAsync(scope.ServiceProvider.GetRequiredService<DynamicReportsDbContext>(), "reports", migrationLogger);
 }
 
 if (app.Environment.IsDevelopment())
