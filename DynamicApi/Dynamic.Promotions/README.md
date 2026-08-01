@@ -168,6 +168,40 @@ Usar `unreadCount` para el badge. Para mostrar solo nuevas: `includeRead=false`.
 
 El `recipientId`, no el `campaignId`, identifica la promocion concreta recibida por el usuario.
 
+### Animacion al entrar en Dynamic
+
+La visualizacion en la animacion se registra por separado de la lectura de la bandeja. Consultar las
+promociones pendientes no cambia su estado, por lo que un cierre de pestana o un error del frontend no
+las pierde.
+
+Al iniciar una sesion autenticada o al volver a entrar en la aplicacion:
+
+`GET /api/users/me/promotions/unseen?limit=10`
+
+Devuelve como maximo 10 promociones vigentes que aun no se han presentado, ordenadas de la mas antigua
+a la mas reciente, y `totalPending` con el total pendiente. El servidor limita `limit` al rango 1-20.
+
+```json
+{
+  "items": [],
+  "totalPending": 0
+}
+```
+
+Despues de mostrar cada promocion (no antes), el cliente confirma una o varias mediante:
+
+`POST /api/users/me/promotions/presented`
+
+```json
+{
+  "recipientIds": ["recipient-guid"]
+}
+```
+
+La operacion admite entre 1 y 100 identificadores, es idempotente y solo modifica promociones del
+usuario autenticado. Devuelve `presentedCount` y `presentedAtUtc`. Si la animacion se interrumpe, el
+cliente debe confirmar solo los elementos que llegaron a mostrarse; los demas reapareceran al entrar.
+
 ## Push Android / Firebase
 
 El cliente registra su token mediante el flujo existente de dispositivos con `PushProvider=Firebase` y `NotificationsEnabled=true`.

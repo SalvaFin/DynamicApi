@@ -11,6 +11,7 @@ public class PromotionRecipient
     public DateTime ReceivedAtUtc { get; set; }
     public DateTime ExpiresAtUtc { get; set; }
     public DateTime? ReadAtUtc { get; set; }
+    public DateTime? PresentedAtUtc { get; set; }
     public DateTime? DismissedAtUtc { get; set; }
     public DateTime CreatedAtUtc { get; set; }
     public DateTime UpdatedAtUtc { get; set; }

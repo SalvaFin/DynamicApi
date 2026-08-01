@@ -24,6 +24,7 @@ public class PromotionService : IPromotionService
 {
     public const string BuildAudienceMessageType = "BuildAudience";
     private const int MaxPageSize = 100;
+    private const int MaxUnseenPromotions = 20;
     private static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
 
     private readonly DynamicPromotionsDbContext _promotionsDbContext;
@@ -119,6 +120,9 @@ public class PromotionService : IPromotionService
 
         Ticket ticketTemplate = ticketResolutionResult.Data;
         TicketResponse ticketSnapshot = ticketTemplate.ToResponse();
+        ticketSnapshot.Tipo = TipoTicket.Promocion;
+        ticketSnapshot.PuntosCoste = null;
+        ticketSnapshot.Publicado = false;
 
         PromotionCampaign campaign = new()
         {
@@ -340,6 +344,66 @@ public class PromotionService : IPromotionService
         return true;
     }
 
+    public async Task<UnseenPromotionsResponse> GetUnseenPromotionsAsync(
+        Guid userId,
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        limit = Math.Clamp(limit, 1, MaxUnseenPromotions);
+        DateTime now = DateTime.UtcNow;
+
+        IQueryable<PromotionRecipient> query = _promotionsDbContext.Recipients
+            .AsNoTracking()
+            .Include(recipient => recipient.Campaign)
+            .Where(recipient =>
+                recipient.UserId == userId &&
+                !recipient.PresentedAtUtc.HasValue &&
+                recipient.Status != PromotionRecipientStatus.Dismissed &&
+                recipient.ExpiresAtUtc > now &&
+                recipient.Campaign.Status == PromotionCampaignStatus.Sent &&
+                recipient.Campaign.StartsAtUtc <= now);
+
+        int totalPending = await query.CountAsync(cancellationToken);
+        PromotionRecipient[] recipients = await query
+            .OrderBy(recipient => recipient.ReceivedAtUtc)
+            .Take(limit)
+            .ToArrayAsync(cancellationToken);
+
+        Dictionary<Guid, Guid> assignedTicketIdsByRecipient = await GetAssignedTicketIdsAsync(
+            recipients.Select(recipient => recipient.Id).ToArray(),
+            cancellationToken);
+
+        return new UnseenPromotionsResponse
+        {
+            Items = recipients.Select(recipient => ToReceivedResponse(recipient, assignedTicketIdsByRecipient)).ToArray(),
+            TotalPending = totalPending
+        };
+    }
+
+    public async Task<PresentedPromotionsResponse> MarkAsPresentedAsync(
+        Guid userId,
+        IReadOnlyCollection<Guid> recipientIds,
+        CancellationToken cancellationToken = default)
+    {
+        DateTime presentedAtUtc = DateTime.UtcNow;
+        int presentedCount = await _promotionsDbContext.Recipients
+            .Where(recipient =>
+                recipient.UserId == userId &&
+                recipientIds.Contains(recipient.Id) &&
+                !recipient.PresentedAtUtc.HasValue)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(recipient => recipient.PresentedAtUtc, presentedAtUtc)
+                    .SetProperty(recipient => recipient.UpdatedAtUtc, presentedAtUtc),
+                cancellationToken);
+
+        return new PresentedPromotionsResponse
+        {
+            PresentedCount = presentedCount,
+            PresentedAtUtc = presentedAtUtc
+        };
+    }
+
     private static string? ValidateRequest(
         CreatePromotionCampaignRequest request,
         DateTime now,
@@ -502,8 +566,20 @@ public class PromotionService : IPromotionService
             ExpiresAtUtc = recipient.ExpiresAtUtc,
             ReceivedAtUtc = recipient.ReceivedAtUtc,
             IsRead = recipient.Status == PromotionRecipientStatus.Read,
-            ReadAtUtc = recipient.ReadAtUtc
+            ReadAtUtc = recipient.ReadAtUtc,
+            IsPresented = recipient.PresentedAtUtc.HasValue,
+            PresentedAtUtc = recipient.PresentedAtUtc
         };
+
+    private async Task<Dictionary<Guid, Guid>> GetAssignedTicketIdsAsync(
+        Guid[] recipientIds,
+        CancellationToken cancellationToken)
+        => recipientIds.Length == 0
+            ? []
+            : await _fidelityDbContext.Tickets
+                .AsNoTracking()
+                .Where(ticket => ticket.SourcePromotionRecipientId.HasValue && recipientIds.Contains(ticket.SourcePromotionRecipientId.Value))
+                .ToDictionaryAsync(ticket => ticket.SourcePromotionRecipientId!.Value, ticket => ticket.Id, cancellationToken);
 
     private static JsonSerializerOptions CreateJsonOptions()
     {
@@ -568,6 +644,9 @@ public class PromotionService : IPromotionService
 
         CreateTicketRequest createTicketRequest = request.Ticket;
         createTicketRequest.CategoriaEnvioEspecial = CategoriaEnvioTicket.General;
+        createTicketRequest.Tipo = TipoTicket.Promocion;
+        createTicketRequest.PuntosCoste = null;
+        createTicketRequest.Publicado = false;
 
         var createResult = await _ticketService.CreateAsync(
             negocioId,

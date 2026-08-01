@@ -15,6 +15,8 @@ public class ReceivedPromotionResponse
     public DateTime ReceivedAtUtc { get; set; }
     public bool IsRead { get; set; }
     public DateTime? ReadAtUtc { get; set; }
+    public bool IsPresented { get; set; }
+    public DateTime? PresentedAtUtc { get; set; }
 }
 
 public class PromotionBusinessSummaryResponse

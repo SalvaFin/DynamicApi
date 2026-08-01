@@ -356,14 +356,14 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
                  `RequiereValidacionManual`, `EsDeUnSoloUso`, `EsPlantilla`, `Activo`, `Publicado`, `Usado`,
                  `CreatedAtUtc`, `AvailableFromUtc`, `ExpiresAtUtc`, `UpdatedAtUtc`)
             SELECT UUID(), template.`NegocioId`, recipient.`UserId`, template.`Id`, campaign.`Id`, recipient.`Id`,
-                   template.`Nombre`, template.`Descripcion`, template.`Tipo`, template.`CategoriaEnvioEspecial`,
+                   template.`Nombre`, template.`Descripcion`, 'Promocion', template.`CategoriaEnvioEspecial`,
                    template.`Valor`, template.`CodigoInterno`,
                    CONCAT(LEFT(COALESCE(NULLIF(template.`CodigoVisible`, ''), 'CAMPAIGN'), 8), '-', SUBSTRING(REPLACE(UUID(), '-', ''), 1, 11)),
                    template.`TituloCanje`, template.`InstruccionesCanje`, template.`CondicionesUso`, template.`MensajeMarketing`,
                    template.`DescuentoPorcentaje`, template.`DescuentoImporteFijo`, template.`BeneficioEspecialResumen`,
-                   template.`BeneficioEspecialDetalle`, template.`GastoMinimoRequerido`, template.`PuntosCoste`,
+                   template.`BeneficioEspecialDetalle`, template.`GastoMinimoRequerido`, NULL,
                    template.`MaxUsosPorCliente`, 0, template.`ValidezDiasDesdeAsignacion`, template.`RequiereValidacionManual`,
-                   template.`EsDeUnSoloUso`, 0, template.`Activo`, template.`Publicado`, 0, @now,
+                   template.`EsDeUnSoloUso`, 0, template.`Activo`, 0, 0, @now,
                    CASE
                        WHEN template.`AvailableFromUtc` IS NULL OR template.`AvailableFromUtc` < campaign.`StartsAtUtc`
                            THEN campaign.`StartsAtUtc`

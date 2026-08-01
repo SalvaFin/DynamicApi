@@ -4,5 +4,6 @@ public enum TipoTicket
 {
     Porcentual = 1,
     ValorFijo = 2,
-    Libre = 3
+    Libre = 3,
+    Promocion = 4
 }

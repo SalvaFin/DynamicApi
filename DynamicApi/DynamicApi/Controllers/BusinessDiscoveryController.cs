@@ -57,9 +57,9 @@ public class BusinessDiscoveryController : ControllerBase
                 negocio.Provincia.ToLower() == normalizedProvince.ToLower())
             .ToListAsync(cancellationToken);
 
-        Guid[] businessIds = businesses.Select(negocio => negocio.Id).ToArray();
+        List<Guid> businessIds = businesses.Select(negocio => negocio.Id).ToList();
 
-        Dictionary<Guid, int> givenByBusiness = businessIds.Length == 0
+        Dictionary<Guid, int> givenByBusiness = businessIds.Count == 0
             ? []
             : await _fidelityDbContext.Tickets
                 .AsNoTracking()
@@ -71,7 +71,7 @@ public class BusinessDiscoveryController : ControllerBase
                 .Select(group => new { NegocioId = group.Key, Count = group.Count() })
                 .ToDictionaryAsync(item => item.NegocioId, item => item.Count, cancellationToken);
 
-        Dictionary<Guid, int> usedByBusiness = businessIds.Length == 0
+        Dictionary<Guid, int> usedByBusiness = businessIds.Count == 0
             ? []
             : await _fidelityDbContext.TicketRedemptions
                 .AsNoTracking()

@@ -14,6 +14,7 @@ public class PromotionRecipientConfiguration : IEntityTypeConfiguration<Promotio
         builder.HasIndex(recipient => new { recipient.CampaignId, recipient.UserId }).IsUnique();
         builder.HasIndex(recipient => new { recipient.UserId, recipient.ReceivedAtUtc });
         builder.HasIndex(recipient => new { recipient.UserId, recipient.Status, recipient.ExpiresAtUtc });
+        builder.HasIndex(recipient => new { recipient.UserId, recipient.PresentedAtUtc, recipient.ExpiresAtUtc });
         builder.HasOne(recipient => recipient.Campaign)
             .WithMany(campaign => campaign.Recipients)
             .HasForeignKey(recipient => recipient.CampaignId)

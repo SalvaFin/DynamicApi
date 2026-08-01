@@ -198,7 +198,7 @@ public class TicketService : ITicketService
             Tipo = request.Tipo,
             CategoriaEnvioEspecial = request.CategoriaEnvioEspecial,
             Valor = NormalizeValue(request.Valor),
-            PuntosCoste = NormalizePointsCoste(request.PuntosCoste),
+            PuntosCoste = ResolvePointsCoste(request.Tipo, request.PuntosCoste),
             TituloCanje = request.Nombre.Trim(),
             InstruccionesCanje = Normalize(request.Descripcion),
             MaxUsosPorCliente = ResolveMaxUsosPorCliente(request.MaxUsosPorCliente, request.EsDeUnSoloUso),
@@ -208,7 +208,7 @@ public class TicketService : ITicketService
             EsDeUnSoloUso = ResolveIsSingleUse(request.MaxUsosPorCliente, request.EsDeUnSoloUso),
             EsPlantilla = true,
             Activo = request.Activo,
-            Publicado = request.Publicado,
+            Publicado = ResolvePublicado(request.Tipo, request.Publicado),
             AvailableFromUtc = request.AvailableFromUtc,
             ExpiresAtUtc = request.ExpiresAtUtc ?? now.Add(DefaultExpiration),
             CreatedAtUtc = now,
@@ -308,7 +308,7 @@ public class TicketService : ITicketService
         ticket.Tipo = request.Tipo;
         ticket.CategoriaEnvioEspecial = request.CategoriaEnvioEspecial;
         ticket.Valor = NormalizeValue(request.Valor);
-        ticket.PuntosCoste = NormalizePointsCoste(request.PuntosCoste);
+        ticket.PuntosCoste = ResolvePointsCoste(request.Tipo, request.PuntosCoste);
         ticket.TituloCanje = request.Nombre.Trim();
         ticket.InstruccionesCanje = Normalize(request.Descripcion);
         ticket.MaxUsosPorCliente = ResolveMaxUsosPorCliente(request.MaxUsosPorCliente, request.EsDeUnSoloUso);
@@ -316,7 +316,7 @@ public class TicketService : ITicketService
         ticket.RequiereValidacionManual = request.RequiereValidacionManual;
         ticket.EsDeUnSoloUso = ResolveIsSingleUse(request.MaxUsosPorCliente, request.EsDeUnSoloUso);
         ticket.Activo = request.Activo;
-        ticket.Publicado = request.Publicado;
+        ticket.Publicado = ResolvePublicado(request.Tipo, request.Publicado);
         ticket.AvailableFromUtc = request.AvailableFromUtc;
         ticket.ExpiresAtUtc = request.ExpiresAtUtc ?? ticket.ExpiresAtUtc;
         ticket.UpdatedAtUtc = DateTime.UtcNow;
@@ -542,7 +542,7 @@ public class TicketService : ITicketService
 
         if (!Enum.IsDefined(tipo))
         {
-            return ServiceResult.Failure("validation_error", "El tipo de ticket debe ser Porcentual, ValorFijo o Libre.");
+            return ServiceResult.Failure("validation_error", "El tipo de ticket debe ser Porcentual, ValorFijo, Libre o Promocion.");
         }
 
         if (availableFromUtc.HasValue && expiresAtUtc.HasValue && expiresAtUtc.Value < availableFromUtc.Value)
@@ -577,6 +577,13 @@ public class TicketService : ITicketService
             return ServiceResult.Failure("validation_error", "La validez en días desde la asignación debe ser mayor que 0.");
         }
 
+        if (tipo == TipoTicket.Promocion &&
+            puntosCoste.HasValue &&
+            puntosCoste.Value > 0)
+        {
+            return ServiceResult.Failure("validation_error", "Un ticket de promoción no debe configurarse con precio en puntos.");
+        }
+
         if (tipo == TipoTicket.Porcentual)
         {
             if (!valor.HasValue || valor.Value <= 0 || valor.Value > 100)
@@ -601,7 +608,7 @@ public class TicketService : ITicketService
         ticket.DescuentoPorcentaje = tipo == TipoTicket.Porcentual ? valor : null;
         ticket.DescuentoImporteFijo = tipo == TipoTicket.ValorFijo ? valor : null;
 
-        if (tipo == TipoTicket.Libre)
+        if (tipo is TipoTicket.Libre or TipoTicket.Promocion)
         {
             ticket.BeneficioEspecialResumen = ticket.Nombre;
             ticket.BeneficioEspecialDetalle = ticket.Descripcion;
@@ -620,6 +627,12 @@ public class TicketService : ITicketService
 
     private static int? NormalizePointsCoste(int? puntosCoste)
         => puntosCoste.HasValue && puntosCoste.Value > 0 ? puntosCoste.Value : null;
+
+    private static int? ResolvePointsCoste(TipoTicket tipo, int? puntosCoste)
+        => tipo == TipoTicket.Promocion ? null : NormalizePointsCoste(puntosCoste);
+
+    private static bool ResolvePublicado(TipoTicket tipo, bool publicado)
+        => tipo != TipoTicket.Promocion && publicado;
 
     private static int? ResolveMaxUsosPorCliente(int? maxUsosPorCliente, bool esDeUnSoloUso)
         => maxUsosPorCliente ?? (esDeUnSoloUso ? 1 : null);
@@ -663,6 +676,7 @@ public class TicketService : ITicketService
             ticket.UserId.HasValue ||
             !ticket.Activo ||
             !ticket.Publicado ||
+            ticket.Tipo == TipoTicket.Promocion ||
             ticket.CategoriaEnvioEspecial != CategoriaEnvioTicket.General ||
             !ticket.PuntosCoste.HasValue ||
             ticket.PuntosCoste.Value <= 0)

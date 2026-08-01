@@ -361,6 +361,9 @@ namespace DynamicApi.Migrations.Promotions
                     b.Property<DateTime?>("ReadAtUtc")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<DateTime?>("PresentedAtUtc")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<DateTime>("ReceivedAtUtc")
                         .HasColumnType("datetime(6)");
 
@@ -381,6 +384,8 @@ namespace DynamicApi.Migrations.Promotions
                         .IsUnique();
 
                     b.HasIndex("UserId", "ReceivedAtUtc");
+
+                    b.HasIndex("UserId", "PresentedAtUtc", "ExpiresAtUtc");
 
                     b.HasIndex("UserId", "Status", "ExpiresAtUtc");
 

@@ -34,5 +34,15 @@ public interface IPromotionService
         bool includeRead,
         CancellationToken cancellationToken = default);
 
+    Task<UnseenPromotionsResponse> GetUnseenPromotionsAsync(
+        Guid userId,
+        int limit,
+        CancellationToken cancellationToken = default);
+
+    Task<PresentedPromotionsResponse> MarkAsPresentedAsync(
+        Guid userId,
+        IReadOnlyCollection<Guid> recipientIds,
+        CancellationToken cancellationToken = default);
+
     Task<bool> MarkAsReadAsync(Guid userId, Guid recipientId, CancellationToken cancellationToken = default);
 }
