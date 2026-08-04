@@ -1,6 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.RegularExpressions;
+using Dynamic.Negocios.Application.ModelBinding;
 using Dynamic.Negocios.Domain.Enums;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Dynamic.Negocios.Application.DTOs.Requests;
 
@@ -118,9 +120,11 @@ public class CrearNegocioRequest
     public string? PaisCodigoIso2 { get; set; }
 
     [Range(typeof(decimal), "-90", "90", ErrorMessage = "La latitud debe estar entre -90 y 90.")]
+    [ModelBinder(BinderType = typeof(CoordinateModelBinder))]
     public decimal? Latitud { get; set; }
 
     [Range(typeof(decimal), "-180", "180", ErrorMessage = "La longitud debe estar entre -180 y 180.")]
+    [ModelBinder(BinderType = typeof(CoordinateModelBinder))]
     public decimal? Longitud { get; set; }
 
     [MaxLength(64)]

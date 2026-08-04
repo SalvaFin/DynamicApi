@@ -175,18 +175,6 @@ public class TicketService : ITicketService
                 validation.ErrorMessage ?? "Los datos del ticket no son válidos.");
         }
 
-        if (request.Activo &&
-            request.CategoriaEnvioEspecial == CategoriaEnvioTicket.PrimerRegistro &&
-            await _ticketRepository.ExistsActiveTemplateByCategoryAsync(
-                negocioId,
-                CategoriaEnvioTicket.PrimerRegistro,
-                cancellationToken: cancellationToken))
-        {
-            return ServiceResult<TicketResponse>.Failure(
-                "conflict",
-                "El negocio ya tiene un ticket de bienvenida activo.");
-        }
-
         DateTime now = DateTime.UtcNow;
         Ticket ticket = new()
         {
@@ -219,6 +207,7 @@ public class TicketService : ITicketService
 
         await _ticketRepository.AddAsync(ticket, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
+        await SyncWelcomeTicketConfigurationAsync(negocioId, ticket, cancellationToken);
 
         return ServiceResult<TicketResponse>.Success(ticket.ToResponse());
     }
@@ -229,12 +218,11 @@ public class TicketService : ITicketService
         bool isAdmin,
         CreateTicketRequest request,
         CancellationToken cancellationToken = default)
-        => await CreateConfiguredBusinessTicketAsync(
+        => await CreateAsync(
             negocioId,
             requesterUserId,
             isAdmin,
             CopyWithCategory(request, CategoriaEnvioTicket.PrimerRegistro),
-            (negocio, ticketId) => negocio.BonoBienvenidaTicketId = ticketId,
             cancellationToken);
 
     public async Task<ServiceResult<TicketResponse>> CreateReferralTicketAsync(
@@ -290,19 +278,6 @@ public class TicketService : ITicketService
             return ServiceResult<TicketResponse>.Failure("not_found", "El ticket no existe o no pertenece al negocio.");
         }
 
-        if (request.Activo &&
-            request.CategoriaEnvioEspecial == CategoriaEnvioTicket.PrimerRegistro &&
-            await _ticketRepository.ExistsActiveTemplateByCategoryAsync(
-                negocioId,
-                CategoriaEnvioTicket.PrimerRegistro,
-                ticket.Id,
-                cancellationToken))
-        {
-            return ServiceResult<TicketResponse>.Failure(
-                "conflict",
-                "El negocio ya tiene otro ticket de bienvenida activo.");
-        }
-
         ticket.Nombre = request.Nombre.Trim();
         ticket.Descripcion = Normalize(request.Descripcion);
         ticket.Tipo = request.Tipo;
@@ -325,6 +300,7 @@ public class TicketService : ITicketService
 
         _ticketRepository.Update(ticket);
         await _dbContext.SaveChangesAsync(cancellationToken);
+        await SyncWelcomeTicketConfigurationAsync(negocioId, ticket, cancellationToken);
 
         return ServiceResult<TicketResponse>.Success(ticket.ToResponse());
     }
@@ -464,8 +440,58 @@ public class TicketService : ITicketService
 
         _ticketRepository.Remove(ticket);
         await _dbContext.SaveChangesAsync(cancellationToken);
+        await ClearWelcomeTicketConfigurationAsync(negocioId, ticket.Id, cancellationToken);
 
         return ServiceResult.Success();
+    }
+
+    private async Task SyncWelcomeTicketConfigurationAsync(
+        Guid negocioId,
+        Ticket ticket,
+        CancellationToken cancellationToken)
+    {
+        Negocio? negocio = await _negocioRepository.GetByIdAsync(negocioId, cancellationToken);
+        if (negocio is null || negocio.IsDeleted)
+        {
+            return;
+        }
+
+        bool isActiveWelcomeTicket =
+            ticket.Activo && ticket.CategoriaEnvioEspecial == CategoriaEnvioTicket.PrimerRegistro;
+
+        if (isActiveWelcomeTicket)
+        {
+            negocio.BonoBienvenidaTicketId = ticket.Id;
+        }
+        else if (negocio.BonoBienvenidaTicketId == ticket.Id)
+        {
+            negocio.BonoBienvenidaTicketId = null;
+        }
+        else
+        {
+            return;
+        }
+
+        negocio.UpdatedAtUtc = DateTime.UtcNow;
+        _negocioRepository.Update(negocio);
+        await _negociosDbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task ClearWelcomeTicketConfigurationAsync(
+        Guid negocioId,
+        Guid ticketId,
+        CancellationToken cancellationToken)
+    {
+        Negocio? negocio = await _negocioRepository.GetByIdAsync(negocioId, cancellationToken);
+        if (negocio is null || negocio.BonoBienvenidaTicketId != ticketId)
+        {
+            return;
+        }
+
+        negocio.BonoBienvenidaTicketId = null;
+        negocio.UpdatedAtUtc = DateTime.UtcNow;
+        _negocioRepository.Update(negocio);
+        await _negociosDbContext.SaveChangesAsync(cancellationToken);
     }
 
     private async Task<ServiceResult> EnsureCanManageTicketsAsync(

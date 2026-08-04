@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Dynamic.Fidelity.Application.DTOs.Responses;
 using Dynamic.Notify.Application.Contracts;
 using Dynamic.Notify.Application.Options;
@@ -20,7 +21,7 @@ namespace Dynamic.Promotions.Infrastructure.Workers;
 
 public class PromotionDispatchWorker : BackgroundService
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly PromotionDispatchOptions _options;
     private readonly PromotionEmailQueueTelemetry _emailTelemetry;
@@ -368,7 +369,7 @@ public class PromotionDispatchWorker : BackgroundService
             try
             {
                 bool stillAllowed = await usersDbContext.Users.AsNoTracking().AnyAsync(user =>
-                    user.Id == delivery.UserId && user.EmailConfirmed && user.MarketingAccepted &&
+                    user.Id == delivery.UserId && user.MarketingAccepted &&
                     user.Email == delivery.Email && user.Status == Dynamic.Users.Domain.Enums.UserStatus.Active,
                     cancellationToken);
                 if (!stillAllowed)
@@ -577,4 +578,11 @@ public class PromotionDispatchWorker : BackgroundService
         => string.IsNullOrWhiteSpace(campaign.TicketSnapshotJson)
             ? null
             : JsonSerializer.Deserialize<TicketResponse>(campaign.TicketSnapshotJson, JsonOptions);
+
+    private static JsonSerializerOptions CreateJsonOptions()
+    {
+        JsonSerializerOptions options = new(JsonSerializerDefaults.Web);
+        options.Converters.Add(new JsonStringEnumConverter());
+        return options;
+    }
 }

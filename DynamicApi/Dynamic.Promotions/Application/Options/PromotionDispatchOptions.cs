@@ -26,13 +26,4 @@ public class PromotionDispatchOptions
 
     [Range(2, 300)]
     public int EmailTelemetryRefreshSeconds { get; set; } = 10;
-
-    [Range(0, 365)]
-    public int MinimumDaysBetweenBusinessPromotions { get; set; } = 7;
-
-    [Range(1, 100)]
-    public int GlobalPromotionLimitPerWindow { get; set; } = 3;
-
-    [Range(1, 365)]
-    public int GlobalPromotionWindowDays { get; set; } = 7;
 }

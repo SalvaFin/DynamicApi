@@ -24,7 +24,6 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
 {
     private static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
     private readonly DynamicPromotionsDbContext _dbContext;
-    private readonly PromotionDispatchOptions _dispatchOptions;
     private readonly FirebasePushOptions _firebaseOptions;
     private readonly SmtpOptions _smtpOptions;
     private readonly ITicketEventPublisher _ticketEventPublisher;
@@ -32,14 +31,12 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
 
     public PromotionAudienceBuilder(
         DynamicPromotionsDbContext dbContext,
-        IOptions<PromotionDispatchOptions> dispatchOptions,
         IOptions<FirebasePushOptions> firebaseOptions,
         IOptions<SmtpOptions> smtpOptions,
         ITicketEventPublisher ticketEventPublisher,
         ILogger<PromotionAudienceBuilder> logger)
     {
         _dbContext = dbContext;
-        _dispatchOptions = dispatchOptions.Value;
         _firebaseOptions = firebaseOptions.Value;
         _smtpOptions = smtpOptions.Value;
         _ticketEventPublisher = ticketEventPublisher;
@@ -169,7 +166,7 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
         if (businessEmailEnabled)
         {
             emailEligibleCount = await ExecuteScalarLongAsync(
-                $"SELECT COUNT(*) {audienceSql.FromWhereSql} AND user_account.`EmailConfirmed` = 1 AND user_account.`Email` IS NOT NULL AND user_account.`Email` <> ''",
+                $"SELECT COUNT(*) {audienceSql.FromWhereSql} AND user_account.`Email` IS NOT NULL AND user_account.`Email` <> ''",
                 audienceSql.Parameters,
                 cancellationToken);
         }
@@ -224,10 +221,7 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
         List<(string Name, object? Value)> parameters =
         [
             ("@negocioId", negocioId.ToString()),
-            ("@now", now),
-            ("@businessCutoff", now.AddDays(-_dispatchOptions.MinimumDaysBetweenBusinessPromotions)),
-            ("@globalCutoff", now.AddDays(-_dispatchOptions.GlobalPromotionWindowDays)),
-            ("@globalLimit", _dispatchOptions.GlobalPromotionLimitPerWindow)
+            ("@now", now)
         ];
 
         AppendFilters(where, parameters, filters, now);
@@ -265,21 +259,6 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
             WHERE user_account.`RegistrationCompleted` = 1
               AND user_account.`Status` = 'Active'
               AND user_account.`MarketingAccepted` = 1
-              AND NOT EXISTS (
-                  SELECT 1
-                  FROM `promotion_recipients` previous_recipient
-                  INNER JOIN `promotion_campaigns` previous_campaign
-                      ON previous_campaign.`Id` = previous_recipient.`CampaignId`
-                  WHERE previous_recipient.`UserId` = candidates.`UserId`
-                    AND previous_campaign.`NegocioId` = @negocioId
-                    AND previous_recipient.`ReceivedAtUtc` >= @businessCutoff
-              )
-              AND (
-                  SELECT COUNT(*)
-                  FROM `promotion_recipients` global_recipient
-                  WHERE global_recipient.`UserId` = candidates.`UserId`
-                    AND global_recipient.`ReceivedAtUtc` >= @globalCutoff
-              ) < @globalLimit
               {where}
             """;
 
@@ -330,7 +309,6 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
             INNER JOIN `users` user_account ON user_account.`Id` = recipient.`UserId`
             WHERE recipient.`CampaignId` = @campaignId
               AND user_account.`MarketingAccepted` = 1
-              AND user_account.`EmailConfirmed` = 1
               AND user_account.`Email` IS NOT NULL
               AND user_account.`Email` <> ''
             """;

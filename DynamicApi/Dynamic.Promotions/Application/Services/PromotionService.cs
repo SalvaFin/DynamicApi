@@ -303,13 +303,9 @@ public class PromotionService : IPromotionService
             .Take(pageSize)
             .ToArrayAsync(cancellationToken);
 
-        Guid[] recipientIds = recipients.Select(recipient => recipient.Id).ToArray();
-        Dictionary<Guid, Guid> assignedTicketIdsByRecipient = recipientIds.Length == 0
-            ? []
-            : await _fidelityDbContext.Tickets
-                .AsNoTracking()
-                .Where(ticket => ticket.SourcePromotionRecipientId.HasValue && recipientIds.Contains(ticket.SourcePromotionRecipientId.Value))
-                .ToDictionaryAsync(ticket => ticket.SourcePromotionRecipientId!.Value, ticket => ticket.Id, cancellationToken);
+        Dictionary<Guid, Guid> assignedTicketIdsByRecipient = await GetAssignedTicketIdsAsync(
+            recipients.Select(recipient => recipient.Id).ToList(),
+            cancellationToken);
 
         return new ReceivedPromotionsPageResponse
         {
@@ -370,7 +366,7 @@ public class PromotionService : IPromotionService
             .ToArrayAsync(cancellationToken);
 
         Dictionary<Guid, Guid> assignedTicketIdsByRecipient = await GetAssignedTicketIdsAsync(
-            recipients.Select(recipient => recipient.Id).ToArray(),
+            recipients.Select(recipient => recipient.Id).ToList(),
             cancellationToken);
 
         return new UnseenPromotionsResponse
@@ -386,10 +382,11 @@ public class PromotionService : IPromotionService
         CancellationToken cancellationToken = default)
     {
         DateTime presentedAtUtc = DateTime.UtcNow;
+        List<Guid> recipientIdList = recipientIds.ToList();
         int presentedCount = await _promotionsDbContext.Recipients
             .Where(recipient =>
                 recipient.UserId == userId &&
-                recipientIds.Contains(recipient.Id) &&
+                recipientIdList.Contains(recipient.Id) &&
                 !recipient.PresentedAtUtc.HasValue)
             .ExecuteUpdateAsync(
                 setters => setters
@@ -572,9 +569,9 @@ public class PromotionService : IPromotionService
         };
 
     private async Task<Dictionary<Guid, Guid>> GetAssignedTicketIdsAsync(
-        Guid[] recipientIds,
+        List<Guid> recipientIds,
         CancellationToken cancellationToken)
-        => recipientIds.Length == 0
+        => recipientIds.Count == 0
             ? []
             : await _fidelityDbContext.Tickets
                 .AsNoTracking()

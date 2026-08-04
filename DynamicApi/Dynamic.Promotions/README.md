@@ -83,7 +83,7 @@ Estados posibles: `Queued`, `ProcessingAudience`, `Sent`, `Failed`, `Cancelled`.
 
 `Sent` significa que la promocion ya esta en las bandejas. Los contadores push pueden seguir aumentando mientras los workers entregan notificaciones.
 
-La respuesta de preview incluye también `emailEligibleCount`, `businessEmailEnabled`, `smtpEmailEnabled` y `emailAvailable`. Una dirección solo es elegible si el usuario mantiene el consentimiento comercial, tiene el correo confirmado y el negocio permite notificaciones por email.
+La respuesta de preview incluye también `emailEligibleCount`, `businessEmailEnabled`, `smtpEmailEnabled` y `emailAvailable`. Una dirección es elegible si el usuario mantiene el consentimiento comercial, dispone de correo y el negocio permite notificaciones por email. El envío promocional no exige que `EmailConfirmed` esté marcado.
 
 ### Filtros disponibles
 
@@ -118,8 +118,6 @@ Todos son opcionales y se combinan con AND. Dentro de un campo de lista (`gender
 | `hasConfirmedEmail` | Email confirmado |
 
 Aunque no se envien filtros, solo entran usuarios que forman parte de la audiencia activa del negocio. Los puntos y tickets se usan como datos de segmentacion cuando existen, pero ya no son la fuente primaria de audiencia. Siempre se excluyen usuarios sin `MarketingAccepted` y cuentas inactivas.
-
-Dynamic aplica tambien limites no controlables por el negocio: por defecto, una promocion del mismo negocio cada 7 dias y un maximo global de 3 promociones por usuario cada 7 dias.
 
 ## Flujo del cliente
 
