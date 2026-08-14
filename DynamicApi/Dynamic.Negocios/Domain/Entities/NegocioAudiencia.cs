@@ -7,6 +7,9 @@ public class NegocioAudiencia
     public Guid UserId { get; set; }
     public bool Activa { get; set; } = true;
     public bool EsFavorito { get; set; }
+    public bool PermiteCorreosPromocionales { get; set; } = true;
+    public DateTime? CorreosPromocionalesAceptadosAtUtc { get; set; }
+    public DateTime? CorreosPromocionalesRevocadosAtUtc { get; set; }
     public string? OrigenAlta { get; set; }
     public string? UltimaActividadOrigen { get; set; }
     public DateTime FechaAltaUtc { get; set; }

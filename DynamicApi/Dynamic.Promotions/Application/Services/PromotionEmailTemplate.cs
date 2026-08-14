@@ -23,14 +23,14 @@ public static class PromotionEmailTemplate
         string greeting = string.IsNullOrWhiteSpace(delivery.RecipientName)
             ? "¡Hola!"
             : $"¡Hola, {delivery.RecipientName.Trim()}!";
-        string ticketsUrl = CombineUrl(options.AppBaseUrl, "/mis-tickets");
+        string ticketsUrl = CombineUrl(options.AppBaseUrl, "/portal/tickets");
         string unsubscribeUrl = CombineUrl(
             options.PublicApiBaseUrl,
             $"/api/promotions/email/unsubscribe?token={delivery.UnsubscribeToken:D}");
         string? mapsUrl = BuildMapsUrl(campaign);
         string location = campaign.NegocioAddressSnapshot ?? "Consulta la ubicación en la app";
 
-        string encodedLogo = Encode(campaign.NegocioLogoUrlSnapshot);
+        string encodedLogo = Encode(BuildPublicUrl(options.PublicApiBaseUrl, campaign.NegocioLogoUrlSnapshot));
         string logo = string.IsNullOrWhiteSpace(encodedLogo)
             ? "<div style=\"font-size:28px;font-weight:800;color:#c77dff\">DYNAMIC</div>"
             : $"<img src=\"{encodedLogo}\" alt=\"{Encode(businessName)}\" width=\"72\" style=\"display:block;border:0;border-radius:16px;max-height:72px;object-fit:contain\">";
@@ -110,6 +110,25 @@ public static class PromotionEmailTemplate
     }
 
     private static string CombineUrl(string baseUrl, string path) => $"{baseUrl.TrimEnd('/')}/{path.TrimStart('/')}";
+
+    private static string? BuildPublicUrl(string baseUrl, string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return null;
+        }
+
+        string normalizedUrl = url.Trim();
+        if (Uri.TryCreate(normalizedUrl, UriKind.Absolute, out Uri? absoluteUrl) &&
+            (string.Equals(absoluteUrl.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(absoluteUrl.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)))
+        {
+            return absoluteUrl.ToString();
+        }
+
+        return CombineUrl(baseUrl, normalizedUrl);
+    }
+
     private static string Encode(string? value) => WebUtility.HtmlEncode(value ?? string.Empty);
     private static string BuildAddressSuffix(string? address) => string.IsNullOrWhiteSpace(address) ? string.Empty : $" · {Encode(address)}";
 }

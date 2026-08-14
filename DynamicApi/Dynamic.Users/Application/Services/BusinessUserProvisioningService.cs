@@ -262,6 +262,7 @@ public class BusinessUserProvisioningService : IBusinessUserProvisioningService
                 LinkedNow = linkResult.LinkedNow,
                 AudienciaId = linkResult.Audiencia.Id,
                 FormaParteAudiencia = true,
+                PermiteCorreosPromocionales = linkResult.Audiencia.PermiteCorreosPromocionales,
                 ReceivedWelcomeTicket = receivedWelcomeTicket,
                 Message = message,
                 User = user.ToResponse(userCode)

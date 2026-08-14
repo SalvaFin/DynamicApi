@@ -83,7 +83,7 @@ Estados posibles: `Queued`, `ProcessingAudience`, `Sent`, `Failed`, `Cancelled`.
 
 `Sent` significa que la promocion ya esta en las bandejas. Los contadores push pueden seguir aumentando mientras los workers entregan notificaciones.
 
-La respuesta de preview incluye también `emailEligibleCount`, `businessEmailEnabled`, `smtpEmailEnabled` y `emailAvailable`. Una dirección es elegible si el usuario mantiene el consentimiento comercial, dispone de correo y el negocio permite notificaciones por email. El envío promocional no exige que `EmailConfirmed` esté marcado.
+La respuesta de preview incluye también `emailEligibleCount`, `businessEmailEnabled`, `smtpEmailEnabled` y `emailAvailable`. Una dirección es elegible si el usuario mantiene el consentimiento de correo promocional para ese negocio concreto (`permiteCorreosPromocionales`), dispone de correo y el negocio permite notificaciones por email. El consentimiento global `MarketingAccepted` queda reservado para futuras campañas generales de Dynamic y no interviene en campañas de negocio. El envío promocional no exige que `EmailConfirmed` esté marcado.
 
 ### Filtros disponibles
 
@@ -117,7 +117,7 @@ Todos son opcionales y se combinan con AND. Dentro de un campo de lista (`gender
 | `hasActivePushNotifications` | Tiene al menos un dispositivo con push habilitado |
 | `hasConfirmedEmail` | Email confirmado |
 
-Aunque no se envien filtros, solo entran usuarios que forman parte de la audiencia activa del negocio. Los puntos y tickets se usan como datos de segmentacion cuando existen, pero ya no son la fuente primaria de audiencia. Siempre se excluyen usuarios sin `MarketingAccepted` y cuentas inactivas.
+Aunque no se envien filtros, solo entran usuarios que forman parte de la audiencia activa del negocio. Los puntos y tickets se usan como datos de segmentacion cuando existen, pero ya no son la fuente primaria de audiencia. Las cuentas inactivas se excluyen. El consentimiento por negocio solo limita el canal email; no elimina la promoción de la bandeja ni del canal push.
 
 ## Flujo del cliente
 
@@ -226,9 +226,13 @@ La app Android debe crear el canal de notificaciones `promotions`.
 
 ## Correo promocional
 
-Cada destinatario elegible genera una entrega persistente e independiente del push. El worker comprueba de nuevo el consentimiento justo antes de enviar, limita el ritmo, reintenta errores temporales y registra los contadores `emailEligibleCount`, `emailDeliveredCount` y `emailFailedCount` en la campaña.
+Cada destinatario elegible genera una entrega persistente e independiente del push. El worker comprueba de nuevo el consentimiento del negocio concreto justo antes de enviar, limita el ritmo, reintenta errores temporales y registra los contadores `emailEligibleCount`, `emailDeliveredCount` y `emailFailedCount` en la campaña.
 
-La plantilla responsive usa la identidad visual oscura y violeta de Dynamic e incluye promoción, negocio, dirección, enlace a Google Maps (coordenadas si existen), acceso a `mis-tickets`, versión de texto y baja. La baja también se anuncia mediante las cabeceras estándar `List-Unsubscribe` y `List-Unsubscribe-Post`.
+La primera alta en la audiencia de un negocio activa automáticamente `permiteCorreosPromocionales`. Una baja no se revierte al reactivar una relación ya existente. El usuario autenticado puede desactivar únicamente el correo del negocio, sin dejar de formar parte de él, mediante:
+
+`POST /api/negocios/{negocioId}/audiencia/email/unsubscribe`
+
+La plantilla responsive usa la identidad visual oscura y violeta de Dynamic e incluye promoción, negocio, dirección, enlace a Google Maps (coordenadas si existen), acceso a `portal/tickets`, versión de texto y baja. La baja también se anuncia mediante las cabeceras estándar `List-Unsubscribe` y `List-Unsubscribe-Post`.
 
 Configuración recomendada por entorno:
 

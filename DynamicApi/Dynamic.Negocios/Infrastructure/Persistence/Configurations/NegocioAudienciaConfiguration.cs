@@ -13,6 +13,7 @@ public class NegocioAudienciaConfiguration : IEntityTypeConfiguration<NegocioAud
 
         builder.Property(audiencia => audiencia.OrigenAlta).HasMaxLength(128);
         builder.Property(audiencia => audiencia.UltimaActividadOrigen).HasMaxLength(128);
+        builder.Property(audiencia => audiencia.PermiteCorreosPromocionales).HasDefaultValue(true);
 
         builder.HasIndex(audiencia => new { audiencia.NegocioId, audiencia.UserId }).IsUnique();
         builder.HasIndex(audiencia => audiencia.UserId);

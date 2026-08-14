@@ -7,5 +7,6 @@ public class FormarParteNegocioResponse
     public bool YaFormabaParte { get; set; }
     public bool FormadoAhora { get; set; }
     public bool EsFavorito { get; set; }
+    public bool PermiteCorreosPromocionales { get; set; }
     public bool BonoBienvenidaRecibido { get; set; }
 }

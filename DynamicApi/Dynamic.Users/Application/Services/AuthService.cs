@@ -411,6 +411,13 @@ public class AuthService : IAuthService
         ClassicRegisterRequest request,
         CancellationToken cancellationToken = default)
     {
+        if (!request.TermsAccepted || !request.PrivacyPolicyAccepted)
+        {
+            return ServiceResult<UserSummaryResponse>.Failure(
+                "validation_error",
+                "Debes aceptar los terminos y confirmar que has leido la politica de privacidad.");
+        }
+
         if (string.IsNullOrWhiteSpace(request.UserName) ||
             string.IsNullOrWhiteSpace(request.Password) ||
             string.IsNullOrWhiteSpace(request.ConfirmPassword))
@@ -489,6 +496,13 @@ public class AuthService : IAuthService
             UpdatedAtUtc = now,
             LastSeenAtUtc = now
         };
+
+        ApplyRegistrationAcceptances(
+            user,
+            request.TermsAccepted,
+            request.PrivacyPolicyAccepted,
+            request.MarketingAccepted,
+            now);
 
         user.PasswordHash = _passwordHasher.HashPassword(user, request.Password);
         user.PasswordIsTemporary = false;

@@ -18,6 +18,7 @@ public class UserPortalBusinessResponse
     public Guid? AudienciaId { get; set; }
     public bool FormaParteAudiencia { get; set; }
     public bool EsFavorito { get; set; }
+    public bool PermiteCorreosPromocionales { get; set; }
     public int PuntosActuales { get; set; }
     public int TicketsActivos { get; set; }
     public int TicketsTotales { get; set; }

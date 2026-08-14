@@ -6,5 +6,6 @@ public class SeguirNegocioResponse
     public Guid VinculacionId { get; set; }
     public bool YaEstabaVinculado { get; set; }
     public bool VinculadoAhora { get; set; }
+    public bool PermiteCorreosPromocionales { get; set; }
     public bool BonoBienvenidaRecibido { get; set; }
 }

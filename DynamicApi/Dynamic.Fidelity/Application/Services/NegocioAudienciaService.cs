@@ -73,6 +73,7 @@ public class NegocioAudienciaService : INegocioAudienciaService
             YaFormabaParte = alreadyActive,
             FormadoAhora = !alreadyActive,
             EsFavorito = ensureResult.Data.EsFavorito,
+            PermiteCorreosPromocionales = ensureResult.Data.PermiteCorreosPromocionales,
             BonoBienvenidaRecibido = welcomeTicketAssigned
         });
     }
@@ -148,6 +149,42 @@ public class NegocioAudienciaService : INegocioAudienciaService
             NegocioId = negocioId,
             AudienciaId = audiencia.Id,
             EsFavorito = audiencia.EsFavorito
+        });
+    }
+
+    public async Task<ServiceResult<BusinessEmailPreferenceResponse>> UnsubscribeFromBusinessEmailsAsync(
+        Guid negocioId,
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        if (negocioId == Guid.Empty || userId == Guid.Empty)
+        {
+            return ServiceResult<BusinessEmailPreferenceResponse>.Failure(
+                "validation_error",
+                "Negocio y usuario son obligatorios.");
+        }
+
+        NegocioAudiencia? audiencia = await _negociosDbContext.NegociosAudiencias
+            .FirstOrDefaultAsync(item => item.NegocioId == negocioId && item.UserId == userId, cancellationToken);
+        if (!IsAudienceActive(audiencia))
+        {
+            return ServiceResult<BusinessEmailPreferenceResponse>.Failure(
+                "not_found",
+                "El usuario no forma parte de la audiencia activa del negocio.");
+        }
+
+        DateTime now = DateTime.UtcNow;
+        audiencia!.PermiteCorreosPromocionales = false;
+        audiencia.CorreosPromocionalesRevocadosAtUtc ??= now;
+        audiencia.UpdatedAtUtc = now;
+        await _negociosDbContext.SaveChangesAsync(cancellationToken);
+
+        return ServiceResult<BusinessEmailPreferenceResponse>.Success(new BusinessEmailPreferenceResponse
+        {
+            NegocioId = negocioId,
+            PermiteCorreosPromocionales = false,
+            AceptadoAtUtc = audiencia.CorreosPromocionalesAceptadosAtUtc,
+            RevocadoAtUtc = audiencia.CorreosPromocionalesRevocadosAtUtc
         });
     }
 
@@ -263,6 +300,7 @@ public class NegocioAudienciaService : INegocioAudienciaService
                     AudienciaId = audience.Id,
                     FormaParteAudiencia = true,
                     EsFavorito = audience.EsFavorito,
+                    PermiteCorreosPromocionales = audience.PermiteCorreosPromocionales,
                     PuntosActuales = points?.PuntosActuales ?? 0,
                     TicketsActivos = ticket?.TicketsActivos ?? 0,
                     TicketsTotales = ticket?.TicketsTotales ?? 0,
@@ -342,6 +380,8 @@ public class NegocioAudienciaService : INegocioAudienciaService
                 NegocioId = negocioId,
                 UserId = userId,
                 Activa = true,
+                PermiteCorreosPromocionales = true,
+                CorreosPromocionalesAceptadosAtUtc = now,
                 OrigenAlta = normalizedOrigin,
                 UltimaActividadOrigen = normalizedOrigin,
                 FechaAltaUtc = now,

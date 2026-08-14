@@ -166,7 +166,7 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
         if (businessEmailEnabled)
         {
             emailEligibleCount = await ExecuteScalarLongAsync(
-                $"SELECT COUNT(*) {audienceSql.FromWhereSql} AND user_account.`Email` IS NOT NULL AND user_account.`Email` <> ''",
+                $"SELECT COUNT(*) {audienceSql.FromWhereSql} AND candidates.`PermiteCorreosPromocionales` = 1 AND user_account.`Email` IS NOT NULL AND user_account.`Email` <> ''",
                 audienceSql.Parameters,
                 cancellationToken);
         }
@@ -230,7 +230,8 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
             FROM (
                 SELECT audience_source.`UserId`,
                        audience_source.`FechaAltaUtc`,
-                       audience_source.`UltimaActividadUtc`
+                       audience_source.`UltimaActividadUtc`,
+                       audience_source.`PermiteCorreosPromocionales`
                 FROM `negocio_audience_memberships` audience_source
                 WHERE audience_source.`NegocioId` = @negocioId
                   AND audience_source.`Activa` = 1
@@ -258,7 +259,6 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
             ) ticket_stats ON ticket_stats.`UserId` = candidates.`UserId`
             WHERE user_account.`RegistrationCompleted` = 1
               AND user_account.`Status` = 'Active'
-              AND user_account.`MarketingAccepted` = 1
               {where}
             """;
 
@@ -306,9 +306,15 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
                    COALESCE(NULLIF(user_account.`DisplayName`, ''), NULLIF(user_account.`FirstName`, ''), user_account.`UserName`),
                    UUID(), 'Pending', 0, @nextAttemptAt, @now, @now
             FROM `promotion_recipients` recipient
+            INNER JOIN `promotion_campaigns` campaign ON campaign.`Id` = recipient.`CampaignId`
             INNER JOIN `users` user_account ON user_account.`Id` = recipient.`UserId`
+            INNER JOIN `negocio_audience_memberships` audience
+                ON audience.`NegocioId` = campaign.`NegocioId`
+               AND audience.`UserId` = recipient.`UserId`
             WHERE recipient.`CampaignId` = @campaignId
-              AND user_account.`MarketingAccepted` = 1
+              AND audience.`Activa` = 1
+              AND audience.`FechaBajaUtc` IS NULL
+              AND audience.`PermiteCorreosPromocionales` = 1
               AND user_account.`Email` IS NOT NULL
               AND user_account.`Email` <> ''
             """;

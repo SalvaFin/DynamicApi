@@ -34,6 +34,7 @@ public class SeguirNegocioService : ISeguirNegocioService
             VinculacionId = result.Data.AudienciaId,
             YaEstabaVinculado = result.Data.YaFormabaParte,
             VinculadoAhora = result.Data.FormadoAhora,
+            PermiteCorreosPromocionales = result.Data.PermiteCorreosPromocionales,
             BonoBienvenidaRecibido = result.Data.BonoBienvenidaRecibido
         });
     }

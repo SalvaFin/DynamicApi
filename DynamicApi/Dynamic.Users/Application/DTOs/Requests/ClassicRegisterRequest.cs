@@ -29,4 +29,10 @@ public class ClassicRegisterRequest
 
     [MaxLength(128)]
     public string? LastName { get; set; }
+
+    public bool TermsAccepted { get; set; }
+
+    public bool PrivacyPolicyAccepted { get; set; }
+
+    public bool MarketingAccepted { get; set; }
 }

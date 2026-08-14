@@ -482,6 +482,12 @@ namespace DynamicApi.Migrations.Negocios
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<DateTime?>("CorreosPromocionalesAceptadosAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("CorreosPromocionalesRevocadosAtUtc")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<bool>("EsFavorito")
                         .HasColumnType("tinyint(1)");
 
@@ -493,6 +499,11 @@ namespace DynamicApi.Migrations.Negocios
 
                     b.Property<Guid>("NegocioId")
                         .HasColumnType("char(36)");
+
+                    b.Property<bool>("PermiteCorreosPromocionales")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(true);
 
                     b.Property<string>("OrigenAlta")
                         .HasMaxLength(128)

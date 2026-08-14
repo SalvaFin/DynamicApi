@@ -1,6 +1,6 @@
 using System.Net;
 using Dynamic.Promotions.Infrastructure.Persistence;
-using Dynamic.Users.Infrastructure.Persistence;
+using Dynamic.Negocios.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,14 +13,14 @@ namespace Dynamic.Promotions.Controllers;
 public class PromotionEmailPreferencesController : ControllerBase
 {
     private readonly DynamicPromotionsDbContext _promotionsDbContext;
-    private readonly DynamicUsersDbContext _usersDbContext;
+    private readonly DynamicNegociosDbContext _negociosDbContext;
 
     public PromotionEmailPreferencesController(
         DynamicPromotionsDbContext promotionsDbContext,
-        DynamicUsersDbContext usersDbContext)
+        DynamicNegociosDbContext negociosDbContext)
     {
         _promotionsDbContext = promotionsDbContext;
-        _usersDbContext = usersDbContext;
+        _negociosDbContext = negociosDbContext;
     }
 
     [HttpGet("unsubscribe")]
@@ -28,7 +28,7 @@ public class PromotionEmailPreferencesController : ControllerBase
     {
         var delivery = await _promotionsDbContext.EmailDeliveries.AsNoTracking()
             .Where(item => item.UnsubscribeToken == token)
-            .Select(item => new { item.Email })
+            .Select(item => new { item.Email, item.Campaign.NegocioNombreSnapshot })
             .FirstOrDefaultAsync(cancellationToken);
         if (delivery is null)
         {
@@ -38,7 +38,7 @@ public class PromotionEmailPreferencesController : ControllerBase
         string action = $"/api/promotions/email/unsubscribe?token={token:D}";
         return Html(
             "Dejar de recibir promociones",
-            $"Vas a desactivar los correos promocionales enviados a {WebUtility.HtmlEncode(delivery.Email)}.",
+            $"Vas a desactivar los correos promocionales de {WebUtility.HtmlEncode(delivery.NegocioNombreSnapshot)} enviados a {WebUtility.HtmlEncode(delivery.Email)}.",
             action,
             200);
     }
@@ -49,23 +49,30 @@ public class PromotionEmailPreferencesController : ControllerBase
     {
         var delivery = await _promotionsDbContext.EmailDeliveries.AsNoTracking()
             .Where(item => item.UnsubscribeToken == token)
-            .Select(item => new { item.UserId })
+            .Select(item => new { item.UserId, item.Campaign.NegocioId, item.Campaign.NegocioNombreSnapshot })
             .FirstOrDefaultAsync(cancellationToken);
         if (delivery is null)
         {
             return Html("Enlace no válido", "No se ha encontrado la suscripción.", null, 404);
         }
 
-        var user = await _usersDbContext.Users.FirstOrDefaultAsync(item => item.Id == delivery.UserId, cancellationToken);
-        if (user is not null && user.MarketingAccepted)
+        var audience = await _negociosDbContext.NegociosAudiencias.FirstOrDefaultAsync(
+            item => item.NegocioId == delivery.NegocioId && item.UserId == delivery.UserId,
+            cancellationToken);
+        if (audience is not null && audience.PermiteCorreosPromocionales)
         {
-            user.MarketingAccepted = false;
-            user.MarketingAcceptedAtUtc = null;
-            user.UpdatedAtUtc = DateTime.UtcNow;
-            await _usersDbContext.SaveChangesAsync(cancellationToken);
+            DateTime now = DateTime.UtcNow;
+            audience.PermiteCorreosPromocionales = false;
+            audience.CorreosPromocionalesRevocadosAtUtc ??= now;
+            audience.UpdatedAtUtc = now;
+            await _negociosDbContext.SaveChangesAsync(cancellationToken);
         }
 
-        return Html("Baja completada", "Ya no recibirás correos promocionales de Dynamic.", null, 200);
+        return Html(
+            "Baja completada",
+            $"Ya no recibirás correos promocionales de {WebUtility.HtmlEncode(delivery.NegocioNombreSnapshot)}.",
+            null,
+            200);
     }
 
     private ContentResult Html(string title, string message, string? formAction, int statusCode)

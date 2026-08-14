@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using Dynamic.Fidelity.Application.DTOs.Responses;
 using Dynamic.Notify.Application.Contracts;
 using Dynamic.Notify.Application.Options;
+using Dynamic.Negocios.Infrastructure.Persistence;
 using Dynamic.Promotions.Application.Contracts;
 using Dynamic.Promotions.Application.Models;
 using Dynamic.Promotions.Application.Options;
@@ -216,7 +217,7 @@ public class PromotionDispatchWorker : BackgroundService
                         PromotionRecipientId = delivery.RecipientId,
                         CampaignId = delivery.CampaignId,
                         NegocioId = delivery.Campaign.NegocioId,
-                        DeepLink = "/mis-tickets"
+                        DeepLink = "/portal/tickets"
                     },
                     cancellationToken);
 
@@ -296,6 +297,7 @@ public class PromotionDispatchWorker : BackgroundService
         await using AsyncServiceScope scope = _scopeFactory.CreateAsyncScope();
         DynamicPromotionsDbContext promotionsDbContext = scope.ServiceProvider.GetRequiredService<DynamicPromotionsDbContext>();
         DynamicUsersDbContext usersDbContext = scope.ServiceProvider.GetRequiredService<DynamicUsersDbContext>();
+        DynamicNegociosDbContext negociosDbContext = scope.ServiceProvider.GetRequiredService<DynamicNegociosDbContext>();
         IEmailNotificationService emailService = scope.ServiceProvider.GetRequiredService<IEmailNotificationService>();
         PromotionEmailOptions emailOptions = scope.ServiceProvider.GetRequiredService<IOptions<PromotionEmailOptions>>().Value;
         SmtpOptions smtpOptions = scope.ServiceProvider.GetRequiredService<IOptions<SmtpOptions>>().Value;
@@ -368,15 +370,23 @@ public class PromotionDispatchWorker : BackgroundService
                 DateTime.UtcNow));
             try
             {
-                bool stillAllowed = await usersDbContext.Users.AsNoTracking().AnyAsync(user =>
-                    user.Id == delivery.UserId && user.MarketingAccepted &&
+                bool userStillAllowed = await usersDbContext.Users.AsNoTracking().AnyAsync(user =>
+                    user.Id == delivery.UserId &&
                     user.Email == delivery.Email && user.Status == Dynamic.Users.Domain.Enums.UserStatus.Active,
                     cancellationToken);
-                if (!stillAllowed)
+                bool businessEmailStillAllowed = userStillAllowed &&
+                    await negociosDbContext.NegociosAudiencias.AsNoTracking().AnyAsync(audience =>
+                        audience.NegocioId == delivery.Campaign.NegocioId &&
+                        audience.UserId == delivery.UserId &&
+                        audience.Activa &&
+                        audience.FechaBajaUtc == null &&
+                        audience.PermiteCorreosPromocionales,
+                        cancellationToken);
+                if (!businessEmailStillAllowed)
                 {
                     delivery.Status = PromotionDeliveryStatus.Skipped;
                     _emailTelemetry.CompleteSkipped(DateTime.UtcNow);
-                    delivery.LastError = "El usuario ya no admite comunicaciones comerciales en esta dirección.";
+                    delivery.LastError = "El usuario ya no admite correos promocionales de este negocio en esta dirección.";
                 }
                 else
                 {

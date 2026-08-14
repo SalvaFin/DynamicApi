@@ -10,6 +10,7 @@ public class BusinessCustomerRegistrationResponse
     public bool LinkedNow { get; set; }
     public Guid? AudienciaId { get; set; }
     public bool FormaParteAudiencia { get; set; }
+    public bool PermiteCorreosPromocionales { get; set; }
     public bool ReceivedWelcomeTicket { get; set; }
     public string Message { get; set; } = string.Empty;
     public UserSummaryResponse User { get; set; } = new();

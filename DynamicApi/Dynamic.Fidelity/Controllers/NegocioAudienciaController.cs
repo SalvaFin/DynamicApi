@@ -77,6 +77,26 @@ public class NegocioAudienciaController : ControllerBase
         return ToActionResult(result, Ok);
     }
 
+    [HttpPost("{negocioId:guid}/audiencia/email/unsubscribe")]
+    public async Task<IActionResult> UnsubscribeFromBusinessEmails(
+        Guid negocioId,
+        CancellationToken cancellationToken)
+    {
+        Guid? userId = GetClaimGuid(ClaimTypes.NameIdentifier, "sub");
+        if (!userId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        ServiceResult<BusinessEmailPreferenceResponse> result =
+            await _negocioAudienciaService.UnsubscribeFromBusinessEmailsAsync(
+                negocioId,
+                userId.Value,
+                cancellationToken);
+
+        return ToActionResult(result, Ok);
+    }
+
     private IActionResult ToActionResult(ServiceResult result, Func<IActionResult> onSuccess)
     {
         if (result.Succeeded)

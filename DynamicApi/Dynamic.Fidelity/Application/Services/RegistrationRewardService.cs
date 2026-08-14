@@ -316,6 +316,8 @@ public class RegistrationRewardService : IRegistrationRewardService
                 NegocioId = negocioId,
                 UserId = userId,
                 Activa = true,
+                PermiteCorreosPromocionales = true,
+                CorreosPromocionalesAceptadosAtUtc = now,
                 OrigenAlta = origin,
                 UltimaActividadOrigen = origin,
                 FechaAltaUtc = now,

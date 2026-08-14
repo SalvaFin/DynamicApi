@@ -22,6 +22,11 @@ public interface INegocioAudienciaService
         bool esFavorito,
         CancellationToken cancellationToken = default);
 
+    Task<ServiceResult<BusinessEmailPreferenceResponse>> UnsubscribeFromBusinessEmailsAsync(
+        Guid negocioId,
+        Guid userId,
+        CancellationToken cancellationToken = default);
+
     Task<ServiceResult<IReadOnlyCollection<UserPortalBusinessResponse>>> GetMyBusinessesAsync(
         Guid userId,
         bool soloFavoritos,
