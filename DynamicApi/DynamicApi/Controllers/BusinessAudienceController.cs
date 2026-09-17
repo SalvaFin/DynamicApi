@@ -84,7 +84,11 @@ public class BusinessAudienceController : ControllerBase
             AudienceRevenueSummary revenue = await GetRevenueSummaryAsync(negocioId, activeUserIds, cancellationToken);
 
             DateTime recentThresholdUtc = DateTime.UtcNow.Subtract(RecentAudienceWindow);
-            decimal totalMoneyEarned = revenue.PointsTrackedRevenue + revenue.TicketPurchaseAmount;
+            // Estas dos tarjetas deben describir exactamente la misma actividad:
+            // compras que acreditaron puntos a la audiencia activa, sin límite
+            // temporal. Los canjes de tickets se exponen por separado porque su
+            // importe no implica una acreditación de puntos.
+            decimal totalMoneyEarned = revenue.PointsTrackedRevenue;
 
             return Ok(new BusinessAudienceSummaryResponse
             {
@@ -193,7 +197,7 @@ public class BusinessAudienceController : ControllerBase
             return new AudiencePointsSummary();
         }
 
-        var rows = await _fidelityDbContext.Points
+        var balances = await _fidelityDbContext.Points
             .AsNoTracking()
             .Where(points => points.NegocioId == negocioId && userIds.Contains(points.UserId))
             .Select(points => new
@@ -204,11 +208,25 @@ public class BusinessAudienceController : ControllerBase
             })
             .ToListAsync(cancellationToken);
 
+        // Points.TotalEarned es un acumulado de saldo y puede contener puntos
+        // recibidos por transferencias u otras fuentes sin importe en euros. Para
+        // que "Puntos administrados" sea comparable con "Dinero ganado", ambas
+        // métricas se obtienen del mismo histórico de compras que generan puntos.
+        var accruals = await _fidelityDbContext.PointsTransactions
+            .AsNoTracking()
+            .Where(transaction =>
+                transaction.NegocioId == negocioId &&
+                userIds.Contains(transaction.UserId) &&
+                (transaction.TransactionType == PointsTransactionType.Earn ||
+                 transaction.TransactionType == PointsTransactionType.BackofficeEarn))
+            .Select(transaction => transaction.PointsAmount)
+            .ToListAsync(cancellationToken);
+
         return new AudiencePointsSummary(
-            rows.Count(points => points.CurrentBalance > 0),
-            rows.Sum(points => points.CurrentBalance),
-            rows.Sum(points => points.TotalEarned),
-            rows.Sum(points => points.TotalSpent));
+            balances.Count(points => points.CurrentBalance > 0),
+            balances.Sum(points => points.CurrentBalance),
+            accruals.Sum(),
+            balances.Sum(points => points.TotalSpent));
     }
 
     private async Task<AudienceTicketSummary> GetTicketSummaryAsync(
