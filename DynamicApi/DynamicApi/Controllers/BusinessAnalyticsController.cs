@@ -403,7 +403,7 @@ public class BusinessAnalyticsController : ControllerBase
             .Sum(transaction => transaction.PointsAmount);
 
         int pointsSpent = transactions
-            .Where(transaction => transaction.TransactionType is PointsTransactionType.Spend or PointsTransactionType.TransferOut)
+            .Where(transaction => transaction.TransactionType is PointsTransactionType.Spend or PointsTransactionType.TransferOut or PointsTransactionType.SplitOut)
             .Sum(transaction => transaction.PointsAmount);
 
         IQueryable<Dynamic.Fidelity.Domain.Entities.Points> livePointsQuery = _fidelityDbContext.Points

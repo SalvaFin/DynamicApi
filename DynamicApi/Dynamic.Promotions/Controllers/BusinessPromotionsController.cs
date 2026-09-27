@@ -89,6 +89,25 @@ public class BusinessPromotionsController : ControllerBase
         return result.Succeeded && result.Data is not null ? Ok(result.Data) : MapFailure(result);
     }
 
+    [HttpGet]
+    public async Task<IActionResult> List(Guid negocioId, CancellationToken cancellationToken)
+    {
+        Guid? userId = GetCurrentUserId();
+        if (!userId.HasValue) return Unauthorized();
+        var result = await _promotionService.ListCampaignsAsync(negocioId, userId.Value, User.IsInRole("Admin"), cancellationToken);
+        return result.Succeeded && result.Data is not null ? Ok(result.Data) : MapFailure(result);
+    }
+
+    [HttpPost("{campaignId:guid}/reminder")]
+    public async Task<IActionResult> QueueReminder(Guid negocioId, Guid campaignId, CancellationToken cancellationToken)
+    {
+        Guid? userId = GetCurrentUserId();
+        if (!userId.HasValue) return Unauthorized();
+        var result = await _promotionService.QueueReminderAsync(
+            negocioId, campaignId, userId.Value, User.IsInRole("Admin"), cancellationToken);
+        return result.Succeeded && result.Data is not null ? Accepted(result.Data) : MapFailure(result);
+    }
+
     private Guid? GetCurrentUserId()
     {
         string? value = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");

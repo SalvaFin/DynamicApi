@@ -9,10 +9,16 @@ public class PointsTransaction
     public Guid NegocioId { get; set; }
     public Guid? PointsId { get; set; }
     public Guid? OperationId { get; set; }
+    public Guid? ClientOperationId { get; set; }
     public Guid? ValidatorUserId { get; set; }
     public Guid? CounterpartyUserId { get; set; }
     public PointsTransactionType TransactionType { get; set; } = PointsTransactionType.Earn;
     public decimal? AmountEuros { get; set; }
+    public decimal? BaseRatioSnapshot { get; set; }
+    public decimal? BenefitMultiplierSnapshot { get; set; }
+    public int? BasePointsSnapshot { get; set; }
+    public int? VisitOrdinalSnapshot { get; set; }
+    public string? RecurrenceSnapshotJson { get; set; }
     public int PointsAmount { get; set; }
     public int BalanceBefore { get; set; }
     public int BalanceAfter { get; set; }

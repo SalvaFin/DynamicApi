@@ -116,6 +116,7 @@ namespace DynamicApi.Migrations.Fidelity
                         .HasColumnType("int");
 
                     b.Property<DateTime>("UpdatedAtUtc")
+                        .IsConcurrencyToken()
                         .HasColumnType("datetime(6)");
 
                     b.Property<Guid>("UserId")
@@ -131,6 +132,74 @@ namespace DynamicApi.Migrations.Fidelity
                         .IsUnique();
 
                     b.ToTable("fidelity_points", (string)null);
+                });
+
+            modelBuilder.Entity("Dynamic.Fidelity.Domain.Entities.PointsGroupAccrual", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<decimal>("AmountEuros")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("IdempotencyKey")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("NegocioId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("RecipientCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TotalPoints")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("WorkerUserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique();
+
+                    b.ToTable("fidelity_points_group_accruals", (string)null);
+                });
+
+            modelBuilder.Entity("Dynamic.Fidelity.Domain.Entities.PointsGroupAccrualRecipient", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("GroupAccrualId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("PointsAssigned")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ScanOrder")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TransactionId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TransactionId")
+                        .IsUnique();
+
+                    b.HasIndex("GroupAccrualId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("fidelity_points_group_accrual_recipients", (string)null);
                 });
 
             modelBuilder.Entity("Dynamic.Fidelity.Domain.Entities.PointsOperation", b =>
@@ -244,6 +313,69 @@ namespace DynamicApi.Migrations.Fidelity
                     b.ToTable("fidelity_points_operation_attempts", (string)null);
                 });
 
+            modelBuilder.Entity("Dynamic.Fidelity.Domain.Entities.PointsSplit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("NegocioId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("OriginalPoints")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OwnerShare")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("OwnerUserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("SourceTransactionId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SourceTransactionId")
+                        .IsUnique();
+
+                    b.HasIndex("OwnerUserId", "CreatedAtUtc");
+
+                    b.ToTable("fidelity_points_splits", (string)null);
+                });
+
+            modelBuilder.Entity("Dynamic.Fidelity.Domain.Entities.PointsSplitRecipient", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("IncomingTransactionId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("PointsAmount")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("SplitId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IncomingTransactionId")
+                        .IsUnique();
+
+                    b.HasIndex("SplitId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("fidelity_points_split_recipients", (string)null);
+                });
+
             modelBuilder.Entity("Dynamic.Fidelity.Domain.Entities.PointsTransaction", b =>
                 {
                     b.Property<Guid>("Id")
@@ -259,6 +391,20 @@ namespace DynamicApi.Migrations.Fidelity
 
                     b.Property<int>("BalanceBefore")
                         .HasColumnType("int");
+
+                    b.Property<int?>("BasePointsSnapshot")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("BaseRatioSnapshot")
+                        .HasPrecision(10, 4)
+                        .HasColumnType("decimal(10,4)");
+
+                    b.Property<decimal?>("BenefitMultiplierSnapshot")
+                        .HasPrecision(30, 28)
+                        .HasColumnType("decimal(30,28)");
+
+                    b.Property<Guid?>("ClientOperationId")
+                        .HasColumnType("char(36)");
 
                     b.Property<string>("CounterpartyUserCodeSnapshot")
                         .HasMaxLength(32)
@@ -286,6 +432,9 @@ namespace DynamicApi.Migrations.Fidelity
                         .HasMaxLength(512)
                         .HasColumnType("varchar(512)");
 
+                    b.Property<string>("RecurrenceSnapshotJson")
+                        .HasColumnType("longtext");
+
                     b.Property<string>("Reference")
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)");
@@ -305,6 +454,9 @@ namespace DynamicApi.Migrations.Fidelity
                     b.Property<Guid?>("ValidatorUserId")
                         .HasColumnType("char(36)");
 
+                    b.Property<int?>("VisitOrdinalSnapshot")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CounterpartyUserId");
@@ -312,6 +464,9 @@ namespace DynamicApi.Migrations.Fidelity
                     b.HasIndex("NegocioId");
 
                     b.HasIndex("OperationId");
+
+                    b.HasIndex("NegocioId", "ClientOperationId")
+                        .IsUnique();
 
                     b.HasIndex("UserId", "NegocioId", "CreatedAtUtc");
 
@@ -382,6 +537,79 @@ namespace DynamicApi.Migrations.Fidelity
                         .IsUnique();
 
                     b.ToTable("fidelity_qr_campaigns", (string)null);
+                });
+
+            modelBuilder.Entity("Dynamic.Fidelity.Domain.Entities.RecurrenceRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int?>("BenefitDays")
+                        .HasColumnType("int");
+
+                    b.Property<string>("BenefitMode")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("varchar(24)");
+
+                    b.Property<int?>("BenefitVisits")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Compatibility")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("varchar(16)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("EndsAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Family")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("varchar(24)");
+
+                    b.Property<int?>("MaxActivationsPerCustomer")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Multiplier")
+                        .HasPrecision(8, 3)
+                        .HasColumnType("decimal(8,3)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("varchar(120)");
+
+                    b.Property<Guid>("NegocioId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("StartsAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("Threshold")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("WindowDays")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NegocioId", "Active", "Priority");
+
+                    b.ToTable("fidelity_recurrence_rules", (string)null);
                 });
 
             modelBuilder.Entity("Dynamic.Fidelity.Domain.Entities.Ticket", b =>
@@ -693,6 +921,57 @@ namespace DynamicApi.Migrations.Fidelity
                         .IsUnique();
 
                     b.ToTable("fidelity_user_codes", (string)null);
+                });
+
+            modelBuilder.Entity("Dynamic.Fidelity.Domain.Entities.WelcomeTicketClaim", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("NegocioId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("TicketId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("UserId", "NegocioId");
+
+                    b.ToTable("fidelity_welcome_ticket_claims", (string)null);
+                });
+
+            modelBuilder.Entity("Dynamic.Fidelity.Domain.Entities.PointsGroupAccrualRecipient", b =>
+                {
+                    b.HasOne("Dynamic.Fidelity.Domain.Entities.PointsGroupAccrual", "GroupAccrual")
+                        .WithMany("Recipients")
+                        .HasForeignKey("GroupAccrualId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("GroupAccrual");
+                });
+
+            modelBuilder.Entity("Dynamic.Fidelity.Domain.Entities.PointsSplitRecipient", b =>
+                {
+                    b.HasOne("Dynamic.Fidelity.Domain.Entities.PointsSplit", "Split")
+                        .WithMany("Recipients")
+                        .HasForeignKey("SplitId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Split");
+                });
+
+            modelBuilder.Entity("Dynamic.Fidelity.Domain.Entities.PointsGroupAccrual", b =>
+                {
+                    b.Navigation("Recipients");
+                });
+
+            modelBuilder.Entity("Dynamic.Fidelity.Domain.Entities.PointsSplit", b =>
+                {
+                    b.Navigation("Recipients");
                 });
 #pragma warning restore 612, 618
         }

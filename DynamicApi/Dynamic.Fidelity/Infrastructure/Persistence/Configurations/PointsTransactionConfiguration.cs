@@ -17,6 +17,9 @@ public class PointsTransactionConfiguration : IEntityTypeConfiguration<PointsTra
             .IsRequired();
 
         builder.Property(transaction => transaction.AmountEuros).HasPrecision(10, 2);
+        builder.Property(transaction => transaction.BaseRatioSnapshot).HasPrecision(10, 4);
+        builder.Property(transaction => transaction.BenefitMultiplierSnapshot).HasPrecision(30, 28);
+        builder.Property(transaction => transaction.RecurrenceSnapshotJson).HasColumnType("longtext");
         builder.Property(transaction => transaction.UserCodeSnapshot).HasMaxLength(32);
         builder.Property(transaction => transaction.CounterpartyUserCodeSnapshot).HasMaxLength(32);
         builder.Property(transaction => transaction.Reason).HasMaxLength(512);
@@ -25,6 +28,7 @@ public class PointsTransactionConfiguration : IEntityTypeConfiguration<PointsTra
         builder.HasIndex(transaction => new { transaction.UserId, transaction.NegocioId, transaction.CreatedAtUtc });
         builder.HasIndex(transaction => transaction.NegocioId);
         builder.HasIndex(transaction => transaction.OperationId);
+        builder.HasIndex(transaction => new { transaction.NegocioId, transaction.ClientOperationId }).IsUnique();
         builder.HasIndex(transaction => transaction.CounterpartyUserId);
     }
 }

@@ -12,6 +12,11 @@ public class DynamicFidelityDbContext : DbContext
 
     public DbSet<Points> Points => Set<Points>();
     public DbSet<PointsTransaction> PointsTransactions => Set<PointsTransaction>();
+    public DbSet<RecurrenceRule> RecurrenceRules => Set<RecurrenceRule>();
+    public DbSet<PointsSplit> PointsSplits => Set<PointsSplit>();
+    public DbSet<PointsSplitRecipient> PointsSplitRecipients => Set<PointsSplitRecipient>();
+    public DbSet<PointsGroupAccrual> PointsGroupAccruals => Set<PointsGroupAccrual>();
+    public DbSet<PointsGroupAccrualRecipient> PointsGroupAccrualRecipients => Set<PointsGroupAccrualRecipient>();
     public DbSet<PointsOperation> PointsOperations => Set<PointsOperation>();
     public DbSet<PointsOperationAttempt> PointsOperationAttempts => Set<PointsOperationAttempt>();
     public DbSet<UserCodeDirectoryEntry> UserCodeDirectoryEntries => Set<UserCodeDirectoryEntry>();
@@ -19,6 +24,7 @@ public class DynamicFidelityDbContext : DbContext
     public DbSet<TicketRedemption> TicketRedemptions => Set<TicketRedemption>();
     public DbSet<QrCampaign> QrCampaigns => Set<QrCampaign>();
     public DbSet<PendingTicketAssignment> PendingTicketAssignments => Set<PendingTicketAssignment>();
+    public DbSet<WelcomeTicketClaim> WelcomeTicketClaims => Set<WelcomeTicketClaim>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

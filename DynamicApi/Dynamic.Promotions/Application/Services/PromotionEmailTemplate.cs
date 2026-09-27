@@ -48,7 +48,7 @@ public static class PromotionEmailTemplate
                   <tr><td style="height:6px;background:#9d4edd"></td></tr>
                   <tr><td style="padding:32px 36px 12px">{{logo}}</td></tr>
                   <tr><td style="padding:12px 36px 0;color:#c9bdd3;font-size:16px">{{Encode(greeting)}}</td></tr>
-                  <tr><td style="padding:10px 36px 0;font-size:30px;line-height:36px;font-weight:800">Tienes una nueva promoción</td></tr>
+                  <tr><td style="padding:10px 36px 0;font-size:30px;line-height:36px;font-weight:800">{{(delivery.IsReminder ? "Recuerda que tienes esta promoción" : "Tienes una nueva promoción")}}</td></tr>
                   <tr><td style="padding:26px 36px">
                     <div style="background:#1c1226;border:1px solid #6d3293;border-radius:20px;padding:26px">
                       <div style="color:#d7a0ff;text-transform:uppercase;letter-spacing:3px;font-size:11px;font-weight:700">{{Encode(businessName)}}</div>
@@ -70,7 +70,7 @@ public static class PromotionEmailTemplate
 
         StringBuilder text = new();
         text.AppendLine(greeting).AppendLine()
-            .AppendLine($"Has recibido una promoción de {businessName}:")
+            .AppendLine(delivery.IsReminder ? $"Recuerda que tienes una promoción de {businessName}:" : $"Has recibido una promoción de {businessName}:")
             .AppendLine(promotionName).AppendLine(description).AppendLine();
         if (mapsUrl is not null)
         {
@@ -83,7 +83,7 @@ public static class PromotionEmailTemplate
         {
             ToEmail = delivery.Email,
             ToName = delivery.RecipientName,
-            Subject = $"{businessName}: {promotionName}",
+            Subject = delivery.IsReminder ? $"Recuerda tu promoción de {businessName}: {promotionName}" : $"{businessName}: {promotionName}",
             HtmlBody = html,
             TextBody = text.ToString(),
             ListUnsubscribeUrl = unsubscribeUrl

@@ -6,6 +6,7 @@ public class ProvisionedBusinessUserResponse
 {
     public Guid NegocioId { get; set; }
     public bool OwnerAssigned { get; set; }
+    public bool ExistingAccountLinked { get; set; }
     public UserSummaryResponse User { get; set; } = new();
     public NegocioUsuarioVinculacionResponse Vinculacion { get; set; } = new();
 }

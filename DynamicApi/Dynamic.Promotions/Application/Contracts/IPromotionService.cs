@@ -6,6 +6,12 @@ namespace Dynamic.Promotions.Application.Contracts;
 
 public interface IPromotionService
 {
+    Task<PromotionServiceResult<IReadOnlyList<PromotionCampaignResponse>>> ListCampaignsAsync(
+        Guid negocioId, Guid requesterUserId, bool requesterIsAdmin, CancellationToken cancellationToken = default);
+
+    Task<PromotionServiceResult<PromotionCampaignResponse>> QueueReminderAsync(
+        Guid negocioId, Guid campaignId, Guid requesterUserId, bool requesterIsAdmin, CancellationToken cancellationToken = default);
+
     Task<PromotionServiceResult<PromotionCampaignResponse>> CreateCampaignAsync(
         Guid negocioId,
         Guid requesterUserId,

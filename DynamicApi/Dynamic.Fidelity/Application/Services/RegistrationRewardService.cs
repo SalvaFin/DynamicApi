@@ -1,5 +1,6 @@
 using Dynamic.Fidelity.Application.Contracts.Repositories;
 using Dynamic.Fidelity.Application.Contracts.Services;
+using Dynamic.Fidelity.Application.Models;
 using Dynamic.Fidelity.Domain.Entities;
 using Dynamic.Fidelity.Domain.Enums;
 using Dynamic.Fidelity.Infrastructure.Persistence;
@@ -46,7 +47,12 @@ public class RegistrationRewardService : IRegistrationRewardService
         }
 
         QrCampaign? campaign = await _qrCampaignRepository.GetByTokenAsync(qrToken.Trim(), cancellationToken);
-        return IsCampaignValid(campaign);
+        if (!IsCampaignValid(campaign) || !campaign!.WelcomeTicketTemplateId.HasValue)
+        {
+            return false;
+        }
+        Ticket? template = await _ticketRepository.GetByIdAsync(campaign.WelcomeTicketTemplateId.Value, cancellationToken);
+        return IsWelcomeTemplateAvailable(template, campaign.NegocioId);
     }
 
     public async Task PreparePendingAssignmentAsync(Guid userId, string qrToken, CancellationToken cancellationToken = default)
@@ -62,26 +68,22 @@ public class RegistrationRewardService : IRegistrationRewardService
             return;
         }
 
-        PendingTicketAssignment? existingAssignment = await _pendingTicketAssignmentRepository.GetByUserAndCampaignAsync(userId, campaign.Id, cancellationToken);
-        if (existingAssignment is not null)
+        Ticket? template = await _ticketRepository.GetByIdAsync(campaign.WelcomeTicketTemplateId.Value, cancellationToken);
+        if (!IsWelcomeTemplateAvailable(template, campaign.NegocioId))
         {
             return;
         }
 
-        PendingTicketAssignment assignment = new()
+        bool alreadyReceived = await _dbContext.WelcomeTicketClaims.AsNoTracking()
+            .AnyAsync(claim => claim.UserId == userId && claim.NegocioId == campaign.NegocioId, cancellationToken);
+        if (alreadyReceived)
         {
-            Id = Guid.NewGuid(),
-            UserId = userId,
-            NegocioId = campaign.NegocioId,
-            QrCampaignId = campaign.Id,
-            TicketTemplateId = campaign.WelcomeTicketTemplateId.Value,
-            QrToken = campaign.Token,
-            Activated = false,
-            CreatedAtUtc = DateTime.UtcNow
-        };
+            return;
+        }
 
-        await _pendingTicketAssignmentRepository.AddAsync(assignment, cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _dbContext.Database.ExecuteSqlInterpolatedAsync(
+            $"INSERT IGNORE INTO fidelity_pending_ticket_assignments (Id, UserId, NegocioId, QrCampaignId, TicketTemplateId, QrToken, Activated, CreatedAtUtc) VALUES ({Guid.NewGuid()}, {userId}, {campaign.NegocioId}, {campaign.Id}, {campaign.WelcomeTicketTemplateId.Value}, {campaign.Token}, {false}, {DateTime.UtcNow})",
+            cancellationToken);
     }
 
     public async Task FinalizePendingAssignmentsAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -94,43 +96,13 @@ public class RegistrationRewardService : IRegistrationRewardService
             return;
         }
 
-        DateTime now = DateTime.UtcNow;
-        List<Ticket> assignedTickets = [];
-
         foreach (PendingTicketAssignment assignment in pendingAssignments)
         {
-            Ticket? template = await _ticketRepository.GetByIdAsync(assignment.TicketTemplateId, cancellationToken);
-            if (template is null)
-            {
-                continue;
-            }
-
-            Ticket assignedTicket = BuildAssignedTicket(template, userId, assignment.QrCampaignId, "WELCOME", now);
-            assignedTickets.Add(assignedTicket);
-
-            await _ticketRepository.AddAsync(assignedTicket, cancellationToken);
-            await EnsureAudienceAsync(
-                assignment.NegocioId,
-                userId,
-                "welcome_ticket_qr",
-                now,
-                cancellationToken);
-
-            assignment.AssignedTicketId = assignedTicket.Id;
-            assignment.Activated = true;
-            assignment.ActivatedAtUtc = now;
-            _pendingTicketAssignmentRepository.Update(assignment);
-        }
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
-        await _negociosDbContext.SaveChangesAsync(cancellationToken);
-        foreach (Ticket assignedTicket in assignedTickets)
-        {
-            await _ticketEventPublisher.PublishReceivedAsync(assignedTicket, "qr", cancellationToken);
+            await ClaimTicketFromQrAsync(userId, assignment.QrToken, cancellationToken);
         }
     }
 
-    public async Task<Ticket?> ClaimTicketFromQrAsync(Guid userId, string qrToken, CancellationToken cancellationToken = default)
+    public async Task<WelcomeTicketClaimResult?> ClaimTicketFromQrAsync(Guid userId, string qrToken, CancellationToken cancellationToken = default)
     {
         if (userId == Guid.Empty || string.IsNullOrWhiteSpace(qrToken))
         {
@@ -143,53 +115,33 @@ public class RegistrationRewardService : IRegistrationRewardService
             return null;
         }
 
-        PendingTicketAssignment? existingAssignment =
-            await _pendingTicketAssignmentRepository.GetByUserAndCampaignAsync(userId, campaign.Id, cancellationToken);
-
-        if (existingAssignment?.Activated == true && existingAssignment.AssignedTicketId.HasValue)
+        WelcomeTicketClaim? previousClaim = await _dbContext.WelcomeTicketClaims.AsNoTracking()
+            .SingleOrDefaultAsync(claim => claim.UserId == userId && claim.NegocioId == campaign.NegocioId, cancellationToken);
+        if (previousClaim is not null)
         {
-            return await _ticketRepository.GetByIdAsync(existingAssignment.AssignedTicketId.Value, cancellationToken);
+            await MarkPendingAssignmentClaimedAsync(userId, campaign.Id, previousClaim.TicketId, cancellationToken);
+            Ticket? previousTicket = await _ticketRepository.GetByIdAsync(previousClaim.TicketId, cancellationToken);
+            return new WelcomeTicketClaimResult(previousTicket, true);
         }
 
-        if (existingAssignment is null)
-        {
-            existingAssignment = new PendingTicketAssignment
-            {
-                Id = Guid.NewGuid(),
-                UserId = userId,
-                NegocioId = campaign.NegocioId,
-                QrCampaignId = campaign.Id,
-                TicketTemplateId = campaign.WelcomeTicketTemplateId.Value,
-                QrToken = campaign.Token,
-                Activated = false,
-                CreatedAtUtc = DateTime.UtcNow
-            };
-
-            await _pendingTicketAssignmentRepository.AddAsync(existingAssignment, cancellationToken);
-            await _dbContext.SaveChangesAsync(cancellationToken);
-        }
-
-        Ticket? template = await _ticketRepository.GetByIdAsync(existingAssignment.TicketTemplateId, cancellationToken);
-        if (template is null)
+        Ticket? template = await _ticketRepository.GetByIdAsync(campaign.WelcomeTicketTemplateId.Value, cancellationToken);
+        if (!IsWelcomeTemplateAvailable(template, campaign.NegocioId))
         {
             return null;
         }
 
         DateTime now = DateTime.UtcNow;
-        Ticket assignedTicket = BuildAssignedTicket(template, userId, campaign.Id, "TICKET", now);
+        WelcomeTicketClaimResult claim = await ClaimWelcomeTicketAsync(
+            template!, userId, campaign, "TICKET", now, cancellationToken);
+        if (claim.AlreadyClaimed || claim.Ticket is null)
+        {
+            return claim;
+        }
 
-        await _ticketRepository.AddAsync(assignedTicket, cancellationToken);
         await EnsureAudienceAsync(campaign.NegocioId, userId, "welcome_ticket_qr", now, cancellationToken);
-
-        existingAssignment.AssignedTicketId = assignedTicket.Id;
-        existingAssignment.Activated = true;
-        existingAssignment.ActivatedAtUtc = now;
-        _pendingTicketAssignmentRepository.Update(existingAssignment);
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
         await _negociosDbContext.SaveChangesAsync(cancellationToken);
-        await _ticketEventPublisher.PublishReceivedAsync(assignedTicket, "qr", cancellationToken);
-        return assignedTicket;
+        await _ticketEventPublisher.PublishReceivedAsync(claim.Ticket, "qr", cancellationToken);
+        return claim;
     }
 
     public async Task<bool> AssignBusinessWelcomeTicketAsync(Guid negocioId, Guid userId, CancellationToken cancellationToken = default)
@@ -199,7 +151,6 @@ public class RegistrationRewardService : IRegistrationRewardService
             negocio => negocio.BonoBienvenidaTicketId,
             CategoriaEnvioTicket.PrimerRegistro,
             "WELCOME",
-            preventDuplicateByTemplate: true,
             cancellationToken);
 
     public async Task<bool> AssignBusinessReferralTicketAsync(Guid negocioId, Guid userId, CancellationToken cancellationToken = default)
@@ -209,7 +160,6 @@ public class RegistrationRewardService : IRegistrationRewardService
             negocio => negocio.BonoInvitacionNuevoClienteTicketId,
             CategoriaEnvioTicket.InvitacionClienteNuevo,
             "REFERRAL",
-            preventDuplicateByTemplate: false,
             cancellationToken);
 
     private static bool IsCampaignValid(QrCampaign? campaign)
@@ -240,7 +190,6 @@ public class RegistrationRewardService : IRegistrationRewardService
         Func<Negocio, Guid?> templateSelector,
         CategoriaEnvioTicket expectedCategory,
         string visibleCodePrefix,
-        bool preventDuplicateByTemplate,
         CancellationToken cancellationToken)
     {
         Negocio? negocio = await _negocioRepository.GetByIdAsync(negocioId, cancellationToken);
@@ -273,29 +222,123 @@ public class RegistrationRewardService : IRegistrationRewardService
             return false;
         }
 
-        if (preventDuplicateByTemplate)
+        if (expectedCategory == CategoriaEnvioTicket.PrimerRegistro)
         {
-            int currentAssignments = await _ticketRepository.CountAssignedToUserByTemplateAsync(userId, template.Id, cancellationToken);
-            if (currentAssignments > 0)
+            WelcomeTicketClaimResult claim = await ClaimWelcomeTicketAsync(
+                template, userId, null, visibleCodePrefix, now, cancellationToken);
+            if (claim.AlreadyClaimed || claim.Ticket is null)
             {
                 return false;
             }
+            await EnsureAudienceAsync(negocioId, userId, "welcome_ticket", now, cancellationToken);
+            await _negociosDbContext.SaveChangesAsync(cancellationToken);
+            await _ticketEventPublisher.PublishReceivedAsync(claim.Ticket, "welcome", cancellationToken);
+            return true;
         }
 
         Ticket assignedTicket = BuildAssignedTicket(template, userId, null, visibleCodePrefix, now);
         await _ticketRepository.AddAsync(assignedTicket, cancellationToken);
-        if (expectedCategory == CategoriaEnvioTicket.PrimerRegistro)
-        {
-            await EnsureAudienceAsync(negocioId, userId, "welcome_ticket", now, cancellationToken);
-        }
-
         await _dbContext.SaveChangesAsync(cancellationToken);
-        await _negociosDbContext.SaveChangesAsync(cancellationToken);
         await _ticketEventPublisher.PublishReceivedAsync(
             assignedTicket,
-            expectedCategory == CategoriaEnvioTicket.PrimerRegistro ? "welcome" : "referral",
+            "referral",
             cancellationToken);
         return true;
+    }
+
+    private static bool IsWelcomeTemplateAvailable(Ticket? template, Guid negocioId)
+    {
+        DateTime now = DateTime.UtcNow;
+        return template is not null && template.NegocioId == negocioId && template.EsPlantilla &&
+            !template.UserId.HasValue && template.Activo && template.Publicado &&
+            template.CategoriaEnvioEspecial == CategoriaEnvioTicket.PrimerRegistro &&
+            template.PuntosCoste.GetValueOrDefault() <= 0 &&
+            (!template.AvailableFromUtc.HasValue || template.AvailableFromUtc.Value <= now) &&
+            template.ExpiresAtUtc > now;
+    }
+
+    private async Task<WelcomeTicketClaimResult> ClaimWelcomeTicketAsync(
+        Ticket template, Guid userId, QrCampaign? campaign, string codePrefix, DateTime now,
+        CancellationToken cancellationToken)
+    {
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+        if (campaign is not null)
+        {
+            List<QrCampaign> lockedCampaigns = await _dbContext.QrCampaigns
+                .FromSqlInterpolated($"SELECT * FROM fidelity_qr_campaigns WHERE Id = {campaign.Id} FOR UPDATE")
+                .AsNoTracking().ToListAsync(cancellationToken);
+            if (lockedCampaigns.Count != 1 || !IsCampaignValid(lockedCampaigns[0]) ||
+                lockedCampaigns[0].WelcomeTicketTemplateId != template.Id)
+            {
+                return new WelcomeTicketClaimResult(null, false);
+            }
+        }
+        List<Ticket> lockedTemplates = await _dbContext.Tickets
+            .FromSqlInterpolated($"SELECT * FROM fidelity_tickets WHERE Id = {template.Id} FOR UPDATE")
+            .AsNoTracking().ToListAsync(cancellationToken);
+        if (lockedTemplates.Count != 1 || !IsWelcomeTemplateAvailable(lockedTemplates[0], template.NegocioId))
+        {
+            return new WelcomeTicketClaimResult(null, false);
+        }
+        template = lockedTemplates[0];
+        Guid assignedTicketId = Guid.NewGuid();
+        // The composite primary key is the cross-route concurrency gate. A losing request
+        // waits for the winner to commit, then reads its committed ticket.
+        int inserted = await _dbContext.Database.ExecuteSqlInterpolatedAsync(
+            $"INSERT IGNORE INTO fidelity_welcome_ticket_claims (UserId, NegocioId, TicketId, CreatedAtUtc) VALUES ({userId}, {template.NegocioId}, {assignedTicketId}, {now})",
+            cancellationToken);
+        if (inserted == 0)
+        {
+            WelcomeTicketClaim existing = await _dbContext.WelcomeTicketClaims.AsNoTracking()
+                .SingleAsync(item => item.UserId == userId && item.NegocioId == template.NegocioId, cancellationToken);
+            if (campaign is not null)
+            {
+                await MarkPendingAssignmentClaimedAsync(userId, campaign.Id, existing.TicketId, cancellationToken);
+            }
+            Ticket? previousTicket = await _ticketRepository.GetByIdAsync(existing.TicketId, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return new WelcomeTicketClaimResult(previousTicket, true);
+        }
+
+        Ticket assignedTicket = BuildAssignedTicket(template, userId, campaign?.Id, codePrefix, now);
+        assignedTicket.Id = assignedTicketId;
+        await _ticketRepository.AddAsync(assignedTicket, cancellationToken);
+        if (campaign is not null)
+        {
+            PendingTicketAssignment? assignment = await _pendingTicketAssignmentRepository
+                .GetByUserAndCampaignAsync(userId, campaign.Id, cancellationToken);
+            if (assignment is null)
+            {
+                assignment = new PendingTicketAssignment
+                {
+                    Id = Guid.NewGuid(), UserId = userId, NegocioId = campaign.NegocioId,
+                    QrCampaignId = campaign.Id, TicketTemplateId = template.Id,
+                    QrToken = campaign.Token, CreatedAtUtc = now
+                };
+                await _pendingTicketAssignmentRepository.AddAsync(assignment, cancellationToken);
+            }
+            assignment.AssignedTicketId = assignedTicketId;
+            assignment.Activated = true;
+            assignment.ActivatedAtUtc = now;
+        }
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return new WelcomeTicketClaimResult(assignedTicket, false);
+    }
+
+    private async Task MarkPendingAssignmentClaimedAsync(
+        Guid userId, Guid campaignId, Guid ticketId, CancellationToken cancellationToken)
+    {
+        PendingTicketAssignment? assignment = await _pendingTicketAssignmentRepository
+            .GetByUserAndCampaignAsync(userId, campaignId, cancellationToken);
+        if (assignment is null || assignment.Activated)
+        {
+            return;
+        }
+        assignment.AssignedTicketId = ticketId;
+        assignment.Activated = true;
+        assignment.ActivatedAtUtc = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
     private async Task EnsureAudienceAsync(

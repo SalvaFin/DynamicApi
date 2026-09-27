@@ -153,11 +153,38 @@ public class PointsController : ControllerBase
     }
 
     [Authorize(Policy = "BusinessStaffAuth")]
+    [HttpPost("/api/fidelity/points/backoffice/worker-group-accrual")]
+    public async Task<IActionResult> BackofficeWorkerGroupAccrual(
+        [FromBody] WorkerPointsGroupAccrualRequest request, CancellationToken cancellationToken)
+    {
+        Guid? authenticatedUserId = GetClaimGuid(ClaimTypes.NameIdentifier, "sub");
+        if (!authenticatedUserId.HasValue) return Unauthorized();
+        ServiceResult<PointsGroupAccrualResponse> result = await _pointsService.BackofficeGroupAccrualAsync(
+            authenticatedUserId.Value, User.IsInRole("Admin"), request, cancellationToken);
+        return ToActionResult(result, data => StatusCode(StatusCodes.Status201Created, data));
+    }
+
+    [Authorize(Policy = "BusinessStaffAuth")]
+    [HttpPost("/api/fidelity/points/backoffice/worker-group-accrual/preview")]
+    public async Task<IActionResult> PreviewBackofficeWorkerGroupAccrual(
+        [FromBody] WorkerPointsGroupAccrualRequest request, CancellationToken cancellationToken)
+    {
+        Guid? authenticatedUserId = GetClaimGuid(ClaimTypes.NameIdentifier, "sub");
+        if (!authenticatedUserId.HasValue) return Unauthorized();
+        ServiceResult<PointsGroupAccrualResponse> result = await _pointsService.PreviewBackofficeGroupAccrualAsync(
+            authenticatedUserId.Value, User.IsInRole("Admin"), request, cancellationToken);
+        return ToActionResult(result, Ok);
+    }
+
+    [Authorize(Policy = "BusinessStaffAuth")]
     [HttpGet("users/{userId:guid}/transactions")]
     public async Task<IActionResult> GetUserTransactions(Guid negocioId, Guid userId, CancellationToken cancellationToken)
     {
+        Guid? requesterUserId = GetClaimGuid(ClaimTypes.NameIdentifier, "sub");
+        if (!requesterUserId.HasValue) return Unauthorized();
         ServiceResult<IReadOnlyCollection<PointsTransactionResponse>> result =
-            await _pointsService.GetTransactionsAsync(userId, negocioId, cancellationToken);
+            await _pointsService.GetManagedTransactionsAsync(negocioId, userId,
+                requesterUserId.Value, User.IsInRole("Admin"), cancellationToken);
 
         return ToActionResult(result, Ok);
     }

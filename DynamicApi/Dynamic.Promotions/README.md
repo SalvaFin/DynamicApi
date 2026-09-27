@@ -245,6 +245,14 @@ Configuración recomendada por entorno:
 
 Antes de activar producción hay que autenticar el dominio remitente con SPF, DKIM y DMARC. No se deben usar cuentas SMTP personales para campañas masivas.
 
+### Recordatorio de una campaña
+
+`GET /api/promotions/negocios/{negocioId}/campaigns` devuelve las 50 campañas más recientes del negocio para el propietario o administrador.
+
+`POST /api/promotions/negocios/{negocioId}/campaigns/{campaignId}/reminder` pone en cola un único recordatorio por campaña. Se admite cuando la campaña está publicada, han pasado 72 horas desde `audienceProcessedAtUtc`, queda tiempo antes de `expiresAtUtc` y el correo estaba habilitado. Solo se incluyen destinatarios cuyo primer correo figure como entregado. La operación no crea otra campaña, destinatarios ni tickets. Las entregas de recordatorio tienen su propio estado y reintentos; el worker comprueba de nuevo que la cuenta, dirección y consentimiento por negocio siguen vigentes antes de cada envío. `reminderQueuedAtUtc` evita solicitudes repetidas, incluso concurrentes. Los contadores `emailDeliveredCount` y `emailFailedCount` siguen describiendo el primer envío.
+
+La respuesta es `202 Accepted` con la campaña actualizada. `409 Conflict` indica que todavía no se puede enviar, que ya se solicitó o que no hubo correos entregados. El envío depende de la cola y del SMTP configurado.
+
 ### Monitor de cola para administradores
 
 `GET /api/admin/promotions/email-queue`

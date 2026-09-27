@@ -4,7 +4,6 @@ namespace Dynamic.Users.Application.DTOs.Requests;
 
 public class CreateBusinessManagedUserRequest
 {
-    [Required]
     [MaxLength(64)]
     public string UserName { get; set; } = string.Empty;
 
@@ -14,13 +13,9 @@ public class CreateBusinessManagedUserRequest
     [MaxLength(32)]
     public string? PhoneNumber { get; set; }
 
-    [Required]
-    [MinLength(8)]
     [MaxLength(128)]
     public string Password { get; set; } = string.Empty;
 
-    [Required]
-    [MinLength(8)]
     [MaxLength(128)]
     public string ConfirmPassword { get; set; } = string.Empty;
 

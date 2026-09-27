@@ -9,11 +9,14 @@ public interface IPointsService
 {
     Task<ServiceResult<PointsSummary>> GetBalanceAsync(Guid userId, Guid negocioId, CancellationToken cancellationToken = default);
     Task<ServiceResult<IReadOnlyCollection<PointsTransactionResponse>>> GetTransactionsAsync(Guid userId, Guid negocioId, CancellationToken cancellationToken = default);
+    Task<ServiceResult<IReadOnlyCollection<PointsTransactionResponse>>> GetManagedTransactionsAsync(Guid negocioId, Guid userId, Guid requesterUserId, bool isAdmin, CancellationToken cancellationToken = default);
     Task<ServiceResult<PointsEarnOperationResponse>> InitiateEarnOperationAsync(Guid userId, Guid negocioId, InitiatePointsEarnRequest request, CancellationToken cancellationToken = default);
     Task<ServiceResult<PointsEarnValidationResponse>> ValidateEarnOperationAsync(Guid operationId, Guid validatorUserId, bool isAdmin, ValidatePointsEarnOperationRequest request, CancellationToken cancellationToken = default);
     Task<ServiceResult<PointsEarnValidationResponse>> BackofficeAccrualByUserCodeAsync(Guid negocioId, Guid validatorUserId, bool isAdmin, BackofficeAccrualByUserCodeRequest request, CancellationToken cancellationToken = default);
     Task<ServiceResult<PointsEarnValidationResponse>> BackofficeAccrualByUserIdAsync(Guid negocioId, Guid validatorUserId, bool isAdmin, BackofficeAccrualByUserIdRequest request, CancellationToken cancellationToken = default);
     Task<ServiceResult<PointsEarnValidationResponse>> BackofficeAccrualByWorkerAsync(Guid authenticatedUserId, bool isAdmin, WorkerPointsAccrualRequest request, CancellationToken cancellationToken = default);
+    Task<ServiceResult<PointsGroupAccrualResponse>> BackofficeGroupAccrualAsync(Guid authenticatedUserId, bool isAdmin, WorkerPointsGroupAccrualRequest request, CancellationToken cancellationToken = default);
+    Task<ServiceResult<PointsGroupAccrualResponse>> PreviewBackofficeGroupAccrualAsync(Guid authenticatedUserId, bool isAdmin, WorkerPointsGroupAccrualRequest request, CancellationToken cancellationToken = default);
     Task<ServiceResult<IReadOnlyCollection<PointsFailedAttemptResponse>>> GetFailedAttemptsAsync(Guid negocioId, Guid requesterUserId, bool isAdmin, CancellationToken cancellationToken = default);
     Task<ServiceResult<GiftPointsResponse>> GiftPointsAsync(
         Guid senderUserId,

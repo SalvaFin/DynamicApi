@@ -23,6 +23,7 @@ namespace Dynamic.Promotions.Application.Services;
 public class PromotionService : IPromotionService
 {
     public const string BuildAudienceMessageType = "BuildAudience";
+    public static readonly TimeSpan ReminderDelay = TimeSpan.FromDays(3);
     private const int MaxPageSize = 100;
     private const int MaxUnseenPromotions = 20;
     private static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
@@ -208,6 +209,82 @@ public class PromotionService : IPromotionService
         return campaign is null
             ? PromotionServiceResult<PromotionCampaignResponse>.Failure("not_found", "Campaña no encontrada.")
             : PromotionServiceResult<PromotionCampaignResponse>.Success(ToResponse(campaign));
+    }
+
+    public async Task<PromotionServiceResult<IReadOnlyList<PromotionCampaignResponse>>> ListCampaignsAsync(
+        Guid negocioId, Guid requesterUserId, bool requesterIsAdmin, CancellationToken cancellationToken = default)
+    {
+        if (!await CanManageCampaignsAsync(negocioId, requesterUserId, requesterIsAdmin, cancellationToken))
+            return PromotionServiceResult<IReadOnlyList<PromotionCampaignResponse>>.Failure("forbidden", "No puedes consultar las campañas de este negocio.");
+
+        PromotionCampaign[] campaigns = await _promotionsDbContext.Campaigns.AsNoTracking()
+            .Where(item => item.NegocioId == negocioId)
+            .OrderByDescending(item => item.CreatedAtUtc)
+            .Take(50)
+            .ToArrayAsync(cancellationToken);
+        return PromotionServiceResult<IReadOnlyList<PromotionCampaignResponse>>.Success(campaigns.Select(ToResponse).ToArray());
+    }
+
+    public async Task<PromotionServiceResult<PromotionCampaignResponse>> QueueReminderAsync(
+        Guid negocioId, Guid campaignId, Guid requesterUserId, bool requesterIsAdmin, CancellationToken cancellationToken = default)
+    {
+        if (!await CanManageCampaignsAsync(negocioId, requesterUserId, requesterIsAdmin, cancellationToken))
+            return PromotionServiceResult<PromotionCampaignResponse>.Failure("forbidden", "No puedes recordar esta campaña.");
+
+        DateTime now = DateTime.UtcNow;
+        PromotionCampaign? campaign = await _promotionsDbContext.Campaigns.AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == campaignId && item.NegocioId == negocioId, cancellationToken);
+        if (campaign is null)
+            return PromotionServiceResult<PromotionCampaignResponse>.Failure("not_found", "Campaña no encontrada.");
+        if (campaign.Status != PromotionCampaignStatus.Sent || !campaign.EmailEnabled ||
+            campaign.ReminderQueuedAtUtc.HasValue || campaign.ExpiresAtUtc <= now ||
+            !campaign.AudienceProcessedAtUtc.HasValue || campaign.AudienceProcessedAtUtc.Value.Add(ReminderDelay) > now)
+            return PromotionServiceResult<PromotionCampaignResponse>.Failure("conflict", "El recordatorio aún no está disponible o ya fue enviado.");
+
+        PromotionEmailDelivery[] originals = await _promotionsDbContext.EmailDeliveries.AsNoTracking()
+            .Where(item => item.CampaignId == campaignId && !item.IsReminder && item.Status == PromotionDeliveryStatus.Delivered)
+            .ToArrayAsync(cancellationToken);
+        if (originals.Length == 0)
+            return PromotionServiceResult<PromotionCampaignResponse>.Failure("conflict", "La campaña no tiene correos entregados a los que recordar.");
+
+        await using var transaction = await _promotionsDbContext.Database.BeginTransactionAsync(cancellationToken);
+        int claimed = await _promotionsDbContext.Campaigns
+            .Where(item => item.Id == campaignId && item.NegocioId == negocioId && item.ReminderQueuedAtUtc == null &&
+                item.Status == PromotionCampaignStatus.Sent && item.ExpiresAtUtc > now &&
+                item.AudienceProcessedAtUtc <= now.Add(-ReminderDelay))
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(item => item.ReminderQueuedAtUtc, now)
+                .SetProperty(item => item.UpdatedAtUtc, now), cancellationToken);
+        if (claimed == 0)
+            return PromotionServiceResult<PromotionCampaignResponse>.Failure("conflict", "El recordatorio ya no está disponible.");
+
+        _promotionsDbContext.EmailDeliveries.AddRange(originals.Select(item => new PromotionEmailDelivery
+        {
+            Id = Guid.NewGuid(), CampaignId = campaignId, RecipientId = item.RecipientId,
+            UserId = item.UserId, Email = item.Email, RecipientName = item.RecipientName,
+            UnsubscribeToken = Guid.NewGuid(), IsReminder = true,
+            Status = PromotionDeliveryStatus.Pending, NextAttemptAtUtc = now,
+            CreatedAtUtc = now, UpdatedAtUtc = now
+        }));
+        await _promotionsDbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        campaign.ReminderQueuedAtUtc = now;
+        return PromotionServiceResult<PromotionCampaignResponse>.Success(ToResponse(campaign));
+    }
+
+    private async Task<bool> CanManageCampaignsAsync(
+        Guid negocioId, Guid requesterUserId, bool requesterIsAdmin, CancellationToken cancellationToken)
+    {
+        bool businessExists = await _negociosDbContext.Negocios.AsNoTracking()
+            .AnyAsync(item => item.Id == negocioId && !item.IsDeleted, cancellationToken);
+        if (!businessExists) return false;
+        if (requesterIsAdmin) return true;
+        return await _negociosDbContext.Negocios.AsNoTracking()
+            .AnyAsync(item => item.Id == negocioId && item.OwnerUserId == requesterUserId, cancellationToken) ||
+            await _negociosDbContext.NegociosUsuariosVinculaciones.AsNoTracking()
+            .AnyAsync(link => link.NegocioId == negocioId && link.UserId == requesterUserId &&
+                link.Activa && !link.RevokedAtUtc.HasValue &&
+                link.TipoVinculacion == TipoVinculacionNegocioUsuario.Propietario, cancellationToken);
     }
 
     public async Task<PromotionServiceResult<PromotionAudiencePreviewResponse>> PreviewAudienceAsync(
@@ -531,6 +608,7 @@ public class PromotionService : IPromotionService
             ScheduledAtUtc = campaign.ScheduledAtUtc,
             CreatedAtUtc = campaign.CreatedAtUtc,
             AudienceProcessedAtUtc = campaign.AudienceProcessedAtUtc,
+            ReminderQueuedAtUtc = campaign.ReminderQueuedAtUtc,
             LastError = campaign.LastError
         };
 

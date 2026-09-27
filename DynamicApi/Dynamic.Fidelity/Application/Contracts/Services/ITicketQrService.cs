@@ -21,7 +21,8 @@ public interface ITicketQrService
     Task<ServiceResult<TicketQrScanResponse>> ScanTicketQrAsync(
         Guid userId,
         string qrToken,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        Guid? expectedNegocioId = null);
 
     Task<ServiceResult<AssignedTicketQrResponse>> GenerateAssignedTicketQrAsync(
         Guid ticketId,

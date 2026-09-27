@@ -15,7 +15,7 @@ public class PromotionEmailDeliveryConfiguration : IEntityTypeConfiguration<Prom
         builder.Property(delivery => delivery.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(delivery => delivery.ProviderMessageId).HasMaxLength(512);
         builder.Property(delivery => delivery.LastError).HasMaxLength(2000);
-        builder.HasIndex(delivery => delivery.RecipientId).IsUnique();
+        builder.HasIndex(delivery => new { delivery.RecipientId, delivery.IsReminder }).IsUnique();
         builder.HasIndex(delivery => delivery.UnsubscribeToken).IsUnique();
         builder.HasIndex(delivery => new { delivery.Status, delivery.NextAttemptAtUtc });
         builder.HasIndex(delivery => new { delivery.CampaignId, delivery.Status });

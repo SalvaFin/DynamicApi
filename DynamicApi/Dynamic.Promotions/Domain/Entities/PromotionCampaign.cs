@@ -36,6 +36,7 @@ public class PromotionCampaign
     public DateTime CreatedAtUtc { get; set; }
     public DateTime UpdatedAtUtc { get; set; }
     public DateTime? AudienceProcessedAtUtc { get; set; }
+    public DateTime? ReminderQueuedAtUtc { get; set; }
 
     public ICollection<PromotionRecipient> Recipients { get; set; } = [];
     public ICollection<PromotionDelivery> Deliveries { get; set; } = [];

@@ -22,6 +22,45 @@ namespace DynamicApi.Migrations
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
 
+            modelBuilder.Entity("Dynamic.Users.Domain.Entities.BusinessUserAccountAudit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("ChangesJson")
+                        .IsRequired()
+                        .HasColumnType("json");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<Guid>("ModifiedByUserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("NegocioId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(1024)
+                        .HasColumnType("varchar(1024)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ModifiedByUserId");
+
+                    b.HasIndex("NegocioId", "UserId", "CreatedAtUtc");
+
+                    b.ToTable("business_user_account_audits", (string)null);
+                });
+
             modelBuilder.Entity("Dynamic.Users.Domain.Entities.UserAccount", b =>
                 {
                     b.Property<Guid>("Id")

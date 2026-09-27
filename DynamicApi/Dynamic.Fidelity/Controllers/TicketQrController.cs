@@ -68,12 +68,7 @@ public class TicketQrController : ControllerBase
         }
 
         ServiceResult<TicketQrScanResponse> result =
-            await _ticketQrService.ScanTicketQrAsync(userId.Value, request.QrToken, cancellationToken);
-
-        if (result.Succeeded && result.Data is not null && result.Data.NegocioId != negocioId)
-        {
-            return BadRequest(new { message = "El QR no pertenece al negocio indicado." });
-        }
+            await _ticketQrService.ScanTicketQrAsync(userId.Value, request.QrToken, cancellationToken, negocioId);
 
         return ToActionResult(result, Ok);
     }

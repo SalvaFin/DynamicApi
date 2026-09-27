@@ -6,5 +6,7 @@ public enum PointsTransactionType
     Spend = 2,
     BackofficeEarn = 3,
     TransferIn = 4,
-    TransferOut = 5
+    TransferOut = 5,
+    SplitIn = 6,
+    SplitOut = 7
 }

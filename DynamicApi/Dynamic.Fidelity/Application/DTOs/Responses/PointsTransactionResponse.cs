@@ -12,6 +12,11 @@ public class PointsTransactionResponse
     public Guid? CounterpartyUserId { get; set; }
     public PointsTransactionType TransactionType { get; set; }
     public decimal? AmountEuros { get; set; }
+    public decimal? BaseRatioSnapshot { get; set; }
+    public decimal? BenefitMultiplierSnapshot { get; set; }
+    public int? BasePointsSnapshot { get; set; }
+    public int? VisitOrdinalSnapshot { get; set; }
+    public string? RecurrenceSnapshotJson { get; set; }
     public int PointsAmount { get; set; }
     public int BalanceBefore { get; set; }
     public int BalanceAfter { get; set; }

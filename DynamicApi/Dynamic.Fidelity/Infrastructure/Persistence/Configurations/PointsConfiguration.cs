@@ -13,6 +13,7 @@ public class PointsConfiguration : IEntityTypeConfiguration<Points>
 
         builder.Property(points => points.LastReason).HasMaxLength(512);
         builder.Property(points => points.LastReference).HasMaxLength(256);
+        builder.Property(points => points.UpdatedAtUtc).IsConcurrencyToken();
 
         builder.HasIndex(points => new { points.UserId, points.NegocioId }).IsUnique();
         builder.HasIndex(points => points.UserId);

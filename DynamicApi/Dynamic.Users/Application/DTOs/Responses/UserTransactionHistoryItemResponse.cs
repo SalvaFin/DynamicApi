@@ -5,6 +5,8 @@ namespace Dynamic.Users.Application.DTOs.Responses;
 public class UserTransactionHistoryItemResponse
 {
     public Guid TransactionId { get; set; }
+    public bool CanSplit { get; set; }
+    public Guid? SplitId { get; set; }
     public Guid NegocioId { get; set; }
     public UserActivityBusinessSummaryResponse? Negocio { get; set; }
     public PointsTransactionType TransactionType { get; set; }

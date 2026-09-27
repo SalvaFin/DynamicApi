@@ -7,6 +7,7 @@ public class WorkerPointsAccrualRequest
     public Guid TrabajadorId { get; set; }
     public Guid UserId { get; set; }
     public decimal DineroGastado { get; set; }
+    public Guid IdempotencyKey { get; set; }
 
     [MaxLength(512)]
     public string? Reason { get; set; }

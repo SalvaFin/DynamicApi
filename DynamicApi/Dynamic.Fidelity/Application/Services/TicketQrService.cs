@@ -25,7 +25,6 @@ public class TicketQrService : ITicketQrService
     private readonly DynamicFidelityDbContext _dbContext;
     private readonly ITicketRepository _ticketRepository;
     private readonly IQrCampaignRepository _qrCampaignRepository;
-    private readonly IPendingTicketAssignmentRepository _pendingTicketAssignmentRepository;
     private readonly FidelityQrOptions _fidelityQrOptions;
     private readonly IRegistrationRewardService _registrationRewardService;
     private readonly INegocioRepository _negocioRepository;
@@ -37,7 +36,6 @@ public class TicketQrService : ITicketQrService
         DynamicFidelityDbContext dbContext,
         ITicketRepository ticketRepository,
         IQrCampaignRepository qrCampaignRepository,
-        IPendingTicketAssignmentRepository pendingTicketAssignmentRepository,
         IRegistrationRewardService registrationRewardService,
         INegocioRepository negocioRepository,
         INegocioUsuarioVinculacionRepository negocioUsuarioVinculacionRepository,
@@ -48,7 +46,6 @@ public class TicketQrService : ITicketQrService
         _dbContext = dbContext;
         _ticketRepository = ticketRepository;
         _qrCampaignRepository = qrCampaignRepository;
-        _pendingTicketAssignmentRepository = pendingTicketAssignmentRepository;
         _registrationRewardService = registrationRewardService;
         _negocioRepository = negocioRepository;
         _negocioUsuarioVinculacionRepository = negocioUsuarioVinculacionRepository;
@@ -161,7 +158,12 @@ public class TicketQrService : ITicketQrService
         }
 
         Ticket? ticket = await _ticketRepository.GetByIdAsync(campaign.WelcomeTicketTemplateId.Value, cancellationToken);
-        if (ticket is null || ticket.NegocioId != campaign.NegocioId || !ticket.EsPlantilla || ticket.UserId.HasValue)
+        DateTime now = DateTime.UtcNow;
+        if (ticket is null || ticket.NegocioId != campaign.NegocioId || !ticket.EsPlantilla ||
+            ticket.UserId.HasValue || ticket.CategoriaEnvioEspecial != CategoriaEnvioTicket.PrimerRegistro ||
+            !ticket.Activo || !ticket.Publicado || ticket.PuntosCoste.GetValueOrDefault() > 0 ||
+            (ticket.AvailableFromUtc.HasValue && ticket.AvailableFromUtc.Value > now) ||
+            ticket.ExpiresAtUtc <= now)
         {
             return ServiceResult<TicketQrLookupResponse>.Failure("not_found", "El ticket asociado al QR ya no está disponible.");
         }
@@ -185,7 +187,8 @@ public class TicketQrService : ITicketQrService
     public async Task<ServiceResult<TicketQrScanResponse>> ScanTicketQrAsync(
         Guid userId,
         string qrToken,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Guid? expectedNegocioId = null)
     {
         if (userId == Guid.Empty || string.IsNullOrWhiteSpace(qrToken))
         {
@@ -198,19 +201,15 @@ public class TicketQrService : ITicketQrService
             return ServiceResult<TicketQrScanResponse>.Failure("not_found", "El QR no existe o no tiene un ticket asociado.");
         }
 
-        bool alreadyClaimed = false;
-        PendingTicketAssignment? existingAssignment =
-            await _pendingTicketAssignmentRepository.GetByUserAndCampaignAsync(userId, campaign.Id, cancellationToken);
-
-        if (existingAssignment?.Activated == true && existingAssignment.AssignedTicketId.HasValue)
+        if (expectedNegocioId.HasValue && campaign.NegocioId != expectedNegocioId.Value)
         {
-            alreadyClaimed = true;
+            return ServiceResult<TicketQrScanResponse>.Failure("validation_error", "El QR no pertenece al negocio indicado.");
         }
 
-        Ticket? assignedTicket = await _registrationRewardService.ClaimTicketFromQrAsync(userId, qrToken, cancellationToken);
-        if (assignedTicket is null)
+        var claim = await _registrationRewardService.ClaimTicketFromQrAsync(userId, qrToken, cancellationToken);
+        if (claim is null || claim.Ticket is null)
         {
-            return ServiceResult<TicketQrScanResponse>.Failure("validation_error", "No se ha podido vincular el ticket al usuario.");
+            return ServiceResult<TicketQrScanResponse>.Failure("conflict", "El bono de bienvenida ya fue recibido o no está disponible.");
         }
 
         return ServiceResult<TicketQrScanResponse>.Success(new TicketQrScanResponse
@@ -218,11 +217,11 @@ public class TicketQrService : ITicketQrService
             QrCampaignId = campaign.Id,
             NegocioId = campaign.NegocioId,
             UserId = userId,
-            AlreadyClaimed = alreadyClaimed,
-            Message = alreadyClaimed
+            AlreadyClaimed = claim.AlreadyClaimed,
+            Message = claim.AlreadyClaimed
                 ? "El ticket ya estaba vinculado al usuario."
                 : "El ticket se ha vinculado correctamente al usuario.",
-            Ticket = assignedTicket.ToResponse()
+            Ticket = claim.Ticket.ToResponse()
         });
     }
 

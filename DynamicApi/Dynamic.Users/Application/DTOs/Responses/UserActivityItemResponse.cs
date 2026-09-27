@@ -10,6 +10,8 @@ public class UserActivityItemResponse
     public UserActivityBusinessSummaryResponse? Negocio { get; set; }
     public Guid? TicketId { get; set; }
     public Guid? TransactionId { get; set; }
+    public bool CanSplit { get; set; }
+    public Guid? SplitId { get; set; }
     public int? PointsAmount { get; set; }
     public int? BalanceAfter { get; set; }
     public decimal? AmountEuros { get; set; }

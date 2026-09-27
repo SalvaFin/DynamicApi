@@ -27,5 +27,6 @@ public class PromotionCampaignResponse
     public DateTime ScheduledAtUtc { get; set; }
     public DateTime CreatedAtUtc { get; set; }
     public DateTime? AudienceProcessedAtUtc { get; set; }
+    public DateTime? ReminderQueuedAtUtc { get; set; }
     public string? LastError { get; set; }
 }

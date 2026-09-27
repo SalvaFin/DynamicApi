@@ -432,9 +432,9 @@ public class PromotionDispatchWorker : BackgroundService
             PromotionCampaign? campaign = await promotionsDbContext.Campaigns.FirstOrDefaultAsync(item => item.Id == campaignId, cancellationToken);
             if (campaign is null) continue;
             campaign.EmailDeliveredCount = await promotionsDbContext.EmailDeliveries.CountAsync(
-                item => item.CampaignId == campaignId && item.Status == PromotionDeliveryStatus.Delivered, cancellationToken);
+                item => item.CampaignId == campaignId && !item.IsReminder && item.Status == PromotionDeliveryStatus.Delivered, cancellationToken);
             campaign.EmailFailedCount = await promotionsDbContext.EmailDeliveries.CountAsync(
-                item => item.CampaignId == campaignId && item.Status == PromotionDeliveryStatus.Failed, cancellationToken);
+                item => item.CampaignId == campaignId && !item.IsReminder && item.Status == PromotionDeliveryStatus.Failed, cancellationToken);
             campaign.UpdatedAtUtc = DateTime.UtcNow;
         }
         if (campaignIds.Count > 0)

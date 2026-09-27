@@ -124,6 +124,11 @@ public class UserActivityController : ControllerBase
             .Take(pageSize)
             .ToListAsync(cancellationToken);
 
+        Guid[] transactionIds = transactions.Select(item => item.Id).ToArray();
+        Dictionary<Guid, Guid> splitIds = await _fidelityDbContext.PointsSplits.AsNoTracking()
+            .Where(item => transactionIds.Contains(item.SourceTransactionId))
+            .ToDictionaryAsync(item => item.SourceTransactionId, item => item.Id, cancellationToken);
+
         Dictionary<Guid, UserActivityBusinessSummaryResponse> negocios =
             await GetBusinessSummariesAsync(transactions.Select(transaction => transaction.NegocioId), cancellationToken);
 
@@ -136,6 +141,11 @@ public class UserActivityController : ControllerBase
             Items = transactions.Select(transaction => new UserTransactionHistoryItemResponse
             {
                 TransactionId = transaction.Id,
+                CanSplit = transaction.TransactionType == PointsTransactionType.Earn &&
+                    transaction.OperationId.HasValue && transaction.PointsAmount >= 2 &&
+                    !splitIds.ContainsKey(transaction.Id),
+                SplitId = splitIds.GetValueOrDefault(transaction.Id) is Guid splitId && splitId != Guid.Empty
+                    ? splitId : null,
                 NegocioId = transaction.NegocioId,
                 Negocio = negocios.GetValueOrDefault(transaction.NegocioId),
                 TransactionType = transaction.TransactionType,
@@ -193,6 +203,11 @@ public class UserActivityController : ControllerBase
             .Take(200)
             .ToListAsync(cancellationToken);
 
+        Guid[] pointIds = transactions.Select(item => item.Id).ToArray();
+        Dictionary<Guid, Guid> pointSplitIds = await _fidelityDbContext.PointsSplits.AsNoTracking()
+            .Where(item => pointIds.Contains(item.SourceTransactionId))
+            .ToDictionaryAsync(item => item.SourceTransactionId, item => item.Id, cancellationToken);
+
         Dictionary<Guid, UserActivityBusinessSummaryResponse> negocios =
             await GetBusinessSummariesAsync(transactions.Select(transaction => transaction.NegocioId), cancellationToken);
 
@@ -205,6 +220,11 @@ public class UserActivityController : ControllerBase
             Description = transaction.Reason,
             Negocio = negocios.GetValueOrDefault(transaction.NegocioId),
             TransactionId = transaction.Id,
+            CanSplit = transaction.TransactionType == PointsTransactionType.Earn &&
+                transaction.OperationId.HasValue && transaction.PointsAmount >= 2 &&
+                !pointSplitIds.ContainsKey(transaction.Id),
+            SplitId = pointSplitIds.GetValueOrDefault(transaction.Id) is Guid pointSplitId && pointSplitId != Guid.Empty
+                ? pointSplitId : null,
             PointsAmount = transaction.PointsAmount,
             BalanceAfter = transaction.BalanceAfter,
             AmountEuros = transaction.AmountEuros,
@@ -348,13 +368,15 @@ public class UserActivityController : ControllerBase
             PointsTransactionType.Earn => $"+{pointsAmount} puntos",
             PointsTransactionType.BackofficeEarn => $"+{pointsAmount} puntos",
             PointsTransactionType.TransferIn => $"+{pointsAmount} puntos recibidos",
+            PointsTransactionType.SplitIn => $"+{pointsAmount} puntos recibidos del reparto",
             PointsTransactionType.Spend => $"{pointsAmount} puntos gastados",
             PointsTransactionType.TransferOut => $"{pointsAmount} puntos enviados",
+            PointsTransactionType.SplitOut => $"{pointsAmount} puntos repartidos",
             _ => "Movimiento de puntos"
         };
 
     private static string ResolveTransactionDirection(PointsTransactionType transactionType)
-        => transactionType is PointsTransactionType.Earn or PointsTransactionType.BackofficeEarn or PointsTransactionType.TransferIn
+        => transactionType is PointsTransactionType.Earn or PointsTransactionType.BackofficeEarn or PointsTransactionType.TransferIn or PointsTransactionType.SplitIn
             ? "in"
             : "out";
 

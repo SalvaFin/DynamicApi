@@ -7,6 +7,7 @@ public class PromotionEmailDelivery
     public Guid Id { get; set; }
     public Guid CampaignId { get; set; }
     public Guid RecipientId { get; set; }
+    public bool IsReminder { get; set; }
     public Guid UserId { get; set; }
     public string Email { get; set; } = string.Empty;
     public string? RecipientName { get; set; }

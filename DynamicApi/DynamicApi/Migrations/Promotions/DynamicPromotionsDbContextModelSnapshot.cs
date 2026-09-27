@@ -108,6 +108,9 @@ namespace DynamicApi.Migrations.Promotions
                     b.Property<int>("PushFailedCount")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("ReminderQueuedAtUtc")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<DateTime>("ScheduledAtUtc")
                         .HasColumnType("datetime(6)");
 
@@ -238,6 +241,9 @@ namespace DynamicApi.Migrations.Promotions
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)");
 
+                    b.Property<bool>("IsReminder")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<string>("LastError")
                         .HasMaxLength(2000)
                         .HasColumnType("varchar(2000)");
@@ -272,13 +278,13 @@ namespace DynamicApi.Migrations.Promotions
 
                     b.HasKey("Id");
 
-                    b.HasIndex("RecipientId")
-                        .IsUnique();
-
                     b.HasIndex("UnsubscribeToken")
                         .IsUnique();
 
                     b.HasIndex("CampaignId", "Status");
+
+                    b.HasIndex("RecipientId", "IsReminder")
+                        .IsUnique();
 
                     b.HasIndex("Status", "NextAttemptAtUtc");
 
@@ -358,10 +364,10 @@ namespace DynamicApi.Migrations.Promotions
                     b.Property<DateTime>("ExpiresAtUtc")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<DateTime?>("ReadAtUtc")
+                    b.Property<DateTime?>("PresentedAtUtc")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<DateTime?>("PresentedAtUtc")
+                    b.Property<DateTime?>("ReadAtUtc")
                         .HasColumnType("datetime(6)");
 
                     b.Property<DateTime>("ReceivedAtUtc")

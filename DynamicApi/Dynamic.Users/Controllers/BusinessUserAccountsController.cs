@@ -51,7 +51,7 @@ public class BusinessUserAccountsController : ControllerBase
         ServiceResult<ProvisionedBusinessUserResponse> result =
             await _businessUserProvisioningService.CreateOwnerAccountByAdminAsync(negocioId, request, cancellationToken);
 
-        return ToActionResult(result, data => StatusCode(StatusCodes.Status201Created, data));
+        return ToActionResult(result, data => StatusCode(data.ExistingAccountLinked ? StatusCodes.Status200OK : StatusCodes.Status201Created, data));
     }
 
     [Authorize(Policy = "AdminAuth")]
@@ -64,10 +64,116 @@ public class BusinessUserAccountsController : ControllerBase
         ServiceResult<ProvisionedBusinessUserResponse> result =
             await _businessUserProvisioningService.CreateWorkerAccountByAdminAsync(negocioId, request, cancellationToken);
 
-        return ToActionResult(result, data => StatusCode(StatusCodes.Status201Created, data));
+        return ToActionResult(result, data => StatusCode(data.ExistingAccountLinked ? StatusCodes.Status200OK : StatusCodes.Status201Created, data));
     }
 
-    [Authorize]
+    [Authorize(Policy = "AdminAuth")]
+    [HttpPut("admin/negocios/{negocioId:guid}/accounts/{userId:guid}")]
+    public async Task<IActionResult> UpdateBusinessAccountByAdmin(
+        Guid negocioId,
+        Guid userId,
+        [FromBody] UpdateBusinessManagedUserRequest request,
+        CancellationToken cancellationToken)
+    {
+        Guid? modifiedByUserId = GetClaimGuid(ClaimTypes.NameIdentifier, "sub");
+        if (!modifiedByUserId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        ServiceResult<ProvisionedBusinessUserResponse> result =
+            await _businessUserProvisioningService.UpdateBusinessAccountByAdminAsync(
+                negocioId, userId, modifiedByUserId.Value, request, GetIpAddress(), GetUserAgent(), cancellationToken);
+
+        return ToActionResult(result, Ok);
+    }
+
+    [Authorize(Policy = "AdminAuth")]
+    [HttpGet("admin/negocios/{negocioId:guid}/accounts/{userId:guid}/audit")]
+    public async Task<IActionResult> GetBusinessAccountAuditByAdmin(
+        Guid negocioId,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        ServiceResult<IReadOnlyCollection<BusinessUserAccountAuditResponse>> result =
+            await _businessUserProvisioningService.GetBusinessAccountAuditByAdminAsync(negocioId, userId, cancellationToken);
+
+        return ToActionResult(result, Ok);
+    }
+
+    [Authorize(Policy = "AdminAuth")]
+    [HttpDelete("admin/negocios/{negocioId:guid}/accounts/{userId:guid}")]
+    public async Task<IActionResult> UnlinkBusinessAccountByAdmin(
+        Guid negocioId, Guid userId, CancellationToken cancellationToken)
+    {
+        Guid? actorId = GetClaimGuid(ClaimTypes.NameIdentifier, "sub");
+        if (!actorId.HasValue) return Unauthorized();
+        ServiceResult result = await _businessUserProvisioningService.UnlinkBusinessAccountByAdminAsync(
+            negocioId, userId, actorId.Value, GetIpAddress(), GetUserAgent(), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [Authorize(Roles = "PropietarioNegocio")]
+    [HttpGet("my-businesses/{negocioId:guid}")]
+    public async Task<IActionResult> GetBusinessAccountsByOwner(Guid negocioId, CancellationToken cancellationToken)
+    {
+        Guid? requester = GetClaimGuid(ClaimTypes.NameIdentifier, "sub");
+        if (!requester.HasValue) return Unauthorized();
+        var result = await _businessUserProvisioningService.GetBusinessAccountsByOwnerAsync(
+            negocioId, requester.Value, cancellationToken);
+        return ToActionResult(result, Ok);
+    }
+
+    [Authorize(Roles = "PropietarioNegocio")]
+    [HttpPost("my-businesses/{negocioId:guid}/owners")]
+    public async Task<IActionResult> CreateOwnerByOwner(
+        Guid negocioId, [FromBody] CreateBusinessManagedUserRequest request, CancellationToken cancellationToken)
+    {
+        Guid? requester = GetClaimGuid(ClaimTypes.NameIdentifier, "sub");
+        if (!requester.HasValue) return Unauthorized();
+        var result = await _businessUserProvisioningService.CreateOwnerAccountByOwnerAsync(
+            negocioId, requester.Value, request, cancellationToken);
+        return ToActionResult(result, data => StatusCode(data.ExistingAccountLinked ? StatusCodes.Status200OK : StatusCodes.Status201Created, data));
+    }
+
+    [Authorize(Roles = "PropietarioNegocio")]
+    [HttpPut("my-businesses/{negocioId:guid}/accounts/{userId:guid}")]
+    public async Task<IActionResult> UpdateBusinessAccountByOwner(
+        Guid negocioId, Guid userId, [FromBody] UpdateBusinessManagedUserRequest request,
+        CancellationToken cancellationToken)
+    {
+        Guid? requester = GetClaimGuid(ClaimTypes.NameIdentifier, "sub");
+        if (!requester.HasValue) return Unauthorized();
+        var result = await _businessUserProvisioningService.UpdateBusinessAccountByOwnerAsync(
+            negocioId, userId, requester.Value, request, GetIpAddress(), GetUserAgent(), cancellationToken);
+        return ToActionResult(result, Ok);
+    }
+
+    [Authorize(Roles = "PropietarioNegocio")]
+    [HttpGet("my-businesses/{negocioId:guid}/accounts/{userId:guid}/audit")]
+    public async Task<IActionResult> GetBusinessAccountAuditByOwner(
+        Guid negocioId, Guid userId, CancellationToken cancellationToken)
+    {
+        Guid? requester = GetClaimGuid(ClaimTypes.NameIdentifier, "sub");
+        if (!requester.HasValue) return Unauthorized();
+        var result = await _businessUserProvisioningService.GetBusinessAccountAuditByOwnerAsync(
+            negocioId, userId, requester.Value, cancellationToken);
+        return ToActionResult(result, Ok);
+    }
+
+    [Authorize(Roles = "PropietarioNegocio")]
+    [HttpDelete("my-businesses/{negocioId:guid}/accounts/{userId:guid}")]
+    public async Task<IActionResult> UnlinkBusinessAccountByOwner(
+        Guid negocioId, Guid userId, CancellationToken cancellationToken)
+    {
+        Guid? actorId = GetClaimGuid(ClaimTypes.NameIdentifier, "sub");
+        if (!actorId.HasValue) return Unauthorized();
+        ServiceResult result = await _businessUserProvisioningService.UnlinkBusinessAccountByOwnerAsync(
+            negocioId, userId, actorId.Value, GetIpAddress(), GetUserAgent(), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [Authorize(Roles = "Admin,PropietarioNegocio")]
     [HttpPost("my-businesses/{negocioId:guid}/workers")]
     public async Task<IActionResult> CreateWorkerByOwner(
         Guid negocioId,
@@ -88,7 +194,7 @@ public class BusinessUserAccountsController : ControllerBase
                 request,
                 cancellationToken);
 
-        return ToActionResult(result, data => StatusCode(StatusCodes.Status201Created, data));
+        return ToActionResult(result, data => StatusCode(data.ExistingAccountLinked ? StatusCodes.Status200OK : StatusCodes.Status201Created, data));
     }
 
     [Authorize(Policy = "BusinessStaffAuth")]
@@ -172,6 +278,7 @@ public class BusinessUserAccountsController : ControllerBase
                 new BackofficeAccrualByUserIdRequest
                 {
                     UserId = request.UserId,
+                    IdempotencyKey = request.IdempotencyKey,
                     AmountEuros = request.AmountEuros,
                     Reason = request.Reason,
                     Reference = request.Reference
@@ -179,6 +286,18 @@ public class BusinessUserAccountsController : ControllerBase
                 cancellationToken);
 
         return ToActionResult(result, Ok);
+    }
+
+    private IActionResult ToActionResult(ServiceResult result)
+    {
+        if (result.Succeeded) return NoContent();
+        return result.ErrorCode switch
+        {
+            "not_found" => NotFound(new { message = result.ErrorMessage }),
+            "forbidden" => StatusCode(StatusCodes.Status403Forbidden, new { message = result.ErrorMessage }),
+            "conflict" => Conflict(new { message = result.ErrorMessage }),
+            _ => StatusCode(StatusCodes.Status500InternalServerError, new { message = result.ErrorMessage ?? "Error interno del servidor." })
+        };
     }
 
     private IActionResult ToActionResult<T>(ServiceResult<T> result, Func<T, IActionResult> onSuccess)

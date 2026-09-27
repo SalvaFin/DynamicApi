@@ -15,6 +15,7 @@ public class DynamicUsersDbContext : DbContext
     public DbSet<UserSession> UserSessions => Set<UserSession>();
     public DbSet<UserAuthEvent> UserAuthEvents => Set<UserAuthEvent>();
     public DbSet<UserExternalLogin> UserExternalLogins => Set<UserExternalLogin>();
+    public DbSet<BusinessUserAccountAudit> BusinessUserAccountAudits => Set<BusinessUserAccountAudit>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
