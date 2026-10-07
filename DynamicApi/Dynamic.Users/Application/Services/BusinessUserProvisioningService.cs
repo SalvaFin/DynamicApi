@@ -593,26 +593,35 @@ public class BusinessUserProvisioningService : IBusinessUserProvisioningService
 
         try
         {
-            CustomerLinkResult linkResult = await UpsertCustomerAudienceAsync(
+            CustomerLinkResult? linkResult = request.LinkToBusiness ? await UpsertCustomerAudienceAsync(
                 negocio,
                 user.Id,
                 requesterUserId,
                 now,
-                cancellationToken);
+                cancellationToken) : null;
+
+            NegocioAudiencia? audience = linkResult?.Audiencia ?? await _negociosDbContext.NegociosAudiencias
+                .FirstOrDefaultAsync(item => item.NegocioId == negocio.Id && item.UserId == user.Id, cancellationToken);
 
             await PersistBackofficeCustomerEventAsync(user, validation.Data.Contact.OriginalValue, ipAddress, userAgent, cancellationToken);
             string? userCode = await EnsureUserCodeSafeAsync(user.Id, cancellationToken);
 
             bool receivedWelcomeTicket = false;
-            if (linkResult.LinkedNow)
+            if (linkResult?.LinkedNow == true)
             {
                 receivedWelcomeTicket =
                     await _registrationRewardService.AssignBusinessWelcomeTicketAsync(negocio.Id, user.Id, cancellationToken);
             }
 
-            string message = created
+            string message = !request.LinkToBusiness
+                ? created
+                    ? "Cliente dado de alta correctamente."
+                    : completedPendingUser
+                        ? "El registro pendiente del cliente se ha completado correctamente."
+                        : "El cliente ya estaba registrado."
+                : created
                 ? "Cliente dado de alta y vinculado al negocio correctamente."
-                : linkResult.LinkedNow
+                : linkResult!.LinkedNow
                     ? "El cliente ya existÃ­a y se ha vinculado al negocio correctamente."
                     : completedPendingUser
                         ? "El registro pendiente del cliente se ha completado y ya estaba vinculado al negocio."
@@ -623,10 +632,10 @@ public class BusinessUserProvisioningService : IBusinessUserProvisioningService
                 NegocioId = negocio.Id,
                 Created = created,
                 ExistingUser = !created,
-                LinkedNow = linkResult.LinkedNow,
-                AudienciaId = linkResult.Audiencia.Id,
-                FormaParteAudiencia = true,
-                PermiteCorreosPromocionales = linkResult.Audiencia.PermiteCorreosPromocionales,
+                LinkedNow = linkResult?.LinkedNow == true,
+                AudienciaId = audience?.Id,
+                FormaParteAudiencia = IsActiveAudience(audience),
+                PermiteCorreosPromocionales = audience?.PermiteCorreosPromocionales == true,
                 ReceivedWelcomeTicket = receivedWelcomeTicket,
                 Message = message,
                 User = user.ToResponse(userCode)

@@ -340,7 +340,7 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
                  `RequiereValidacionManual`, `EsDeUnSoloUso`, `EsPlantilla`, `Activo`, `Publicado`, `Usado`,
                  `CreatedAtUtc`, `AvailableFromUtc`, `ExpiresAtUtc`, `UpdatedAtUtc`)
             SELECT UUID(), template.`NegocioId`, recipient.`UserId`, template.`Id`, campaign.`Id`, recipient.`Id`,
-                   template.`Nombre`, template.`Descripcion`, 'Promocion', template.`CategoriaEnvioEspecial`,
+                   template.`Nombre`, template.`Descripcion`, 'Promocion', 'General',
                    template.`Valor`, template.`CodigoInterno`,
                    CONCAT(LEFT(COALESCE(NULLIF(template.`CodigoVisible`, ''), 'CAMPAIGN'), 8), '-', SUBSTRING(REPLACE(UUID(), '-', ''), 1, 11)),
                    template.`TituloCanje`, template.`InstruccionesCanje`, template.`CondicionesUso`, template.`MensajeMarketing`,

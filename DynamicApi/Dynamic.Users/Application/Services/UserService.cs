@@ -276,7 +276,8 @@ public class UserService : IUserService
     }
 
     private static bool IsSearchableCustomer(UserAccount user)
-        => user.Role == UserRole.User &&
+        // Business staff retain their personal account and can earn points as customers.
+        => user.Role is UserRole.User or UserRole.PropietarioNegocio or UserRole.TrabajadorNegocio &&
            user.Status == UserStatus.Active &&
            user.RegistrationCompleted;
 

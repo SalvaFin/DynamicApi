@@ -219,7 +219,7 @@ public class TicketQrService : ITicketQrService
             UserId = userId,
             AlreadyClaimed = claim.AlreadyClaimed,
             Message = claim.AlreadyClaimed
-                ? "El ticket ya estaba vinculado al usuario."
+                ? "Ya recibiste la bienvenida de este negocio. Solo se concede una vez, aunque cambie la promoción."
                 : "El ticket se ha vinculado correctamente al usuario.",
             Ticket = claim.Ticket.ToResponse()
         });

@@ -36,4 +36,6 @@ public class CreateBusinessCustomerUserRequest
     public bool PrivacyPolicyAccepted { get; set; }
 
     public bool MarketingAccepted { get; set; }
+
+    public bool LinkToBusiness { get; set; }
 }
