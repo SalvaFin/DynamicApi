@@ -1,13 +1,10 @@
 using System.Security.Claims;
-using System.Security.Cryptography;
 using Dynamic.Users.Application.DTOs.Requests;
 using Dynamic.Users.Application.DTOs.Responses;
 using Dynamic.Users.Application.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using QRCoder;
 
 namespace Dynamic.Users.Controllers;
 
@@ -16,33 +13,19 @@ namespace Dynamic.Users.Controllers;
 [Route("api/users/me/points-splits")]
 public class PointsSplitController : ControllerBase
 {
-    private const string ShareQrPrefix = "dynamic-points-share:";
     private readonly PointsSplitService _service;
-    private readonly ITimeLimitedDataProtector _protector;
 
-    public PointsSplitController(PointsSplitService service, IDataProtectionProvider protectionProvider)
+    public PointsSplitController(PointsSplitService service)
     {
         _service = service;
-        _protector = protectionProvider.CreateProtector("Dynamic.PointsSplit.RecipientQr.v1")
-            .ToTimeLimitedDataProtector();
     }
 
-    [HttpPost("share-qr")]
-    [EnableRateLimiting("points-split-identity")]
-    public async Task<IActionResult> CreateShareQr(CancellationToken cancellationToken)
+    [HttpGet("transactions")]
+    public async Task<IActionResult> GetRecentEarnings(CancellationToken cancellationToken)
     {
         Guid? userId = CurrentUserId();
         if (userId is null) return Unauthorized();
-        if (await _service.ResolveByUserIdAsync(userId.Value, cancellationToken) is null)
-            return StatusCode(403, new { message = "Necesitas una cuenta de cliente con correo verificado para compartir puntos." });
-
-        DateTime expiresAtUtc = DateTime.UtcNow.AddMinutes(5);
-        string token = _protector.Protect(userId.Value.ToString("D"), TimeSpan.FromMinutes(5));
-        string payload = ShareQrPrefix + token;
-        using QRCodeGenerator generator = new();
-        using QRCodeData qrData = generator.CreateQrCode(payload, QRCodeGenerator.ECCLevel.Q);
-        SvgQRCode svg = new(qrData);
-        return Ok(new { qrSvg = svg.GetGraphic(20), payload, expiresAtUtc });
+        return Ok(await _service.GetRecentEarningsAsync(userId.Value, cancellationToken));
     }
 
     [HttpPost("resolve-recipient")]
@@ -52,34 +35,26 @@ public class PointsSplitController : ControllerBase
     {
         Guid? requesterId = CurrentUserId();
         if (requesterId is null) return Unauthorized();
-        if (string.IsNullOrWhiteSpace(request.Email) == string.IsNullOrWhiteSpace(request.ShareQrToken))
-            return BadRequest(new { message = "Introduce un correo o escanea un QR de compartir puntos." });
+        if (string.IsNullOrWhiteSpace(request.Email) == string.IsNullOrWhiteSpace(request.CustomerQrPayload))
+            return BadRequest(new { message = "Introduce un correo o escanea el QR habitual de un cliente." });
 
         SplitRecipientResponse? recipient;
-        if (!string.IsNullOrWhiteSpace(request.ShareQrToken))
+        if (!string.IsNullOrWhiteSpace(request.CustomerQrPayload))
         {
-            string scanned = request.ShareQrToken.Trim();
-            if (!scanned.StartsWith(ShareQrPrefix, StringComparison.Ordinal))
-                return BadRequest(new { message = "Este QR no sirve para compartir puntos." });
-            try
-            {
-                string value = _protector.Unprotect(scanned[ShareQrPrefix.Length..]);
-                recipient = Guid.TryParse(value, out Guid userId)
-                    ? await _service.ResolveByUserIdAsync(userId, cancellationToken)
-                    : null;
-            }
-            catch (CryptographicException)
-            {
-                return BadRequest(new { message = "El QR ha caducado. Pide a tu amigo que genere uno nuevo." });
-            }
+            // UserPortalController generates the normal customer QR with their user ID.
+            if (!Guid.TryParse(request.CustomerQrPayload.Trim(), out Guid userId) || userId == Guid.Empty)
+                return BadRequest(new { message = "Este QR no es un QR de cliente válido." });
+            recipient = await _service.ResolveByUserIdAsync(userId, cancellationToken);
         }
         else
         {
             recipient = await _service.ResolveByEmailAsync(request.Email!, cancellationToken);
         }
 
-        if (recipient is null || recipient.UserId == requesterId)
-            return NotFound(new { message = "No se ha encontrado un cliente activo y verificado con esos datos." });
+        if (recipient is null)
+            return NotFound(new { message = "Usuario no encontrado." });
+        if (recipient.UserId == requesterId)
+            return BadRequest(new { message = "Tu cuenta ya participa en el reparto." });
         return Ok(recipient);
     }
 

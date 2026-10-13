@@ -8,7 +8,7 @@ public class ResolveSplitRecipientRequest
     public string? Email { get; set; }
 
     [MaxLength(2048)]
-    public string? ShareQrToken { get; set; }
+    public string? CustomerQrPayload { get; set; }
 }
 
 public class CreatePointsSplitRequest

@@ -33,6 +33,49 @@ public class PointsSplitService
         _events = events;
     }
 
+    public async Task<IReadOnlyCollection<RecentPointsEarningResponse>> GetRecentEarningsAsync(
+        Guid userId, CancellationToken cancellationToken)
+    {
+        // Limit in SQL before enriching. No activity log, COUNT, balances or per-row queries.
+        var earnings = await _fidelity.PointsTransactions.AsNoTracking()
+            .Where(item => item.UserId == userId && item.PointsAmount > 0 &&
+                (item.TransactionType == PointsTransactionType.Earn ||
+                 item.TransactionType == PointsTransactionType.BackofficeEarn ||
+                 item.TransactionType == PointsTransactionType.TransferIn ||
+                 item.TransactionType == PointsTransactionType.SplitIn))
+            .OrderByDescending(item => item.CreatedAtUtc).ThenByDescending(item => item.Id)
+            .Take(20)
+            .Select(item => new
+            {
+                item.Id, item.NegocioId, item.PointsAmount, item.AmountEuros,
+                item.Reason, item.CreatedAtUtc, item.TransactionType, item.OperationId
+            })
+            .ToListAsync(cancellationToken);
+        if (earnings.Count == 0) return [];
+
+        List<Guid> transactionIds = earnings.Select(item => item.Id).ToList();
+        List<Guid> businessIds = earnings.Select(item => item.NegocioId).Distinct().ToList();
+        var splits = await _fidelity.PointsSplits.AsNoTracking()
+            .Where(item => item.OwnerUserId == userId && transactionIds.Contains(item.SourceTransactionId))
+            .Select(item => new { item.SourceTransactionId, item.Id })
+            .ToDictionaryAsync(item => item.SourceTransactionId, item => item.Id, cancellationToken);
+        var names = await _negocios.Negocios.AsNoTracking()
+            .Where(item => businessIds.Contains(item.Id))
+            .Select(item => new { item.Id, item.NombreComercial })
+            .ToDictionaryAsync(item => item.Id, item => item.NombreComercial, cancellationToken);
+
+        return earnings.Select(item => new RecentPointsEarningResponse
+        {
+            TransactionId = item.Id, NegocioId = item.NegocioId,
+            BusinessName = names.GetValueOrDefault(item.NegocioId) ?? string.Empty,
+            PointsAmount = item.PointsAmount, AmountEuros = item.AmountEuros,
+            Reason = item.Reason, CreatedAtUtc = item.CreatedAtUtc,
+            CanSplit = item.TransactionType == PointsTransactionType.Earn &&
+                item.OperationId.HasValue && item.PointsAmount >= 2 && !splits.ContainsKey(item.Id),
+            SplitId = splits.TryGetValue(item.Id, out Guid splitId) ? splitId : null
+        }).ToArray();
+    }
+
     public async Task<SplitRecipientResponse?> ResolveByEmailAsync(string email, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(email)) return null;
@@ -282,7 +325,7 @@ public class PointsSplitService
 
     private async Task<PointsSplitResponse> ToResponseAsync(PointsSplit split, CancellationToken cancellationToken)
     {
-        Guid[] ids = split.Recipients.Select(item => item.UserId).ToArray();
+        List<Guid> ids = split.Recipients.Select(item => item.UserId).ToList();
         Dictionary<Guid, UserAccount> users = await _users.Users.AsNoTracking()
             .Where(item => ids.Contains(item.Id))
             .ToDictionaryAsync(item => item.Id, cancellationToken);

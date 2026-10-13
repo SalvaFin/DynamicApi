@@ -30,3 +30,16 @@ public class PointsSplitStatusResponse
     public string? IneligibleReason { get; set; }
     public PointsSplitResponse? Split { get; set; }
 }
+
+public class RecentPointsEarningResponse
+{
+    public Guid TransactionId { get; set; }
+    public Guid NegocioId { get; set; }
+    public string BusinessName { get; set; } = string.Empty;
+    public int PointsAmount { get; set; }
+    public decimal? AmountEuros { get; set; }
+    public string? Reason { get; set; }
+    public DateTime CreatedAtUtc { get; set; }
+    public bool CanSplit { get; set; }
+    public Guid? SplitId { get; set; }
+}

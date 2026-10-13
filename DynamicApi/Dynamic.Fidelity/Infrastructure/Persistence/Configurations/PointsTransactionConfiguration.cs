@@ -26,6 +26,8 @@ public class PointsTransactionConfiguration : IEntityTypeConfiguration<PointsTra
         builder.Property(transaction => transaction.Reference).HasMaxLength(256);
 
         builder.HasIndex(transaction => new { transaction.UserId, transaction.NegocioId, transaction.CreatedAtUtc });
+        // Latest transactions across all businesses for one customer.
+        builder.HasIndex(transaction => new { transaction.UserId, transaction.CreatedAtUtc, transaction.Id });
         builder.HasIndex(transaction => transaction.NegocioId);
         builder.HasIndex(transaction => transaction.OperationId);
         builder.HasIndex(transaction => new { transaction.NegocioId, transaction.ClientOperationId }).IsUnique();

@@ -468,6 +468,8 @@ namespace DynamicApi.Migrations.Fidelity
                     b.HasIndex("NegocioId", "ClientOperationId")
                         .IsUnique();
 
+                    b.HasIndex("UserId", "CreatedAtUtc", "Id");
+
                     b.HasIndex("UserId", "NegocioId", "CreatedAtUtc");
 
                     b.ToTable("fidelity_points_transactions", (string)null);
