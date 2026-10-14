@@ -7,15 +7,18 @@ namespace Dynamic.Users.Application.DTOs.Requests;
 
 public class CreateBusinessCustomerUserRequest
 {
-    [Required]
     [MaxLength(256)]
     public string Contact { get; set; } = string.Empty;
 
-    [Required]
+    [MaxLength(256)]
+    public string? Email { get; set; }
+
+    [MaxLength(32)]
+    public string? PhoneNumber { get; set; }
+
     [MaxLength(128)]
     public string Nombre { get; set; } = string.Empty;
 
-    [Required]
     [MaxLength(128)]
     public string Apellidos { get; set; } = string.Empty;
 
@@ -24,11 +27,9 @@ public class CreateBusinessCustomerUserRequest
     [JsonConverter(typeof(UserGenderJsonConverter))]
     public UserGender Gender { get; set; } = UserGender.OtroPrefieroNoEspecificar;
 
-    [Required]
     [MaxLength(24)]
     public string PostalCode { get; set; } = string.Empty;
 
-    [Required]
     public SpanishProvince? Province { get; set; }
 
     public bool TermsAccepted { get; set; }
@@ -38,4 +39,6 @@ public class CreateBusinessCustomerUserRequest
     public bool MarketingAccepted { get; set; }
 
     public bool LinkToBusiness { get; set; }
+
+    public bool WelcomeBonusAlreadyEnjoyed { get; set; }
 }

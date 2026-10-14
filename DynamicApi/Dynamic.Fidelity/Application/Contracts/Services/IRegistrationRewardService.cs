@@ -10,5 +10,6 @@ public interface IRegistrationRewardService
     Task FinalizePendingAssignmentsAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<WelcomeTicketClaimResult?> ClaimTicketFromQrAsync(Guid userId, string qrToken, CancellationToken cancellationToken = default);
     Task<bool> AssignBusinessWelcomeTicketAsync(Guid negocioId, Guid userId, CancellationToken cancellationToken = default);
+    Task<bool> AssignBusinessWelcomeTicketAsync(Guid negocioId, Guid userId, Guid redeemedByUserId, CancellationToken cancellationToken = default);
     Task<bool> AssignBusinessReferralTicketAsync(Guid negocioId, Guid userId, CancellationToken cancellationToken = default);
 }

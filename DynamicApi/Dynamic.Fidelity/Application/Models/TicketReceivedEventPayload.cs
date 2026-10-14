@@ -12,5 +12,6 @@ public class TicketReceivedEventPayload
     public string Name { get; set; } = string.Empty;
     public string Category { get; set; } = string.Empty;
     public string Source { get; set; } = string.Empty;
+    public bool AlreadyRedeemed { get; set; }
     public DateTime CreatedAtUtc { get; set; }
 }

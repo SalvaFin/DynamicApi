@@ -45,4 +45,35 @@ public class Ticket
     public string? UsedByEmployeeReference { get; set; }
     public string? NotasInternas { get; set; }
     public DateTime UpdatedAtUtc { get; set; }
+
+    public TicketRedemption RedeemWelcomeAtRegistration(Guid employeeUserId, DateTime now)
+    {
+        if (employeeUserId == Guid.Empty)
+            throw new ArgumentException("El trabajador responsable es obligatorio.", nameof(employeeUserId));
+        if (Id == Guid.Empty || NegocioId == Guid.Empty || !UserId.HasValue || UserId == Guid.Empty ||
+            EsPlantilla || CategoriaEnvioEspecial != CategoriaEnvioTicket.PrimerRegistro ||
+            Usado || UsosConsumidos != 0)
+            throw new InvalidOperationException("Solo se puede registrar así un bono de bienvenida recién asignado.");
+
+        // The benefit has already been delivered in the store: it must not remain redeemable,
+        // even if the template was configured for multiple uses.
+        Usado = true;
+        UsosConsumidos = 1;
+        UsedAtUtc = now;
+        UsedByEmployeeReference = employeeUserId.ToString("D");
+        UsedInStoreReference = "Bono de bienvenida disfrutado durante el alta";
+        UpdatedAtUtc = now;
+
+        return new TicketRedemption
+        {
+            Id = Guid.NewGuid(), TicketId = Id, NegocioId = NegocioId, UserId = UserId.Value,
+            ValidatedByUserId = employeeUserId, ParentTicketId = ParentTicketId,
+            SourceQrCampaignId = SourceQrCampaignId,
+            SourcePromotionCampaignId = SourcePromotionCampaignId,
+            SourcePromotionRecipientId = SourcePromotionRecipientId,
+            TicketNombreSnapshot = Nombre, TicketTipoSnapshot = Tipo.ToString(),
+            TicketCategoriaSnapshot = CategoriaEnvioEspecial.ToString(), TicketCodeSnapshot = CodigoVisible,
+            UsageNumber = UsosConsumidos, StoreReference = UsedInStoreReference, CreatedAtUtc = now
+        };
+    }
 }

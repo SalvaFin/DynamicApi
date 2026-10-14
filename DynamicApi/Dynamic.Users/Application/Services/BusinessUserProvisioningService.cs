@@ -562,12 +562,11 @@ public class BusinessUserProvisioningService : IBusinessUserProvisioningService
 
         DateTime now = DateTime.UtcNow;
         bool created = false;
-        bool completedPendingUser = false;
         UserAccount user;
 
         if (validation.Data.ExistingUser is null)
         {
-            user = await BuildCustomerUserAsync(request, validation.Data.Contact, now, cancellationToken);
+            user = await BuildCustomerUserAsync(request, validation.Data.Contact, validation.Data.Phone, now, cancellationToken);
             await _userRepository.AddAsync(user, cancellationToken);
             created = true;
         }
@@ -581,19 +580,19 @@ public class BusinessUserProvisioningService : IBusinessUserProvisioningService
                     "El contacto pertenece a una cuenta de backoffice y no puede darse de alta como cliente.");
             }
 
-            if (!user.RegistrationCompleted)
-            {
-                ApplyCustomerRegistrationData(user, request, validation.Data.Contact, now);
-                completedPendingUser = true;
-                _userRepository.Update(user);
-            }
+            // Staff registration only links an existing account. Its profile, verification,
+            // consent and pending-registration state belong to the customer.
         }
 
-        await _usersDbContext.SaveChangesAsync(cancellationToken);
+        if (created)
+        {
+            await _usersDbContext.SaveChangesAsync(cancellationToken);
+        }
 
         try
         {
-            CustomerLinkResult? linkResult = request.LinkToBusiness ? await UpsertCustomerAudienceAsync(
+            bool linkToBusiness = !created || request.LinkToBusiness;
+            CustomerLinkResult? linkResult = linkToBusiness ? await UpsertCustomerAudienceAsync(
                 negocio,
                 user.Id,
                 requesterUserId,
@@ -610,22 +609,30 @@ public class BusinessUserProvisioningService : IBusinessUserProvisioningService
             if (linkResult?.LinkedNow == true)
             {
                 receivedWelcomeTicket =
-                    await _registrationRewardService.AssignBusinessWelcomeTicketAsync(negocio.Id, user.Id, cancellationToken);
+                    request.WelcomeBonusAlreadyEnjoyed
+                        ? await _registrationRewardService.AssignBusinessWelcomeTicketAsync(
+                            negocio.Id, user.Id, requesterUserId, cancellationToken)
+                        : await _registrationRewardService.AssignBusinessWelcomeTicketAsync(
+                            negocio.Id, user.Id, cancellationToken);
             }
 
-            string message = !request.LinkToBusiness
-                ? created
-                    ? "Cliente dado de alta correctamente."
-                    : completedPendingUser
-                        ? "El registro pendiente del cliente se ha completado correctamente."
-                        : "El cliente ya estaba registrado."
-                : created
-                ? "Cliente dado de alta y vinculado al negocio correctamente."
+            string message = created
+                ? linkToBusiness
+                    ? "Cliente dado de alta y vinculado al negocio correctamente."
+                    : "Cliente dado de alta correctamente."
                 : linkResult!.LinkedNow
-                    ? "El cliente ya existÃ­a y se ha vinculado al negocio correctamente."
-                    : completedPendingUser
-                        ? "El registro pendiente del cliente se ha completado y ya estaba vinculado al negocio."
-                        : "El cliente ya existÃ­a y ya estaba vinculado al negocio.";
+                    ? "El usuario ya estaba registrado y se ha vinculado al negocio. Sus datos no se han modificado."
+                    : "El usuario ya estaba registrado y ya estaba vinculado al negocio. Sus datos no se han modificado.";
+
+            bool welcomeTicketRedeemed = receivedWelcomeTicket && request.WelcomeBonusAlreadyEnjoyed;
+            if (welcomeTicketRedeemed)
+            {
+                message += " Bono de bienvenida registrado como recibido y canjeado en el local.";
+            }
+            else if (request.WelcomeBonusAlreadyEnjoyed)
+            {
+                message += " No se ha emitido ni canjeado un nuevo bono de bienvenida: el cliente ya estaba vinculado, ya lo recibió o no hay uno disponible.";
+            }
 
             return ServiceResult<BusinessCustomerRegistrationResponse>.Success(new BusinessCustomerRegistrationResponse
             {
@@ -637,6 +644,7 @@ public class BusinessUserProvisioningService : IBusinessUserProvisioningService
                 FormaParteAudiencia = IsActiveAudience(audience),
                 PermiteCorreosPromocionales = audience?.PermiteCorreosPromocionales == true,
                 ReceivedWelcomeTicket = receivedWelcomeTicket,
+                WelcomeTicketRedeemed = welcomeTicketRedeemed,
                 Message = message,
                 User = user.ToResponse(userCode)
             });
@@ -823,6 +831,49 @@ public class BusinessUserProvisioningService : IBusinessUserProvisioningService
         CreateBusinessCustomerUserRequest request,
         CancellationToken cancellationToken)
     {
+        // Contact remains supported for older callers; the worker form sends two fields.
+        ContactInfo? legacy = string.IsNullOrWhiteSpace(request.Contact) ? null : ParseContact(request.Contact);
+        string? emailValue = Normalize(request.Email) ?? (legacy?.Type == ContactType.Email ? legacy.OriginalValue : null);
+        string? phoneValue = Normalize(request.PhoneNumber) ?? (legacy?.Type == ContactType.Phone ? legacy.OriginalValue : null);
+        ContactInfo? email = emailValue is not null && IsEmail(emailValue)
+            ? new ContactInfo(ContactType.Email, emailValue, emailValue.ToUpperInvariant()) : null;
+        string normalizedPhone = phoneValue is null ? string.Empty : NormalizePhone(phoneValue);
+        ContactInfo? phone = phoneValue is not null && normalizedPhone.Length is >= 7 and <= 15 &&
+            phoneValue.All(character => char.IsDigit(character) || char.IsWhiteSpace(character) || "+()- .".Contains(character))
+            ? new ContactInfo(ContactType.Phone, phoneValue, normalizedPhone) : null;
+        if ((emailValue is not null && email is null) || (phoneValue is not null && phone is null))
+        {
+            return ServiceResult<ValidatedCustomerRegistration>.Failure("validation_error", "Introduce un correo electrónico o número de teléfono válido.");
+        }
+
+        UserAccount? byEmail = email is null ? null : await _userRepository.GetByEmailAsync(email.NormalizedValue, cancellationToken);
+        UserAccount? byPhone = phone is null ? null : await _userRepository.GetByPhoneAsync(phone.NormalizedValue, cancellationToken);
+        if (byEmail is not null && byPhone is not null && byEmail.Id != byPhone.Id)
+        {
+            return ServiceResult<ValidatedCustomerRegistration>.Failure(
+                "conflict", "El correo y el teléfono pertenecen a usuarios diferentes. Revisa el contacto del cliente antes de vincularlo.");
+        }
+        UserAccount? existingUser = byEmail ?? byPhone;
+        if (existingUser is not null)
+        {
+            // Other submitted fields are irrelevant for linking and must never overwrite
+            // an existing profile, including an account whose registration is pending.
+            return ServiceResult<ValidatedCustomerRegistration>.Success(new ValidatedCustomerRegistration(
+                byEmail is not null ? email! : phone!, existingUser));
+        }
+
+        if (email is null || phone is null)
+        {
+            return ServiceResult<ValidatedCustomerRegistration>.Failure(
+                "validation_error", "El correo electrónico y el número de teléfono son obligatorios para dar de alta un cliente nuevo.");
+        }
+
+        if (request.WelcomeBonusAlreadyEnjoyed && !request.LinkToBusiness)
+        {
+            return ServiceResult<ValidatedCustomerRegistration>.Failure(
+                "validation_error", "Para registrar el bono ya disfrutado debes vincular al cliente al negocio.");
+        }
+
         if (!request.TermsAccepted || !request.PrivacyPolicyAccepted)
         {
             return ServiceResult<ValidatedCustomerRegistration>.Failure(
@@ -830,8 +881,7 @@ public class BusinessUserProvisioningService : IBusinessUserProvisioningService
                 "Debes confirmar que el cliente acepta los terminos y la politica de privacidad.");
         }
 
-        if (string.IsNullOrWhiteSpace(request.Contact) ||
-            string.IsNullOrWhiteSpace(request.Nombre) ||
+        if (string.IsNullOrWhiteSpace(request.Nombre) ||
             string.IsNullOrWhiteSpace(request.Apellidos) ||
             string.IsNullOrWhiteSpace(request.PostalCode) ||
             !request.Province.HasValue ||
@@ -850,25 +900,13 @@ public class BusinessUserProvisioningService : IBusinessUserProvisioningService
                 birthDateValidation.ErrorMessage ?? $"La fecha de nacimiento debe indicar al menos {_userRegistrationOptions.MinimumAge} aÃ±os.");
         }
 
-        ContactInfo? contact = ParseContact(request.Contact);
-        if (contact is null)
-        {
-            return ServiceResult<ValidatedCustomerRegistration>.Failure("validation_error", "El contacto indicado no es vÃ¡lido.");
-        }
-
-        UserAccount? existingUser = contact.Type switch
-        {
-            ContactType.Email => await _userRepository.GetByEmailAsync(contact.NormalizedValue, cancellationToken),
-            ContactType.Phone => await _userRepository.GetByPhoneAsync(contact.NormalizedValue, cancellationToken),
-            _ => null
-        };
-
-        return ServiceResult<ValidatedCustomerRegistration>.Success(new ValidatedCustomerRegistration(contact, existingUser));
+        return ServiceResult<ValidatedCustomerRegistration>.Success(new ValidatedCustomerRegistration(email, null, phone));
     }
 
     private async Task<UserAccount> BuildCustomerUserAsync(
         CreateBusinessCustomerUserRequest request,
         ContactInfo contact,
+        ContactInfo? phone,
         DateTime now,
         CancellationToken cancellationToken)
     {
@@ -887,6 +925,13 @@ public class BusinessUserProvisioningService : IBusinessUserProvisioningService
         };
 
         ApplyCustomerRegistrationData(user, request, contact, now);
+        if (phone is not null)
+        {
+            user.PhoneNumber = phone.OriginalValue;
+            user.NormalizedPhoneNumber = phone.NormalizedValue;
+            // Collecting a telephone number does not verify ownership through SMS.
+            user.PhoneNumberConfirmed = false;
+        }
         user.PasswordHash = _passwordHasher.HashPassword(user, $"{Guid.NewGuid():N}aA1!");
         user.PasswordIsTemporary = true;
 
@@ -1507,7 +1552,7 @@ public class BusinessUserProvisioningService : IBusinessUserProvisioningService
 
     private sealed record ContactInfo(ContactType Type, string OriginalValue, string NormalizedValue);
 
-    private sealed record ValidatedCustomerRegistration(ContactInfo Contact, UserAccount? ExistingUser);
+    private sealed record ValidatedCustomerRegistration(ContactInfo Contact, UserAccount? ExistingUser, ContactInfo? Phone = null);
 
     private sealed record CustomerLinkResult(NegocioAudiencia Audiencia, bool LinkedNow);
 }

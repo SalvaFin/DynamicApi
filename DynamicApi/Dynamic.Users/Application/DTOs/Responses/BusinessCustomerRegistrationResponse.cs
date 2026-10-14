@@ -12,6 +12,7 @@ public class BusinessCustomerRegistrationResponse
     public bool FormaParteAudiencia { get; set; }
     public bool PermiteCorreosPromocionales { get; set; }
     public bool ReceivedWelcomeTicket { get; set; }
+    public bool WelcomeTicketRedeemed { get; set; }
     public string Message { get; set; } = string.Empty;
     public UserSummaryResponse User { get; set; } = new();
     public NegocioUsuarioVinculacionResponse Vinculacion { get; set; } = new();

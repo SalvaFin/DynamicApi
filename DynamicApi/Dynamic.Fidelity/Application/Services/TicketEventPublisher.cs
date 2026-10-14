@@ -35,6 +35,7 @@ public class TicketEventPublisher : ITicketEventPublisher
                 Name = ticket.Nombre,
                 Category = ticket.CategoriaEnvioEspecial.ToString(),
                 Source = source,
+                AlreadyRedeemed = ticket.Usado,
                 CreatedAtUtc = ticket.CreatedAtUtc
             }
         }, cancellationToken);

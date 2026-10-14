@@ -153,6 +153,18 @@ public class RegistrationRewardService : IRegistrationRewardService
             "WELCOME",
             cancellationToken);
 
+    // Only the authorized staff-registration flow supplies the employee identity.
+    public async Task<bool> AssignBusinessWelcomeTicketAsync(
+        Guid negocioId, Guid userId, Guid redeemedByUserId, CancellationToken cancellationToken = default)
+    {
+        if (redeemedByUserId == Guid.Empty)
+            throw new ArgumentException("El trabajador responsable es obligatorio.", nameof(redeemedByUserId));
+
+        return await AssignBusinessConfiguredTicketAsync(
+            negocioId, userId, negocio => negocio.BonoBienvenidaTicketId,
+            CategoriaEnvioTicket.PrimerRegistro, "WELCOME", cancellationToken, redeemedByUserId);
+    }
+
     public async Task<bool> AssignBusinessReferralTicketAsync(Guid negocioId, Guid userId, CancellationToken cancellationToken = default)
         => await AssignBusinessConfiguredTicketAsync(
             negocioId,
@@ -190,7 +202,8 @@ public class RegistrationRewardService : IRegistrationRewardService
         Func<Negocio, Guid?> templateSelector,
         CategoriaEnvioTicket expectedCategory,
         string visibleCodePrefix,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Guid? redeemedByUserId = null)
     {
         Negocio? negocio = await _negocioRepository.GetByIdAsync(negocioId, cancellationToken);
         if (negocio is null || negocio.IsDeleted)
@@ -225,7 +238,7 @@ public class RegistrationRewardService : IRegistrationRewardService
         if (expectedCategory == CategoriaEnvioTicket.PrimerRegistro)
         {
             WelcomeTicketClaimResult claim = await ClaimWelcomeTicketAsync(
-                template, userId, null, visibleCodePrefix, now, cancellationToken);
+                template, userId, null, visibleCodePrefix, now, cancellationToken, redeemedByUserId);
             if (claim.AlreadyClaimed || claim.Ticket is null)
             {
                 return false;
@@ -233,6 +246,10 @@ public class RegistrationRewardService : IRegistrationRewardService
             await EnsureAudienceAsync(negocioId, userId, "welcome_ticket", now, cancellationToken);
             await _negociosDbContext.SaveChangesAsync(cancellationToken);
             await _ticketEventPublisher.PublishReceivedAsync(claim.Ticket, "welcome", cancellationToken);
+            if (redeemedByUserId.HasValue)
+            {
+                await _ticketEventPublisher.PublishUsedAsync(claim.Ticket, redeemedByUserId.Value, now, cancellationToken);
+            }
             return true;
         }
 
@@ -259,7 +276,7 @@ public class RegistrationRewardService : IRegistrationRewardService
 
     private async Task<WelcomeTicketClaimResult> ClaimWelcomeTicketAsync(
         Ticket template, Guid userId, QrCampaign? campaign, string codePrefix, DateTime now,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, Guid? redeemedByUserId = null)
     {
         await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
         if (campaign is not null)
@@ -302,6 +319,13 @@ public class RegistrationRewardService : IRegistrationRewardService
 
         Ticket assignedTicket = BuildAssignedTicket(template, userId, campaign?.Id, codePrefix, now);
         assignedTicket.Id = assignedTicketId;
+        // Persist the issued ticket and its audited redemption in the same transaction.
+        // Losing retries return above, without consuming an existing customer's ticket.
+        if (redeemedByUserId.HasValue)
+        {
+            TicketRedemption redemption = assignedTicket.RedeemWelcomeAtRegistration(redeemedByUserId.Value, now);
+            await _dbContext.TicketRedemptions.AddAsync(redemption, cancellationToken);
+        }
         await _ticketRepository.AddAsync(assignedTicket, cancellationToken);
         if (campaign is not null)
         {
