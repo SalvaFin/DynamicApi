@@ -11,6 +11,7 @@ public class DynamicFidelityDbContext : DbContext
     }
 
     public DbSet<Points> Points => Set<Points>();
+    public DbSet<PointsAccrualReason> PointsAccrualReasons => Set<PointsAccrualReason>();
     public DbSet<PointsTransaction> PointsTransactions => Set<PointsTransaction>();
     public DbSet<RecurrenceRule> RecurrenceRules => Set<RecurrenceRule>();
     public DbSet<PointsSplit> PointsSplits => Set<PointsSplit>();

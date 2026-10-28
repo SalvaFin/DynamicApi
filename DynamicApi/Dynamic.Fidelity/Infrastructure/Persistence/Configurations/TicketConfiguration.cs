@@ -1,3 +1,5 @@
+using System.Text.Json;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Dynamic.Fidelity.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -31,6 +33,14 @@ public class TicketConfiguration : IEntityTypeConfiguration<Ticket>
         builder.Property(ticket => ticket.BeneficioEspecialResumen).HasMaxLength(255);
         builder.Property(ticket => ticket.BeneficioEspecialDetalle).HasMaxLength(2000);
         builder.Property(ticket => ticket.GastoMinimoRequerido).HasPrecision(10, 2);
+        builder.Property(ticket => ticket.UsageWindows).HasColumnType("longtext")
+            .HasConversion(
+                value => value == null ? null : JsonSerializer.Serialize(value, (JsonSerializerOptions?)null),
+                value => value == null ? null : JsonSerializer.Deserialize<List<TicketUsageWindow>>(value, (JsonSerializerOptions?)null))
+            .Metadata.SetValueComparer(new ValueComparer<List<TicketUsageWindow>?>(
+                (a, b) => a == b || (a != null && b != null && a.SequenceEqual(b)),
+                value => value == null ? 0 : value.Aggregate(0, (hash, window) => HashCode.Combine(hash, window.GetHashCode())),
+                value => value == null ? null : value.ToList()));
         builder.Property(ticket => ticket.MaxUsosPorCliente);
         builder.Property(ticket => ticket.UsosConsumidos).IsRequired();
         builder.Property(ticket => ticket.ValidezDiasDesdeAsignacion);

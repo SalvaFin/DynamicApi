@@ -6,6 +6,8 @@ public class WorkerPointsGroupAccrualRequest
 {
     public Guid WorkerUserId { get; set; }
     public Guid IdempotencyKey { get; set; }
+    public Guid? NegocioId { get; set; }
+    public Guid? ReasonId { get; set; }
     public decimal AmountEuros { get; set; }
     public List<Guid> RecipientUserIds { get; set; } = [];
 

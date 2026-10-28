@@ -1,3 +1,4 @@
+using Dynamic.Fidelity.Application.Services;
 using System.Security.Claims;
 using Dynamic.Fidelity.Application.Common;
 using Dynamic.Fidelity.Application.Contracts.Services;
@@ -255,7 +256,7 @@ public class UserPortalController : ControllerBase
                 AvailableFromUtc = ticket.AvailableFromUtc,
                 FechaCaducidadUtc = ticket.ExpiresAtUtc,
                 FechaCanjeUtc = ticket.UsedAtUtc,
-                CondicionesUso = ticket.CondicionesUso,
+                CondicionesUso = string.Join(" ", new[] { ticket.CondicionesUso, TicketUsagePolicy.Describe(ticket) }.Where(s => !string.IsNullOrWhiteSpace(s))),
                 InstruccionesCanje = ticket.InstruccionesCanje,
                 SourcePromotionCampaignId = ticket.SourcePromotionCampaignId,
                 SourcePromotionRecipientId = ticket.SourcePromotionRecipientId,

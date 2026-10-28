@@ -32,5 +32,9 @@ public class PointsTransactionConfiguration : IEntityTypeConfiguration<PointsTra
         builder.HasIndex(transaction => transaction.OperationId);
         builder.HasIndex(transaction => new { transaction.NegocioId, transaction.ClientOperationId }).IsUnique();
         builder.HasIndex(transaction => transaction.CounterpartyUserId);
+        builder.HasIndex(x => new { x.NegocioId, x.UserId, x.AccrualReasonId })
+            .HasDatabaseName("IX_points_accrual_reason_history");
+        builder.HasIndex(x => new { x.NegocioId, x.UserId, x.UniqueAccrualReasonId })
+            .IsUnique().HasDatabaseName("UX_points_unique_accrual_reason");
     }
 }

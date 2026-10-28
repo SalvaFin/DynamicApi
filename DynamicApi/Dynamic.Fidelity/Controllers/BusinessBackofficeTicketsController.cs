@@ -136,6 +136,17 @@ public class BusinessBackofficeTicketsController : ControllerBase
             TipoTicket.Libre,
             cancellationToken);
 
+    [HttpGet("validation-settings")]
+    public async Task<IActionResult> GetValidationSettings(Guid negocioId, CancellationToken cancellationToken)
+    {
+        var userId = GetClaimGuid(ClaimTypes.NameIdentifier, "sub");
+        if (!userId.HasValue) return Unauthorized();
+        var result = await _ticketQrService.RequiresPurchaseAmountAsync(negocioId, userId.Value, User.IsInRole("Admin"), cancellationToken);
+        if (result.Succeeded) return Ok(new { RequiresPurchaseAmount = result.Data });
+        return result.ErrorCode == "not_found" ? NotFound(new { message = result.ErrorMessage }) :
+            StatusCode(StatusCodes.Status403Forbidden, new { message = result.ErrorMessage });
+    }
+
     [HttpPost("scan")]
     [HttpPost("validate")]
     public async Task<IActionResult> ValidateTicketQr(
@@ -261,6 +272,8 @@ public class BusinessBackofficeTicketsController : ControllerBase
             Descripcion = request.Descripcion,
             Tipo = request.Tipo,
             CategoriaEnvioEspecial = category,
+            GastoMinimoRequerido = request.GastoMinimoRequerido,
+            UsageWindows = request.UsageWindows?.ToList(),
             Valor = request.Valor,
             PuntosCoste = request.PuntosCoste,
             MaxUsosPorCliente = request.MaxUsosPorCliente,
@@ -282,6 +295,8 @@ public class BusinessBackofficeTicketsController : ControllerBase
             Descripcion = request.Descripcion,
             Tipo = type,
             CategoriaEnvioEspecial = request.CategoriaEnvioEspecial,
+            GastoMinimoRequerido = request.GastoMinimoRequerido,
+            UsageWindows = request.UsageWindows?.ToList(),
             Valor = request.Valor,
             PuntosCoste = request.PuntosCoste,
             MaxUsosPorCliente = request.MaxUsosPorCliente,

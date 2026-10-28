@@ -7,6 +7,7 @@ public class BackofficeAccrualByUserIdRequest
     public Guid UserId { get; set; }
     public decimal AmountEuros { get; set; }
     public Guid IdempotencyKey { get; set; }
+    public Guid? ReasonId { get; set; }
 
     [MaxLength(512)]
     public string? Reason { get; set; }

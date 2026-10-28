@@ -23,6 +23,7 @@ public class PointsTransactionResponse
     public string? UserCodeSnapshot { get; set; }
     public string? CounterpartyUserCodeSnapshot { get; set; }
     public string? Reason { get; set; }
+    public Guid? ReasonId { get; set; }
     public string? Reference { get; set; }
     public DateTime CreatedAtUtc { get; set; }
 }

@@ -167,7 +167,7 @@ public class TicketService : ITicketService
             request.MaxUsosPorCliente,
             request.ValidezDiasDesdeAsignacion,
             request.AvailableFromUtc,
-            request.ExpiresAtUtc);
+            request.ExpiresAtUtc, request.GastoMinimoRequerido, request.UsageWindows);
         if (!validation.Succeeded)
         {
             return ServiceResult<TicketResponse>.Failure(
@@ -185,6 +185,8 @@ public class TicketService : ITicketService
             Descripcion = Normalize(request.Descripcion),
             Tipo = request.Tipo,
             CategoriaEnvioEspecial = request.CategoriaEnvioEspecial,
+            GastoMinimoRequerido = request.GastoMinimoRequerido > 0 ? request.GastoMinimoRequerido : null,
+            UsageWindows = request.UsageWindows?.ToList(),
             Valor = NormalizeValue(request.Valor),
             PuntosCoste = ResolvePointsCoste(request.Tipo, request.PuntosCoste),
             TituloCanje = request.Nombre.Trim(),
@@ -264,7 +266,7 @@ public class TicketService : ITicketService
             request.MaxUsosPorCliente,
             request.ValidezDiasDesdeAsignacion,
             request.AvailableFromUtc,
-            request.ExpiresAtUtc);
+            request.ExpiresAtUtc, request.GastoMinimoRequerido, request.UsageWindows);
         if (!validation.Succeeded)
         {
             return ServiceResult<TicketResponse>.Failure(
@@ -282,6 +284,8 @@ public class TicketService : ITicketService
         ticket.Descripcion = Normalize(request.Descripcion);
         ticket.Tipo = request.Tipo;
         ticket.CategoriaEnvioEspecial = request.CategoriaEnvioEspecial;
+        ticket.GastoMinimoRequerido = request.GastoMinimoRequerido > 0 ? request.GastoMinimoRequerido : null;
+        ticket.UsageWindows = request.UsageWindows?.ToList();
         ticket.Valor = NormalizeValue(request.Valor);
         ticket.PuntosCoste = ResolvePointsCoste(request.Tipo, request.PuntosCoste);
         ticket.TituloCanje = request.Nombre.Trim();
@@ -559,8 +563,10 @@ public class TicketService : ITicketService
         int? maxUsosPorCliente,
         int? validezDiasDesdeAsignacion,
         DateTime? availableFromUtc,
-        DateTime? expiresAtUtc)
+        DateTime? expiresAtUtc, decimal? minimumSpend, List<TicketUsageWindow>? usageWindows)
     {
+        var conditions = TicketUsagePolicy.ValidateConfiguration(minimumSpend, usageWindows);
+        if (!conditions.Succeeded) return conditions;
         if (string.IsNullOrWhiteSpace(nombre))
         {
             return ServiceResult.Failure("validation_error", "El nombre del ticket es obligatorio.");
@@ -593,9 +599,9 @@ public class TicketService : ITicketService
             return ServiceResult.Failure("validation_error", "Los tickets especiales de registro o invitaci\u00f3n no deben configurarse con precio en puntos.");
         }
 
-        if (maxUsosPorCliente.HasValue && maxUsosPorCliente.Value <= 0)
+        if (maxUsosPorCliente.HasValue && maxUsosPorCliente.Value < 0)
         {
-            return ServiceResult.Failure("validation_error", "El uso máximo por cliente debe ser mayor que 0.");
+            return ServiceResult.Failure("validation_error", "El uso máximo por cliente no puede ser negativo. Usa 0 para indicar ilimitado.");
         }
 
         if (validezDiasDesdeAsignacion.HasValue && validezDiasDesdeAsignacion.Value <= 0)
@@ -661,10 +667,10 @@ public class TicketService : ITicketService
         => tipo != TipoTicket.Promocion && publicado;
 
     private static int? ResolveMaxUsosPorCliente(int? maxUsosPorCliente, bool esDeUnSoloUso)
-        => maxUsosPorCliente ?? (esDeUnSoloUso ? 1 : null);
+        => maxUsosPorCliente == 0 ? null : maxUsosPorCliente ?? (esDeUnSoloUso ? 1 : null);
 
     private static bool ResolveIsSingleUse(int? maxUsosPorCliente, bool esDeUnSoloUso)
-        => maxUsosPorCliente.HasValue ? maxUsosPorCliente.Value <= 1 : esDeUnSoloUso;
+        => maxUsosPorCliente.HasValue ? maxUsosPorCliente.Value == 1 : esDeUnSoloUso;
 
     private static CreateTicketRequest CopyWithCategory(CreateTicketRequest request, CategoriaEnvioTicket category)
         => new()
@@ -673,6 +679,8 @@ public class TicketService : ITicketService
             Descripcion = request.Descripcion,
             Tipo = request.Tipo,
             CategoriaEnvioEspecial = category,
+            GastoMinimoRequerido = request.GastoMinimoRequerido,
+            UsageWindows = request.UsageWindows?.ToList(),
             Valor = request.Valor,
             PuntosCoste = request.PuntosCoste,
             MaxUsosPorCliente = request.MaxUsosPorCliente,
@@ -776,6 +784,7 @@ public class TicketService : ITicketService
             BeneficioEspecialResumen = template.BeneficioEspecialResumen,
             BeneficioEspecialDetalle = template.BeneficioEspecialDetalle,
             GastoMinimoRequerido = template.GastoMinimoRequerido,
+            UsageWindows = template.UsageWindows?.ToList(),
             PuntosCoste = template.PuntosCoste,
             MaxUsosPorCliente = template.MaxUsosPorCliente,
             UsosConsumidos = 0,

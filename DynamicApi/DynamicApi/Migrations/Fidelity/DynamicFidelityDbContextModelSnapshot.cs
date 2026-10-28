@@ -134,6 +134,34 @@ namespace DynamicApi.Migrations.Fidelity
                     b.ToTable("fidelity_points", (string)null);
                 });
 
+            modelBuilder.Entity("Dynamic.Fidelity.Domain.Entities.PointsAccrualReason", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("varchar(120)");
+
+                    b.Property<Guid>("NegocioId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<bool>("UniquePerCustomer")
+                        .HasColumnType("tinyint(1)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NegocioId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("fidelity_points_accrual_reasons", (string)null);
+                });
+
             modelBuilder.Entity("Dynamic.Fidelity.Domain.Entities.PointsGroupAccrual", b =>
                 {
                     b.Property<Guid>("Id")
@@ -151,6 +179,9 @@ namespace DynamicApi.Migrations.Fidelity
                         .HasColumnType("char(36)");
 
                     b.Property<Guid>("NegocioId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid?>("ReasonId")
                         .HasColumnType("char(36)");
 
                     b.Property<int>("RecipientCount")
@@ -382,6 +413,9 @@ namespace DynamicApi.Migrations.Fidelity
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
 
+                    b.Property<Guid?>("AccrualReasonId")
+                        .HasColumnType("char(36)");
+
                     b.Property<decimal?>("AmountEuros")
                         .HasPrecision(10, 2)
                         .HasColumnType("decimal(10,2)");
@@ -444,6 +478,9 @@ namespace DynamicApi.Migrations.Fidelity
                         .HasMaxLength(32)
                         .HasColumnType("varchar(32)");
 
+                    b.Property<Guid?>("UniqueAccrualReasonId")
+                        .HasColumnType("char(36)");
+
                     b.Property<string>("UserCodeSnapshot")
                         .HasMaxLength(32)
                         .HasColumnType("varchar(32)");
@@ -467,6 +504,13 @@ namespace DynamicApi.Migrations.Fidelity
 
                     b.HasIndex("NegocioId", "ClientOperationId")
                         .IsUnique();
+
+                    b.HasIndex("NegocioId", "UserId", "AccrualReasonId")
+                        .HasDatabaseName("IX_points_accrual_reason_history");
+
+                    b.HasIndex("NegocioId", "UserId", "UniqueAccrualReasonId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_points_unique_accrual_reason");
 
                     b.HasIndex("UserId", "CreatedAtUtc", "Id");
 
@@ -737,6 +781,9 @@ namespace DynamicApi.Migrations.Fidelity
 
                     b.Property<bool>("Usado")
                         .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("UsageWindows")
+                        .HasColumnType("longtext");
 
                     b.Property<DateTime?>("UsedAtUtc")
                         .HasColumnType("datetime(6)");

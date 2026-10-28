@@ -13,7 +13,6 @@ public class ValidatedTicketResponse : TicketResponse
     public decimal? DescuentoImporteFijo { get; set; }
     public string? BeneficioEspecialResumen { get; set; }
     public string? BeneficioEspecialDetalle { get; set; }
-    public decimal? GastoMinimoRequerido { get; set; }
     public string? UsedInStoreReference { get; set; }
     public string? UsedByEmployeeReference { get; set; }
 }

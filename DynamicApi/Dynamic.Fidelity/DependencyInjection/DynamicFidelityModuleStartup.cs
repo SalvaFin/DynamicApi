@@ -52,6 +52,7 @@ public class DynamicFidelityModuleStartup
         services.AddScoped<IUserCodeDirectoryRepository, UserCodeDirectoryRepository>();
         services.AddScoped<IPointsService, PointsService>();
         services.AddScoped<RecurrenceEvaluationService>();
+        services.AddScoped<PointsAccrualReasonService>();
         services.AddScoped<ITicketRepository, TicketRepository>();
         services.AddScoped<ITicketService, TicketService>();
         services.AddScoped<ITicketEventPublisher, TicketEventPublisher>();

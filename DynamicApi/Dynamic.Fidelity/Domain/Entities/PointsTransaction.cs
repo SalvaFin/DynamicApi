@@ -25,6 +25,9 @@ public class PointsTransaction
     public string? UserCodeSnapshot { get; set; }
     public string? CounterpartyUserCodeSnapshot { get; set; }
     public string? Reason { get; set; }
+    public Guid? AccrualReasonId { get; set; }
+    // Nullable for unlimited reasons; unique index protects limited credits at database level.
+    public Guid? UniqueAccrualReasonId { get; set; }
     public string? Reference { get; set; }
     public DateTime CreatedAtUtc { get; set; }
 }

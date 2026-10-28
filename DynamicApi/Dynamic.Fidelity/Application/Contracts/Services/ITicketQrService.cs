@@ -6,6 +6,8 @@ namespace Dynamic.Fidelity.Application.Contracts.Services;
 
 public interface ITicketQrService
 {
+    Task<ServiceResult<bool>> RequiresPurchaseAmountAsync(Guid negocioId, Guid requesterUserId, bool isAdmin, CancellationToken cancellationToken = default);
+
     Task<ServiceResult<TicketQrResponse>> GenerateTicketQrAsync(
         Guid negocioId,
         Guid ticketId,

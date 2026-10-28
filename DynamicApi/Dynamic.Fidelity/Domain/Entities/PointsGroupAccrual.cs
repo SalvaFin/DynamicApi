@@ -5,6 +5,7 @@ public class PointsGroupAccrual
     public Guid Id { get; set; }
     public Guid IdempotencyKey { get; set; }
     public Guid NegocioId { get; set; }
+    public Guid? ReasonId { get; set; }
     public Guid WorkerUserId { get; set; }
     public decimal AmountEuros { get; set; }
     public int TotalPoints { get; set; }

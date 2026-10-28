@@ -12,6 +12,9 @@ public abstract class CreateBackofficeTicketBaseRequest
     [MaxLength(2000)]
     public string? Descripcion { get; set; }
 
+    public decimal? GastoMinimoRequerido { get; set; }
+    public List<Dynamic.Fidelity.Domain.Entities.TicketUsageWindow>? UsageWindows { get; set; }
+
     public decimal? Valor { get; set; }
     public int? PuntosCoste { get; set; }
 

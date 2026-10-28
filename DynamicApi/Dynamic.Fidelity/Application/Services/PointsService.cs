@@ -36,6 +36,7 @@ public class PointsService : IPointsService
     private readonly IRegistrationRewardService _registrationRewardService;
     private readonly IUserEventPublisher _userEventPublisher;
     private readonly RecurrenceEvaluationService _recurrence;
+    private readonly PointsAccrualReasonService _accrualReasons;
 
     public PointsService(
         DynamicFidelityDbContext dbContext,
@@ -50,7 +51,8 @@ public class PointsService : IPointsService
         INegocioAudienciaService negocioAudienciaService,
         IRegistrationRewardService registrationRewardService,
         IUserEventPublisher userEventPublisher,
-        RecurrenceEvaluationService recurrence)
+        RecurrenceEvaluationService recurrence,
+        PointsAccrualReasonService accrualReasons)
     {
         _dbContext = dbContext;
         _negociosDbContext = negociosDbContext;
@@ -65,6 +67,7 @@ public class PointsService : IPointsService
         _registrationRewardService = registrationRewardService;
         _userEventPublisher = userEventPublisher;
         _recurrence = recurrence;
+        _accrualReasons = accrualReasons;
     }
 
     public async Task<ServiceResult<PointsSummary>> GetBalanceAsync(Guid userId, Guid negocioId, CancellationToken cancellationToken = default)
@@ -262,6 +265,11 @@ public class PointsService : IPointsService
                 x.OperationId == operation.Id, cancellationToken))
             return ServiceResult<PointsEarnValidationResponse>.Failure("conflict",
                 "La operación ya tiene una transacción de puntos registrada.");
+        ServiceResult<PointsAccrualReason> reasonResult = await ResolveAccrualReasonAsync(
+            operation.NegocioId, request.ReasonId, [operation.UserId], cancellationToken);
+        if (!reasonResult.Succeeded) return ServiceResult<PointsEarnValidationResponse>.Failure(
+            reasonResult.ErrorCode!, reasonResult.ErrorMessage!);
+        PointsAccrualReason accrualReason = reasonResult.Data!;
         ServiceResult<CustomerPointsLinkResult> linkResult = await EnsureCustomerLinkForPointsAsync(
             operation.NegocioId,
             operation.UserId,
@@ -291,7 +299,7 @@ public class PointsService : IPointsService
         points.TotalEarned += operation.ExpectedPoints;
         points.LastEarnedAtUtc = now;
         points.LastMovementAtUtc = now;
-        points.LastReason = "Compra validada en local";
+        points.LastReason = accrualReason.Name;
         points.LastReference = operation.Id.ToString("N");
         points.UpdatedAtUtc = now;
 
@@ -309,10 +317,11 @@ public class PointsService : IPointsService
             BalanceBefore = balanceBefore,
             BalanceAfter = balanceAfter,
             UserCodeSnapshot = userCode,
-            Reason = "Compra validada en local",
+            Reason = accrualReason.Name,
             Reference = operation.Id.ToString("N"),
             CreatedAtUtc = now
         };
+        PointsAccrualReasonService.Stamp(transaction, accrualReason);
         RecurrenceEvaluationService.Stamp(transaction, operation.RatioSnapshot, basePoints, recurrence);
 
         operation.ValidationAttempts++;
@@ -339,7 +348,9 @@ public class PointsService : IPointsService
             cancellationToken);
 
         _pointsOperationRepository.Update(operation);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        ServiceResult persisted = await SaveAccrualAsync(cancellationToken);
+        if (!persisted.Succeeded) return ServiceResult<PointsEarnValidationResponse>.Failure(
+            persisted.ErrorCode!, persisted.ErrorMessage!);
         await PublishPointsReceivedAsync(transaction, cancellationToken);
 
         return ServiceResult<PointsEarnValidationResponse>.Success(new PointsEarnValidationResponse
@@ -400,8 +411,13 @@ public class PointsService : IPointsService
         await using IAsyncDisposable visitLock = await _recurrence.LockAsync(negocioId,
             [userId.Value], cancellationToken);
         ServiceResult<PointsEarnValidationResponse>? replay = await CheckDirectReplayAsync(negocioId,
-            userId.Value, request.AmountEuros, request.IdempotencyKey, cancellationToken);
+            userId.Value, request.AmountEuros, request.IdempotencyKey, request.ReasonId, cancellationToken);
         if (replay is not null) return replay;
+        ServiceResult<PointsAccrualReason> reasonResult = await ResolveAccrualReasonAsync(
+            negocioId, request.ReasonId, [userId.Value], cancellationToken);
+        if (!reasonResult.Succeeded) return ServiceResult<PointsEarnValidationResponse>.Failure(
+            reasonResult.ErrorCode!, reasonResult.ErrorMessage!);
+        PointsAccrualReason accrualReason = reasonResult.Data!;
         ServiceResult<CustomerPointsLinkResult> linkResult = await EnsureCustomerLinkForPointsAsync(
             negocioId,
             userId.Value,
@@ -431,7 +447,7 @@ public class PointsService : IPointsService
         points.TotalEarned += pointsEarned;
         points.LastEarnedAtUtc = now;
         points.LastMovementAtUtc = now;
-        points.LastReason = Normalize(request.Reason) ?? "Acreditación directa de backoffice";
+        points.LastReason = accrualReason.Name;
         points.LastReference = Normalize(request.Reference);
         points.UpdatedAtUtc = now;
 
@@ -449,15 +465,18 @@ public class PointsService : IPointsService
                 BalanceBefore = balanceBefore,
                 BalanceAfter = balanceAfter,
                 UserCodeSnapshot = userCode,
-                Reason = Normalize(request.Reason) ?? "Acreditación directa de backoffice",
+                Reason = accrualReason.Name,
                 Reference = Normalize(request.Reference),
                 CreatedAtUtc = now
             };
+        PointsAccrualReasonService.Stamp(transaction, accrualReason);
         RecurrenceEvaluationService.Stamp(transaction, negocio.RatioConversionEurosAPuntos.Value,
             basePoints, recurrence);
         await _pointsTransactionRepository.AddAsync(transaction, cancellationToken);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        ServiceResult persisted = await SaveAccrualAsync(cancellationToken);
+        if (!persisted.Succeeded) return ServiceResult<PointsEarnValidationResponse>.Failure(
+            persisted.ErrorCode!, persisted.ErrorMessage!);
         await PublishPointsReceivedAsync(
             userId.Value,
             negocioId,
@@ -465,7 +484,7 @@ public class PointsService : IPointsService
             balanceBefore,
             balanceAfter,
             PointsTransactionType.BackofficeEarn,
-            Normalize(request.Reason) ?? "AcreditaciÃ³n directa de backoffice",
+            accrualReason.Name,
             Normalize(request.Reference),
             transactionId: null,
             operationId: null,
@@ -526,8 +545,13 @@ public class PointsService : IPointsService
         await using IAsyncDisposable visitLock = await _recurrence.LockAsync(negocioId,
             [request.UserId], cancellationToken);
         ServiceResult<PointsEarnValidationResponse>? replay = await CheckDirectReplayAsync(negocioId,
-            request.UserId, request.AmountEuros, request.IdempotencyKey, cancellationToken);
+            request.UserId, request.AmountEuros, request.IdempotencyKey, request.ReasonId, cancellationToken);
         if (replay is not null) return replay;
+        ServiceResult<PointsAccrualReason> reasonResult = await ResolveAccrualReasonAsync(
+            negocioId, request.ReasonId, [request.UserId], cancellationToken);
+        if (!reasonResult.Succeeded) return ServiceResult<PointsEarnValidationResponse>.Failure(
+            reasonResult.ErrorCode!, reasonResult.ErrorMessage!);
+        PointsAccrualReason accrualReason = reasonResult.Data!;
         ServiceResult<CustomerPointsLinkResult> linkResult = await EnsureCustomerLinkForPointsAsync(
             negocioId,
             request.UserId,
@@ -552,7 +576,7 @@ public class PointsService : IPointsService
         int balanceBefore = points.CurrentBalance;
         int balanceAfter = balanceBefore + pointsEarned;
         string userCode = await _userCodeDirectoryService.EnsureUserCodeAsync(request.UserId, cancellationToken);
-        string reason = Normalize(request.Reason) ?? "Acreditacion directa de trabajador";
+        string reason = accrualReason.Name;
         string reference = Normalize(request.Reference) ?? $"business-user-accrual:{Guid.NewGuid():N}";
 
         points.CurrentBalance = balanceAfter;
@@ -581,11 +605,14 @@ public class PointsService : IPointsService
                 Reference = reference,
                 CreatedAtUtc = now
             };
+        PointsAccrualReasonService.Stamp(transaction, accrualReason);
         RecurrenceEvaluationService.Stamp(transaction, negocio.RatioConversionEurosAPuntos.Value,
             basePoints, recurrence);
         await _pointsTransactionRepository.AddAsync(transaction, cancellationToken);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        ServiceResult persisted = await SaveAccrualAsync(cancellationToken);
+        if (!persisted.Succeeded) return ServiceResult<PointsEarnValidationResponse>.Failure(
+            persisted.ErrorCode!, persisted.ErrorMessage!);
         await PublishPointsReceivedAsync(
             request.UserId,
             negocioId,
@@ -643,7 +670,7 @@ public class PointsService : IPointsService
         DateTime now = DateTime.UtcNow;
         List<NegocioUsuarioVinculacion> eligibleLinks = workerLinks
             .Where(link =>
-                !link.RevokedAtUtc.HasValue &&
+                link.Activa && !link.RevokedAtUtc.HasValue &&
                 (!link.FechaInicioUtc.HasValue || link.FechaInicioUtc.Value <= now) &&
                 (!link.FechaFinUtc.HasValue || link.FechaFinUtc.Value >= now) &&
                 link.Negocio is not null &&
@@ -662,7 +689,9 @@ public class PointsService : IPointsService
             .Where(link => link.EsPrincipal)
             .ToList();
 
-        NegocioUsuarioVinculacion? selectedLink = eligibleLinks.Count == 1
+        NegocioUsuarioVinculacion? selectedLink = request.NegocioId.HasValue
+            ? eligibleLinks.SingleOrDefault(x => x.NegocioId == request.NegocioId.Value)
+            : eligibleLinks.Count == 1
             ? eligibleLinks[0]
             : principalLinks.Count == 1
                 ? principalLinks[0]
@@ -688,8 +717,13 @@ public class PointsService : IPointsService
         await using IAsyncDisposable visitLock = await _recurrence.LockAsync(negocio.Id,
             [request.UserId], cancellationToken);
         ServiceResult<PointsEarnValidationResponse>? replay = await CheckDirectReplayAsync(negocio.Id,
-            request.UserId, request.DineroGastado, request.IdempotencyKey, cancellationToken);
+            request.UserId, request.DineroGastado, request.IdempotencyKey, request.ReasonId, cancellationToken);
         if (replay is not null) return replay;
+        ServiceResult<PointsAccrualReason> reasonResult = await ResolveAccrualReasonAsync(
+            negocio.Id, request.ReasonId, [request.UserId], cancellationToken);
+        if (!reasonResult.Succeeded) return ServiceResult<PointsEarnValidationResponse>.Failure(
+            reasonResult.ErrorCode!, reasonResult.ErrorMessage!);
+        PointsAccrualReason accrualReason = reasonResult.Data!;
         ServiceResult<CustomerPointsLinkResult> linkResult = await EnsureCustomerLinkForPointsAsync(
             negocio.Id,
             request.UserId,
@@ -715,7 +749,7 @@ public class PointsService : IPointsService
         int balanceAfter = balanceBefore + pointsEarned;
         string userCode = await _userCodeDirectoryService.EnsureUserCodeAsync(request.UserId, cancellationToken);
         string reference = Normalize(request.Reference) ?? $"worker-accrual:{Guid.NewGuid():N}";
-        string reason = Normalize(request.Reason) ?? "Compra escaneada por trabajador";
+        string reason = accrualReason.Name;
 
         points.CurrentBalance = balanceAfter;
         points.TotalEarned += pointsEarned;
@@ -743,11 +777,14 @@ public class PointsService : IPointsService
                 Reference = reference,
                 CreatedAtUtc = now
             };
+        PointsAccrualReasonService.Stamp(transaction, accrualReason);
         RecurrenceEvaluationService.Stamp(transaction, negocio.RatioConversionEurosAPuntos.Value,
             basePoints, recurrence);
         await _pointsTransactionRepository.AddAsync(transaction, cancellationToken);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        ServiceResult persisted = await SaveAccrualAsync(cancellationToken);
+        if (!persisted.Succeeded) return ServiceResult<PointsEarnValidationResponse>.Failure(
+            persisted.ErrorCode!, persisted.ErrorMessage!);
         await PublishPointsReceivedAsync(
             request.UserId,
             negocio.Id,
@@ -799,13 +836,15 @@ public class PointsService : IPointsService
         IReadOnlyCollection<NegocioUsuarioVinculacion> links = await _negocioUsuarioVinculacionRepository
             .GetActiveByUserIdAsync(request.WorkerUserId, cancellationToken);
         DateTime now = DateTime.UtcNow;
-        List<NegocioUsuarioVinculacion> eligible = links.Where(link => !link.RevokedAtUtc.HasValue &&
+        List<NegocioUsuarioVinculacion> eligible = links.Where(link => link.Activa && !link.RevokedAtUtc.HasValue &&
             (!link.FechaInicioUtc.HasValue || link.FechaInicioUtc.Value <= now) &&
             (!link.FechaFinUtc.HasValue || link.FechaFinUtc.Value >= now) && link.Negocio is { Activo: true, IsDeleted: false } &&
             (link.PuedeGestionarNegocio || link.PuedeGestionarPuntos || link.PuedeValidarTickets ||
              link.TipoVinculacion is TipoVinculacionNegocioUsuario.Propietario or TipoVinculacionNegocioUsuario.Gerente)).ToList();
         List<NegocioUsuarioVinculacion> principal = eligible.Where(x => x.EsPrincipal).ToList();
-        NegocioUsuarioVinculacion? workerLink = eligible.Count == 1 ? eligible[0] : principal.Count == 1 ? principal[0] : null;
+        NegocioUsuarioVinculacion? workerLink = request.NegocioId.HasValue
+            ? eligible.SingleOrDefault(x => x.NegocioId == request.NegocioId.Value)
+            : eligible.Count == 1 ? eligible[0] : principal.Count == 1 ? principal[0] : null;
         if (workerLink?.Negocio is not Negocio negocio)
             return ServiceResult<PointsGroupAccrualResponse>.Failure(eligible.Count == 0 ? "forbidden" : "conflict",
                 eligible.Count == 0 ? "El trabajador no tiene permisos para sumar puntos." : "El trabajador tiene varios negocios activos sin uno principal seleccionado.");
@@ -819,6 +858,17 @@ public class PointsService : IPointsService
 
         await using IAsyncDisposable visitLock = await _recurrence.LockAsync(negocio.Id,
             request.RecipientUserIds, cancellationToken);
+        previous = await _dbContext.PointsGroupAccruals.AsNoTracking().Include(x => x.Recipients)
+            .SingleOrDefaultAsync(x => x.IdempotencyKey == request.IdempotencyKey, cancellationToken);
+        if (previous is not null)
+            return MatchesGroupRequest(previous, request)
+                ? ServiceResult<PointsGroupAccrualResponse>.Success(ToGroupResponse(previous))
+                : ServiceResult<PointsGroupAccrualResponse>.Failure("conflict", "El identificador de operación ya se utilizó con otros datos.");
+        ServiceResult<PointsAccrualReason> reasonResult = await ResolveAccrualReasonAsync(
+            negocio.Id, request.ReasonId, request.RecipientUserIds, cancellationToken);
+        if (!reasonResult.Succeeded) return ServiceResult<PointsGroupAccrualResponse>.Failure(
+            reasonResult.ErrorCode!, reasonResult.ErrorMessage!);
+        PointsAccrualReason accrualReason = reasonResult.Data!;
         foreach (Guid userId in request.RecipientUserIds)
         {
             if (await _userCodeDirectoryService.GetUserCodeAsync(userId, cancellationToken) is null)
@@ -847,6 +897,7 @@ public class PointsService : IPointsService
         PointsGroupAccrual group = new()
         {
             Id = groupId, IdempotencyKey = request.IdempotencyKey, NegocioId = negocio.Id,
+            ReasonId = accrualReason.Id,
             WorkerUserId = request.WorkerUserId, AmountEuros = decimal.Round(request.AmountEuros, 2, MidpointRounding.AwayFromZero),
             TotalPoints = totalPoints, RecipientCount = request.RecipientUserIds.Count, CreatedAtUtc = now
         };
@@ -865,7 +916,7 @@ public class PointsService : IPointsService
             int after = checked(before + amount);
             points.CurrentBalance = after; points.TotalEarned = checked(points.TotalEarned + amount);
             points.LastEarnedAtUtc = now; points.LastMovementAtUtc = now;
-            points.LastReason = Normalize(request.Reason) ?? "Compra de grupo escaneada por trabajador";
+            points.LastReason = accrualReason.Name;
             points.LastReference = reference; points.UpdatedAtUtc = now;
             string snapshot = await _userCodeDirectoryService.GetUserCodeAsync(recipientId, cancellationToken) ?? string.Empty;
             PointsTransaction receiptTransaction = new()
@@ -875,6 +926,7 @@ public class PointsService : IPointsService
                 AmountEuros = i == 0 ? group.AmountEuros : null, PointsAmount = amount, BalanceBefore = before, BalanceAfter = after,
                 UserCodeSnapshot = snapshot, Reason = points.LastReason, Reference = reference, CreatedAtUtc = now
             };
+            PointsAccrualReasonService.Stamp(receiptTransaction, accrualReason);
             RecurrenceEvaluationService.Stamp(receiptTransaction, negocio.RatioConversionEurosAPuntos.Value,
                 distribution[i], recurrence);
             _dbContext.PointsTransactions.Add(receiptTransaction);
@@ -901,7 +953,7 @@ public class PointsService : IPointsService
         }
         foreach (var receipt in receipts)
             await PublishPointsReceivedAsync(receipt.UserId, negocio.Id, receipt.Points, receipt.Before, receipt.After,
-                PointsTransactionType.BackofficeEarn, "Compra de grupo escaneada por trabajador", reference, receipt.TransactionId,
+                PointsTransactionType.BackofficeEarn, accrualReason.Name, reference, receipt.TransactionId,
                 null, request.WorkerUserId, null, now, cancellationToken);
         return ServiceResult<PointsGroupAccrualResponse>.Success(ToGroupResponse(group));
     }
@@ -920,17 +972,23 @@ public class PointsService : IPointsService
                 return ServiceResult<PointsGroupAccrualResponse>.Failure("not_found", "Uno de los códigos QR no corresponde a un cliente válido.");
         var links = await _negocioUsuarioVinculacionRepository.GetActiveByUserIdAsync(request.WorkerUserId, cancellationToken);
         DateTime now = DateTime.UtcNow;
-        var eligible = links.Where(link => !link.RevokedAtUtc.HasValue &&
+        var eligible = links.Where(link => link.Activa && !link.RevokedAtUtc.HasValue &&
             (!link.FechaInicioUtc.HasValue || link.FechaInicioUtc.Value <= now) &&
             (!link.FechaFinUtc.HasValue || link.FechaFinUtc.Value >= now) && link.Negocio is { Activo: true, IsDeleted: false } &&
             (link.PuedeGestionarNegocio || link.PuedeGestionarPuntos || link.PuedeValidarTickets ||
              link.TipoVinculacion is TipoVinculacionNegocioUsuario.Propietario or TipoVinculacionNegocioUsuario.Gerente)).ToList();
         var main = eligible.Where(x => x.EsPrincipal).ToList();
-        var selected = eligible.Count == 1 ? eligible[0] : main.Count == 1 ? main[0] : null;
+        var selected = request.NegocioId.HasValue
+            ? eligible.SingleOrDefault(x => x.NegocioId == request.NegocioId.Value)
+            : eligible.Count == 1 ? eligible[0] : main.Count == 1 ? main[0] : null;
         if (selected?.Negocio is not Negocio negocio)
             return ServiceResult<PointsGroupAccrualResponse>.Failure("forbidden", "No se ha podido determinar el negocio activo del trabajador.");
         if (negocio.RatioConversionEurosAPuntos is not > 0)
             return ServiceResult<PointsGroupAccrualResponse>.Failure("validation_error", "El negocio no tiene configurado un ratio de conversión válido.");
+        ServiceResult<PointsAccrualReason> reasonResult = await ResolveAccrualReasonAsync(
+            negocio.Id, request.ReasonId, request.RecipientUserIds, cancellationToken);
+        if (!reasonResult.Succeeded) return ServiceResult<PointsGroupAccrualResponse>.Failure(
+            reasonResult.ErrorCode!, reasonResult.ErrorMessage!);
         request.AmountEuros = decimal.Round(request.AmountEuros, 2, MidpointRounding.AwayFromZero);
         int total = CalculatePoints(request.AmountEuros, negocio.RatioConversionEurosAPuntos.Value);
         if (total < request.RecipientUserIds.Count)
@@ -965,6 +1023,8 @@ public class PointsService : IPointsService
 
     private static bool MatchesGroupRequest(PointsGroupAccrual group, WorkerPointsGroupAccrualRequest request)
         => group.WorkerUserId == request.WorkerUserId &&
+           (!request.NegocioId.HasValue || group.NegocioId == request.NegocioId.Value) &&
+           (group.ReasonId ?? group.NegocioId) == (request.ReasonId ?? group.NegocioId) &&
            group.AmountEuros == decimal.Round(request.AmountEuros, 2, MidpointRounding.AwayFromZero) &&
            group.RecipientCount == request.RecipientUserIds.Count &&
            group.Recipients.OrderBy(x => x.ScanOrder).Select(x => x.UserId).SequenceEqual(request.RecipientUserIds);
@@ -1550,7 +1610,7 @@ public class PointsService : IPointsService
 
     private async Task<ServiceResult<PointsEarnValidationResponse>?> CheckDirectReplayAsync(
         Guid negocioId, Guid userId, decimal amountEuros, Guid idempotencyKey,
-        CancellationToken cancellationToken)
+        Guid? reasonId, CancellationToken cancellationToken)
     {
         if (idempotencyKey == Guid.Empty)
             return await _recurrence.HasActiveRulesAsync(negocioId, cancellationToken)
@@ -1560,7 +1620,8 @@ public class PointsService : IPointsService
         PointsTransaction? previous = await _recurrence.FindReplayAsync(negocioId,
             idempotencyKey, cancellationToken);
         if (previous is null) return null;
-        if (previous.UserId != userId || previous.AmountEuros != decimal.Round(amountEuros, 2,
+        if ((previous.AccrualReasonId ?? negocioId) != (reasonId ?? negocioId) ||
+            previous.UserId != userId || previous.AmountEuros != decimal.Round(amountEuros, 2,
                 MidpointRounding.AwayFromZero) || previous.TransactionType != PointsTransactionType.BackofficeEarn)
             return ServiceResult<PointsEarnValidationResponse>.Failure("conflict",
                 "El identificador de operación ya se usó con otros datos.");
@@ -1574,6 +1635,28 @@ public class PointsService : IPointsService
             ValidatorUserId = previous.ValidatorUserId ?? Guid.Empty,
             Message = "Operación ya acreditada; se devuelve el resultado original."
         });
+    }
+
+    private async Task<ServiceResult<PointsAccrualReason>> ResolveAccrualReasonAsync(
+        Guid negocioId, Guid? reasonId, IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken)
+    {
+        ServiceResult<PointsAccrualReason> result = await _accrualReasons.ResolveAsync(negocioId, reasonId, cancellationToken);
+        if (!result.Succeeded) return result;
+        ServiceResult validation = await _accrualReasons.ValidateCustomersAsync(result.Data!, userIds, cancellationToken);
+        return validation.Succeeded ? result : ServiceResult<PointsAccrualReason>.Failure(
+            validation.ErrorCode!, validation.ErrorMessage!);
+    }
+
+    private async Task<ServiceResult> SaveAccrualAsync(CancellationToken cancellationToken)
+    {
+        try { await _dbContext.SaveChangesAsync(cancellationToken); }
+        catch (DbUpdateException exception) when (exception.InnerException is MySqlConnector.MySqlException { Number: 1062 } mysql &&
+            mysql.Message.Contains("UX_points_unique_accrual_reason", StringComparison.OrdinalIgnoreCase))
+        {
+            _dbContext.ChangeTracker.Clear();
+            return ServiceResult.Failure("conflict", "Este motivo único ya se ha utilizado para este cliente en este negocio. No se han sumado puntos.");
+        }
+        return ServiceResult.Success();
     }
 
     private static bool VerifyMasterPin(string masterPin, string storedHash)

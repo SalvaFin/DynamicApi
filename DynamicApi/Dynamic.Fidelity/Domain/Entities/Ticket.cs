@@ -27,6 +27,7 @@ public class Ticket
     public string? BeneficioEspecialResumen { get; set; }
     public string? BeneficioEspecialDetalle { get; set; }
     public decimal? GastoMinimoRequerido { get; set; }
+    public List<TicketUsageWindow>? UsageWindows { get; set; }
     public int? PuntosCoste { get; set; }
     public int? MaxUsosPorCliente { get; set; }
     public int UsosConsumidos { get; set; }

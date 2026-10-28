@@ -15,6 +15,9 @@ public class CreateTicketRequest
     public TipoTicket Tipo { get; set; } = TipoTicket.Libre;
     public CategoriaEnvioTicket CategoriaEnvioEspecial { get; set; } = CategoriaEnvioTicket.General;
 
+    public decimal? GastoMinimoRequerido { get; set; }
+    public List<Dynamic.Fidelity.Domain.Entities.TicketUsageWindow>? UsageWindows { get; set; }
+
     public decimal? Valor { get; set; }
     public int? PuntosCoste { get; set; }
 

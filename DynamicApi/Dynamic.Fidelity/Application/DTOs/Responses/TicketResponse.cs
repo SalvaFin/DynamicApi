@@ -10,6 +10,9 @@ public class TicketResponse
     public string? Descripcion { get; set; }
     public TipoTicket Tipo { get; set; }
     public CategoriaEnvioTicket CategoriaEnvioEspecial { get; set; }
+    public decimal? GastoMinimoRequerido { get; set; }
+    public List<Dynamic.Fidelity.Domain.Entities.TicketUsageWindow>? UsageWindows { get; set; }
+    public string CondicionesValidacion { get; set; } = string.Empty;
     public decimal? Valor { get; set; }
     public int? PuntosCoste { get; set; }
     public Guid? UserId { get; set; }

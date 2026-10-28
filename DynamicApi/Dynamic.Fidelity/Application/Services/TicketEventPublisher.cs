@@ -41,6 +41,13 @@ public class TicketEventPublisher : ITicketEventPublisher
         }, cancellationToken);
     }
 
+    public Task PublishRejectedAsync(Ticket ticket, string message, CancellationToken cancellationToken = default)
+        => !ticket.UserId.HasValue ? Task.CompletedTask : _publisher.PublishAsync(ticket.UserId.Value, new UserAppEvent
+        {
+            Type = "fidelity.ticket.rejected", OccurredAtUtc = DateTime.UtcNow,
+            Payload = new { TicketId = ticket.Id, NegocioId = ticket.NegocioId, Name = ticket.Nombre, Message = message }
+        }, cancellationToken);
+
     public Task PublishUsedAsync(Ticket ticket, Guid validatedByUserId, DateTime usedAtUtc, CancellationToken cancellationToken = default)
     {
         if (!ticket.UserId.HasValue)

@@ -48,6 +48,7 @@ public static class PointsMappingExtensions
             UserCodeSnapshot = transaction.UserCodeSnapshot,
             CounterpartyUserCodeSnapshot = transaction.CounterpartyUserCodeSnapshot,
             Reason = transaction.Reason,
+            ReasonId = transaction.AccrualReasonId,
             Reference = transaction.Reference,
             CreatedAtUtc = transaction.CreatedAtUtc
         };

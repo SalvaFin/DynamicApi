@@ -14,6 +14,7 @@ using Dynamic.Negocios.Application.Contracts.Repositories;
 using Dynamic.Negocios.Domain.Entities;
 using Dynamic.Negocios.Domain.Enums;
 using Microsoft.Extensions.Options;
+using Microsoft.EntityFrameworkCore;
 using QRCoder;
 
 namespace Dynamic.Fidelity.Application.Services;
@@ -52,6 +53,17 @@ public class TicketQrService : ITicketQrService
         _negocioAudienciaService = negocioAudienciaService;
         _ticketEventPublisher = ticketEventPublisher;
         _fidelityQrOptions = fidelityQrOptions.Value;
+    }
+
+    public async Task<ServiceResult<bool>> RequiresPurchaseAmountAsync(Guid negocioId, Guid requesterUserId, bool isAdmin, CancellationToken cancellationToken = default)
+    {
+        var authorization = await EnsureCanValidateTicketAsync(negocioId, requesterUserId, isAdmin, cancellationToken);
+        if (!authorization.Succeeded) return ServiceResult<bool>.Failure(authorization.ErrorCode!, authorization.ErrorMessage!);
+        var now = DateTime.UtcNow;
+        var required = await _dbContext.Tickets.AnyAsync(
+            t => t.NegocioId == negocioId && t.Activo && !t.Usado && t.ExpiresAtUtc > now && t.GastoMinimoRequerido > 0,
+            cancellationToken);
+        return ServiceResult<bool>.Success(required);
     }
 
     public async Task<ServiceResult<TicketQrResponse>> GenerateTicketQrAsync(
@@ -305,19 +317,15 @@ public class TicketQrService : ITicketQrService
                 availability.ErrorMessage ?? "El ticket no está disponible para canje.");
         }
 
-        decimal? calculablePurchaseAmount = ResolveCalculablePurchaseAmount(request.PurchaseAmount);
-        if (calculablePurchaseAmount.HasValue)
-        {
-            ServiceResult minimumSpendValidation = EnsureMinimumSpendIsMet(ticket, calculablePurchaseAmount);
-            if (!minimumSpendValidation.Succeeded)
-            {
-                return ServiceResult<ValidateTicketQrResponse>.Failure(
-                    minimumSpendValidation.ErrorCode ?? "conflict",
-                    minimumSpendValidation.ErrorMessage ?? "No se cumple el importe minimo del ticket.");
-            }
-        }
-
         DateTime now = DateTime.UtcNow;
+        var business = await _negocioRepository.GetByIdAsync(negocioId, cancellationToken);
+        var conditions = TicketUsagePolicy.Check(ticket, request.PurchaseAmount, now, business?.ZonaHoraria);
+        if (!conditions.Succeeded)
+        {
+            await _ticketEventPublisher.PublishRejectedAsync(ticket, conditions.ErrorMessage!, cancellationToken);
+            return ServiceResult<ValidateTicketQrResponse>.Failure(conditions.ErrorCode!, conditions.ErrorMessage!);
+        }
+        decimal? calculablePurchaseAmount = ResolveCalculablePurchaseAmount(request.PurchaseAmount);
         decimal? discountAmount = CalculateDiscountAmount(ticket, calculablePurchaseAmount);
         decimal? finalAmount = CalculateFinalAmount(ticket, calculablePurchaseAmount);
         bool? minimumSpendSatisfied = ResolveMinimumSpendSatisfied(ticket, calculablePurchaseAmount);
@@ -595,32 +603,6 @@ public class TicketQrService : ITicketQrService
         if (usageLimit.HasValue && ticket.UsosConsumidos >= usageLimit.Value)
         {
             return ServiceResult.Failure("conflict", "El ticket ya ha alcanzado el límite de usos.");
-        }
-
-        return ServiceResult.Success();
-    }
-
-    private static ServiceResult EnsureMinimumSpendIsMet(Ticket ticket, decimal? purchaseAmount)
-    {
-        if (!ticket.GastoMinimoRequerido.HasValue || ticket.GastoMinimoRequerido.Value <= 0)
-        {
-            return ServiceResult.Success();
-        }
-
-        if (!purchaseAmount.HasValue)
-        {
-            return ServiceResult.Failure(
-                "validation_error",
-                "Este ticket requiere informar el importe de la cuenta para comprobar el gasto minimo.");
-        }
-
-        decimal normalizedPurchaseAmount = NormalizeAmount(purchaseAmount).GetValueOrDefault();
-        decimal minimumSpend = NormalizeAmount(ticket.GastoMinimoRequerido).GetValueOrDefault();
-        if (normalizedPurchaseAmount < minimumSpend)
-        {
-            return ServiceResult.Failure(
-                "conflict",
-                $"El ticket requiere un gasto minimo de {minimumSpend:0.00} y la cuenta indicada es de {normalizedPurchaseAmount:0.00}.");
         }
 
         return ServiceResult.Success();

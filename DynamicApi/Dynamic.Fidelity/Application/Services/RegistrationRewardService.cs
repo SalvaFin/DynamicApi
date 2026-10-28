@@ -432,6 +432,7 @@ public class RegistrationRewardService : IRegistrationRewardService
             BeneficioEspecialResumen = template.BeneficioEspecialResumen,
             BeneficioEspecialDetalle = template.BeneficioEspecialDetalle,
             GastoMinimoRequerido = template.GastoMinimoRequerido,
+            UsageWindows = template.UsageWindows?.ToList(),
             PuntosCoste = template.PuntosCoste,
             MaxUsosPorCliente = template.MaxUsosPorCliente,
             UsosConsumidos = 0,

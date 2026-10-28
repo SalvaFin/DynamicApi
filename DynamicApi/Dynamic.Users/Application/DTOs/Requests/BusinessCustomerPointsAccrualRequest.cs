@@ -5,6 +5,7 @@ namespace Dynamic.Users.Application.DTOs.Requests;
 public class BusinessCustomerPointsAccrualRequest
 {
     public Guid IdempotencyKey { get; set; }
+    public Guid? ReasonId { get; set; }
     public Guid UserId { get; set; }
     public decimal AmountEuros { get; set; }
 

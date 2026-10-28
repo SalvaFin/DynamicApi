@@ -335,7 +335,7 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
                 (`Id`, `NegocioId`, `UserId`, `ParentTicketId`, `SourcePromotionCampaignId`, `SourcePromotionRecipientId`,
                  `Nombre`, `Descripcion`, `Tipo`, `CategoriaEnvioEspecial`, `Valor`, `CodigoInterno`, `CodigoVisible`,
                  `TituloCanje`, `InstruccionesCanje`, `CondicionesUso`, `MensajeMarketing`, `DescuentoPorcentaje`,
-                 `DescuentoImporteFijo`, `BeneficioEspecialResumen`, `BeneficioEspecialDetalle`, `GastoMinimoRequerido`,
+                 `DescuentoImporteFijo`, `BeneficioEspecialResumen`, `BeneficioEspecialDetalle`, `GastoMinimoRequerido`, `UsageWindows`,
                  `PuntosCoste`, `MaxUsosPorCliente`, `UsosConsumidos`, `ValidezDiasDesdeAsignacion`,
                  `RequiereValidacionManual`, `EsDeUnSoloUso`, `EsPlantilla`, `Activo`, `Publicado`, `Usado`,
                  `CreatedAtUtc`, `AvailableFromUtc`, `ExpiresAtUtc`, `UpdatedAtUtc`)
@@ -345,7 +345,7 @@ public class PromotionAudienceBuilder : IPromotionAudienceBuilder
                    CONCAT(LEFT(COALESCE(NULLIF(template.`CodigoVisible`, ''), 'CAMPAIGN'), 8), '-', SUBSTRING(REPLACE(UUID(), '-', ''), 1, 11)),
                    template.`TituloCanje`, template.`InstruccionesCanje`, template.`CondicionesUso`, template.`MensajeMarketing`,
                    template.`DescuentoPorcentaje`, template.`DescuentoImporteFijo`, template.`BeneficioEspecialResumen`,
-                   template.`BeneficioEspecialDetalle`, template.`GastoMinimoRequerido`, NULL,
+                   template.`BeneficioEspecialDetalle`, template.`GastoMinimoRequerido`, template.`UsageWindows`, NULL,
                    template.`MaxUsosPorCliente`, 0, template.`ValidezDiasDesdeAsignacion`, template.`RequiereValidacionManual`,
                    template.`EsDeUnSoloUso`, 0, template.`Activo`, 0, 0, @now,
                    CASE

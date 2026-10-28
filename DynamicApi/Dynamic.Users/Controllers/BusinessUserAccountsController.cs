@@ -279,6 +279,7 @@ public class BusinessUserAccountsController : ControllerBase
                 {
                     UserId = request.UserId,
                     IdempotencyKey = request.IdempotencyKey,
+                    ReasonId = request.ReasonId,
                     AmountEuros = request.AmountEuros,
                     Reason = request.Reason,
                     Reference = request.Reference
